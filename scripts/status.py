@@ -46,8 +46,9 @@ class Status:
         param_list = rospy.get_param('~list', "");
         for i in param_list:
             topic_list.append(i.rsplit()[0])
-            name_list.append(i.rsplit()[1])
-            hz_list.append(float(i.rsplit()[2]))
+            tmp = i.rsplit(' ', 1)[0]
+            name_list.append(tmp.split(' ', 1)[1])
+            hz_list.append(float(i.rsplit()[-1]))
 
         # Create ROSTopicHz and subscribers defined by the loaded config
         for i in range(0, len(param_list)):
@@ -78,14 +79,21 @@ class Status:
 
         while not rospy.is_shutdown():
             stdscr.clear()
-            stdscr.addstr(0, 0, str(os.environ["UAV_NAME"]))
+            stdscr.addstr(0, 29, str(os.environ["UAV_NAME"]), curses.A_BOLD)
 
-            tmp_hz = rt_tracker_status.get_hz()
+            tmp = rt_tracker_status.get_hz()
 
-            if tmp_hz > 0.0:
+            if tmp == None:
+                tmp = "0.0"
+                tracker = "NO TRACKER"
+                tmp_color = red
+            elif tmp[0] > 0.0:
                 tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
             else:
                 tracker = "NO TRACKER"
+            
+            # if tmp_hz[-1] > 0.0:
+            # else:
 
             if tracker == "MpcTracker":
                 tmp_color = green
@@ -94,7 +102,7 @@ class Status:
             else:
                 tmp_color = red
             
-            stdscr.addstr(2, 0, "Active tracker: " + tracker, tmp_color)
+            stdscr.addstr(1, 0, "Active tracker: " + tracker, tmp_color)
             
             tmp = rt_attitude_cmd.get_hz()
             tmp_color = green
@@ -105,8 +113,8 @@ class Status:
                 tmp = round(tmp[0],1)
                 if tmp < 0.9*100 or tmp > 1.1*100:
                     tmp_color = yellow
-            stdscr.addstr(3, 0, "Attitude cmd rate: ", tmp_color)
-            stdscr.addstr(3, 20 + (4 - len(str(tmp))),str(tmp) + " Hz", tmp_color)
+            stdscr.addstr(2, 0, "Attitude cmd rate: ", tmp_color)
+            stdscr.addstr(2, 20 + (4 - len(str(tmp))),str(tmp) + " Hz", tmp_color)
 
             tmp = rt_odom_main.get_hz()
             odom = ""
@@ -120,23 +128,14 @@ class Status:
                 tmp = round(tmp[0],1)
                 if tmp < 0.9*100 or tmp > 1.1*100:
                     tmp_color = yellow
-            stdscr.addstr(5, 0, "Odom:      Hz, " + str(odom), tmp_color)
-            stdscr.addstr(5, 6+ (5 - len(str(tmp))),str(tmp), tmp_color)
+            stdscr.addstr(4, 0, "Odom:      Hz, " + str(odom), tmp_color)
+            stdscr.addstr(4, 6+ (5 - len(str(tmp))),str(tmp), tmp_color)
             tmp = round(self.odom_main.pose.pose.position.x,1)
-            stdscr.addstr(6, 0, "X: " + str(tmp), tmp_color)
+            stdscr.addstr(5, 0, "X: " + str(tmp), tmp_color)
             tmp = round(self.odom_main.pose.pose.position.y,1)
-            stdscr.addstr(7, 0, "Y: " + str(tmp), tmp_color)
+            stdscr.addstr(6, 0, "Y: " + str(tmp), tmp_color)
             tmp = round(self.odom_main.pose.pose.position.z,1)
-            stdscr.addstr(8, 0, "Z: " + str(tmp), tmp_color)
-
-
-
-
-
-
-
-
-
+            stdscr.addstr(7, 0, "Z: " + str(tmp), tmp_color)
             
             max_length = 0
             for i in range(0, len(param_list)):
@@ -154,8 +153,8 @@ class Status:
                     if tmp < 0.9*hz_list[i] or tmp > 1.1*hz_list[i]:
                         tmp_color = yellow
 
-                stdscr.addstr(11 + i, 0, str(name_list[i]) + ": ", tmp_color)
-                stdscr.addstr(11 + i, max_length + 2 + (5 - len(str(tmp))), str(tmp) + " Hz", tmp_color)
+                stdscr.addstr(1 + i, 35, str(name_list[i]) + ": ", tmp_color)
+                stdscr.addstr(1 + i, 35 + max_length + 2 + (5 - len(str(tmp))), str(tmp) + " Hz", tmp_color)
 
             stdscr.refresh()
             rate.sleep()
@@ -168,11 +167,3 @@ if __name__ == '__main__':
         status = Status()
     except rospy.ROSInterruptException:
         pass
-
-
-
-
-    # stdscr.addstr(0, 0, os.environ["UAV_NAME"])
-    # stdscr.attron(curses.A_BLINK)
-    # stdscr.addstr(3, 0, "Hello " + str(i), curses.color_pair(197) | curses.A_BLINK)
-    # stdscr.attroff(curses.A_BLINK)
