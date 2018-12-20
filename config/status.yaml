@@ -3,5 +3,5 @@ list: [
       "garmin/range Garmin 100",
       "bluefox/image_raw Bluefox 100",
       "control_manager/cmd_odom Cmd odom 100",
-      "mavros/global_position/local mavros global local 100"
+      "mavros/global_position/local mavros global local 100",
       ]

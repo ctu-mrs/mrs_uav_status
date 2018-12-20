@@ -56,7 +56,7 @@ class Status:
             sub_list.append(rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/" + str(topic_list[i]), rospy.AnyMsg, rt_list[i].callback_hz))
 
         
-        rt_tracker_status = ROSTopicHz(10)
+        rt_tracker_status = ROSTopicHz(100)
         rt_attitude_cmd = ROSTopicHz(100)
         rt_odom_main = ROSTopicHz(100)
 
@@ -82,15 +82,12 @@ class Status:
             stdscr.addstr(0, 29, str(os.environ["UAV_NAME"]), curses.A_BOLD)
 
             tmp = rt_tracker_status.get_hz()
-
             if tmp == None:
                 tmp = "0.0"
                 tracker = "NO TRACKER"
                 tmp_color = red
-            elif tmp[0] > 0.0:
-                tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
             else:
-                tracker = "NO TRACKER"
+                tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
             
             # if tmp_hz[-1] > 0.0:
             # else:
@@ -155,7 +152,6 @@ class Status:
 
                 stdscr.addstr(1 + i, 35, str(name_list[i]) + ": ", tmp_color)
                 stdscr.addstr(1 + i, 35 + max_length + 2 + (5 - len(str(tmp))), str(tmp) + " Hz", tmp_color)
-
             stdscr.refresh()
             rate.sleep()
 
