@@ -56,7 +56,7 @@ class Status:
             sub_list.append(rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/" + str(topic_list[i]), rospy.AnyMsg, rt_list[i].callback_hz))
 
         
-        rt_tracker_status = ROSTopicHz(100)
+        rt_tracker_status = ROSTopicHz(10)
         rt_attitude_cmd = ROSTopicHz(100)
         rt_odom_main = ROSTopicHz(100)
 
@@ -80,17 +80,15 @@ class Status:
         while not rospy.is_shutdown():
             stdscr.clear()
             stdscr.addstr(0, 29, str(os.environ["UAV_NAME"]), curses.A_BOLD)
-
+            tmp_tn = rt_tracker_status.get_last_printed_tn()
             tmp = rt_tracker_status.get_hz()
+            rt_tracker_status.set_last_printed_tn(tmp_tn)
             if tmp == None:
                 tmp = "0.0"
                 tracker = "NO TRACKER"
                 tmp_color = red
             else:
                 tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
-            
-            # if tmp_hz[-1] > 0.0:
-            # else:
 
             if tracker == "MpcTracker":
                 tmp_color = green
@@ -101,7 +99,9 @@ class Status:
             
             stdscr.addstr(1, 0, "Active tracker: " + tracker, tmp_color)
             
+            tmp_tn = rt_attitude_cmd.get_last_printed_tn()
             tmp = rt_attitude_cmd.get_hz()
+            rt_attitude_cmd.set_last_printed_tn(tmp_tn)
             tmp_color = green
             if tmp == None:
                 tmp = "0.0"
@@ -113,7 +113,9 @@ class Status:
             stdscr.addstr(2, 0, "Attitude cmd rate: ", tmp_color)
             stdscr.addstr(2, 20 + (4 - len(str(tmp))),str(tmp) + " Hz", tmp_color)
 
+            tmp_tn = rt_odom_main.get_last_printed_tn()
             tmp = rt_odom_main.get_hz()
+            rt_odom_main.set_last_printed_tn(tmp_tn)
             odom = ""
             tmp_color = green
             if tmp == None:
@@ -125,21 +127,27 @@ class Status:
                 tmp = round(tmp[0],1)
                 if tmp < 0.9*100 or tmp > 1.1*100:
                     tmp_color = yellow
-            stdscr.addstr(4, 0, "Odom:      Hz, " + str(odom), tmp_color)
-            stdscr.addstr(4, 6+ (5 - len(str(tmp))),str(tmp), tmp_color)
-            tmp = round(self.odom_main.pose.pose.position.x,1)
-            stdscr.addstr(5, 0, "X: " + str(tmp), tmp_color)
-            tmp = round(self.odom_main.pose.pose.position.y,1)
-            stdscr.addstr(6, 0, "Y: " + str(tmp), tmp_color)
-            tmp = round(self.odom_main.pose.pose.position.z,1)
-            stdscr.addstr(7, 0, "Z: " + str(tmp), tmp_color)
+            stdscr.addstr(4, 0, "Odom:        Hz, " + str(odom), tmp_color)
+            stdscr.addstr(4, 7+ (5 - len(str(tmp))),str(tmp), tmp_color)
+            tmp = round(self.odom_main.pose.pose.position.x,2)
+            stdscr.addstr(5, 10, "X", tmp_color)
+            stdscr.addstr(5, 6-(len(str(tmp).split('.')[0])), str(tmp), tmp_color)
+            tmp = round(self.odom_main.pose.pose.position.y,2)
+            stdscr.addstr(6, 10, "Y", tmp_color)
+            stdscr.addstr(6, 6-(len(str(tmp).split('.')[0])), str(tmp), tmp_color)
+            tmp = round(self.odom_main.pose.pose.position.z,2)
+            stdscr.addstr(7, 10, "Z", tmp_color)
+            stdscr.addstr(7, 6-(len(str(tmp).split('.')[0])), str(tmp), tmp_color)
             
             max_length = 0
             for i in range(0, len(param_list)):
                 max_length = len(max(name_list, key=len))
             for i in range(0, len(param_list)):
                 
+                tmp_tn = rt_list[i].get_last_printed_tn()
                 tmp = rt_list[i].get_hz()
+                rt_list[i].set_last_printed_tn(tmp_tn)
+               
                 tmp_color = green
 
                 if tmp == None:
