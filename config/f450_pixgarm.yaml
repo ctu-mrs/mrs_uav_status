@@ -1,0 +1,5 @@
+rate: 100.0
+list: [
+      "mavros/distance_sensor/garmin Garmin 20",
+      "bluefox/image_raw Bluefox 100",
+      ]
