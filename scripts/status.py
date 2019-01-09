@@ -4,6 +4,8 @@ import rospy
 import curses
 import os
 import time
+import multiprocessing as mp
+import subprocess
 
 from rostopic import ROSTopicHz 
 
@@ -12,10 +14,28 @@ from sensor_msgs.msg import *
 from nav_msgs.msg import *
 from geometry_msgs.msg import *
 
+def get_cpu_load(cpu_load_queue, queue_lock):
+    run = True
+    while run:
+        bashCommand = "vmstat 1 2"
+        process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+        output, error = process.communicate()
+        output = output.split()[-3]
+        queue_lock.acquire()
+        if not cpu_load_queue.empty():
+            run = False
+        else:
+            cpu_load_queue.put(100-int(output));
+        queue_lock.release()
+
+cpu_load_queue = mp.Queue() 
+queue_lock = mp.Lock()
+
 class Status:
     tracker_status = TrackerStatus()
     odom_main = Odometry()
-
+    process = mp.Process(target=get_cpu_load, args=(cpu_load_queue, queue_lock))
+    
     def TrackerStatusCallback(self, data):
         self.tracker_status = data
 
@@ -68,19 +88,35 @@ class Status:
         rt_sub_attitude_cmd = rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/attitude_cmd", rospy.AnyMsg, rt_attitude_cmd.callback_hz)        
         rt_sub_odom_main = rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/odometry/odom_main", rospy.AnyMsg, rt_odom_main.callback_hz)        
         
-        rate = rospy.Rate(200)
-        time.sleep(0.005)
+        rate = rospy.Rate(10)
+        time.sleep(0.1)
 
         # green = 47, yellow = 227, red = 197
         green = curses.color_pair(47)
         yellow = curses.color_pair(221)
         red = curses.color_pair(197)
         tmp_color = curses.color_pair(0)
+# , args=(x, source_ys, source_x, target_ys[x], target_x, foils, timepix_segment, direct_rays_queue, reflected_ray_queue, stdout_lock, queue_lock, max_reflections, critical_angle))
+        self.process.start()
+        cpu_load = 0;
 
         while not rospy.is_shutdown():
             stdscr.clear()
             now = rospy.get_rostime().to_sec() - 1.0
-            stdscr.addstr(0, 29, str(os.environ["UAV_NAME"]), curses.A_BOLD)
+            stdscr.addstr(0, 0,str(os.environ["UAV_NAME"]), curses.A_BOLD)
+
+            if self.process.is_alive():
+                queue_lock.acquire()
+                if not cpu_load_queue.empty():
+                    cpu_load = cpu_load_queue.get_nowait()
+                queue_lock.release()
+            tmp_color = green
+            if(int(cpu_load) > 89):
+                tmp_color = red
+            elif(int(cpu_load) > 74):
+                tmp_color = yellow
+            stdscr.addstr(0, 15, "CPU load: " + str(cpu_load), tmp_color)
+            
             tmp_tn = rt_tracker_status.get_last_printed_tn()
             tmp = rt_tracker_status.get_hz()
             if (rt_tracker_status.get_msg_tn() < now):
@@ -122,7 +158,7 @@ class Status:
             tmp = rt_odom_main.get_hz()
             if (rt_odom_main.get_last_printed_tn() < now):
                 tmp = None
-            rt_odom_main.set_msg_tn(tmp_tn)
+            rt_odom_main.set_last_printed_tn(tmp_tn)
             odom = ""
             tmp_color = green
             if tmp == None:
@@ -152,7 +188,7 @@ class Status:
             for i in range(0, len(param_list)):
                 tmp_tn = rt_list[i].get_last_printed_tn()
                 tmp = rt_list[i].get_hz()
-                if (rt_list[i].get_msg_tn() < (rospy.get_rostime().to_sec() - 1.0)):
+                if (rt_list[i].get_msg_tn() < (now)):
                     tmp = None
                 rt_list[i].set_last_printed_tn(tmp_tn)
                 tmp_color = green
@@ -172,6 +208,10 @@ class Status:
 
     def __init__(self):
         curses.wrapper(self.status)
+
+    def __del__(self):
+        cpu_load_queue.put("stop");
+        self.process.terminate()
 
 if __name__ == '__main__':
     try:
