@@ -68,8 +68,8 @@ class Status:
         rt_sub_attitude_cmd = rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/attitude_cmd", rospy.AnyMsg, rt_attitude_cmd.callback_hz)        
         rt_sub_odom_main = rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/odometry/odom_main", rospy.AnyMsg, rt_odom_main.callback_hz)        
         
-        rate = rospy.Rate(10)
-        time.sleep(0.1)
+        rate = rospy.Rate(200)
+        time.sleep(0.005)
 
         # green = 47, yellow = 227, red = 197
         green = curses.color_pair(47)
@@ -79,10 +79,13 @@ class Status:
 
         while not rospy.is_shutdown():
             stdscr.clear()
+            now = rospy.get_rostime().to_sec() - 1.0
             stdscr.addstr(0, 29, str(os.environ["UAV_NAME"]), curses.A_BOLD)
-            tmp_tn = rt_tracker_status.get_msg_tn()
+            tmp_tn = rt_tracker_status.get_last_printed_tn()
             tmp = rt_tracker_status.get_hz()
-            rt_tracker_status.set_msg_tn(tmp_tn)
+            if (rt_tracker_status.get_msg_tn() < now):
+                tmp = None
+            rt_tracker_status.set_last_printed_tn(tmp_tn)
             if tmp == None:
                 tmp = "0.0"
                 tracker = "NO TRACKER"
@@ -99,9 +102,11 @@ class Status:
             
             stdscr.addstr(1, 0, "Active tracker: " + tracker, tmp_color)
             
-            tmp_tn = rt_attitude_cmd.get_msg_tn()
+            tmp_tn = rt_attitude_cmd.get_last_printed_tn()
             tmp = rt_attitude_cmd.get_hz()
-            rt_attitude_cmd.set_msg_tn(tmp_tn)
+            if (rt_attitude_cmd.get_msg_tn() < now):
+                tmp = None
+            rt_attitude_cmd.set_last_printed_tn(tmp_tn)
             tmp_color = green
             if tmp == None:
                 tmp = "0.0"
@@ -113,8 +118,10 @@ class Status:
             stdscr.addstr(2, 0, "Attitude cmd rate: ", tmp_color)
             stdscr.addstr(2, 20 + (4 - len(str(tmp))),str(tmp) + " Hz", tmp_color)
 
-            tmp_tn = rt_odom_main.get_msg_tn()
+            tmp_tn = rt_odom_main.get_last_printed_tn()
             tmp = rt_odom_main.get_hz()
+            if (rt_odom_main.get_last_printed_tn() < now):
+                tmp = None
             rt_odom_main.set_msg_tn(tmp_tn)
             odom = ""
             tmp_color = green
@@ -143,9 +150,11 @@ class Status:
             for i in range(0, len(param_list)):
                 max_length = len(max(name_list, key=len))
             for i in range(0, len(param_list)):
-                tmp_tn = rt_list[i].get_msg_tn()
+                tmp_tn = rt_list[i].get_last_printed_tn()
                 tmp = rt_list[i].get_hz()
-                rt_list[i].set_msg_tn(tmp_tn)
+                if (rt_list[i].get_msg_tn() < (rospy.get_rostime().to_sec() - 1.0)):
+                    tmp = None
+                rt_list[i].set_last_printed_tn(tmp_tn)
                 tmp_color = green
 
                 if tmp == None:
