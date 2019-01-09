@@ -115,7 +115,9 @@ class Status:
                 tmp_color = red
             elif(int(cpu_load) > 74):
                 tmp_color = yellow
-            stdscr.addstr(0, 15, "CPU load: " + str(cpu_load), tmp_color)
+            stdscr.addstr(0, 13, "CPU load: ", tmp_color)
+            stdscr.addstr(0, 21 + (4 - len(str(cpu_load))), str(cpu_load), tmp_color)
+            stdscr.addstr(0, 26, "%", tmp_color)
             
             tmp_tn = rt_tracker_status.get_last_printed_tn()
             tmp = rt_tracker_status.get_hz()
@@ -210,7 +212,9 @@ class Status:
         curses.wrapper(self.status)
 
     def __del__(self):
+        queue_lock.acquire()
         cpu_load_queue.put("stop");
+        queue_lock.release()
         self.process.terminate()
 
 if __name__ == '__main__':
