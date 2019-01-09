@@ -73,7 +73,7 @@ class Status:
 
         # green = 47, yellow = 227, red = 197
         green = curses.color_pair(47)
-        yellow = curses.color_pair(227)
+        yellow = curses.color_pair(221)
         red = curses.color_pair(197)
         tmp_color = curses.color_pair(0)
 
