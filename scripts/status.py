@@ -7,12 +7,13 @@ import time
 import multiprocessing as mp
 import subprocess
 
-from rostopic import ROSTopicHz 
+from rostopic import ROSTopicHz
 
 from mrs_msgs.msg import *
 from sensor_msgs.msg import *
 from nav_msgs.msg import *
 from geometry_msgs.msg import *
+from mavros_msgs.msg import *
 
 def get_cpu_load(cpu_load_queue, queue_lock):
     run = True
@@ -28,31 +29,35 @@ def get_cpu_load(cpu_load_queue, queue_lock):
             cpu_load_queue.put(100-int(output));
         queue_lock.release()
 
-cpu_load_queue = mp.Queue() 
+cpu_load_queue = mp.Queue()
 queue_lock = mp.Lock()
 
 class Status:
     tracker_status = TrackerStatus()
     odom_main = Odometry()
+    mavros_state = State()
     process = mp.Process(target=get_cpu_load, args=(cpu_load_queue, queue_lock))
-    
+
     def TrackerStatusCallback(self, data):
         self.tracker_status = data
 
     def OdomMainCallback(self, data):
         self.odom_main = data
 
+    def StateCallback(self, data):
+        self.mavros_state = data
+
     def status(self, stdscr):
-      
+
         rospy.init_node('status', anonymous=True)
-        
+
         # Initialize some lists
         topic_list = []
         name_list = []
         hz_list = []
         sub_list = []
         rt_list = []
-       
+
         # Initialize curses
         curses.initscr()
         curses.start_color()
@@ -60,7 +65,7 @@ class Status:
 
         for i in range(0, curses.COLORS):
             curses.init_pair(i + 1, i, -1)
-        
+
         # Get parameters from config file and put them in lists
 
         param_list = rospy.get_param('~list', "");
@@ -75,19 +80,22 @@ class Status:
             rt_list.append(ROSTopicHz(hz_list[i]))
             sub_list.append(rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/" + str(topic_list[i]), rospy.AnyMsg, rt_list[i].callback_hz))
 
-        
+
         rt_tracker_status = ROSTopicHz(10)
         rt_attitude_cmd = ROSTopicHz(100)
         rt_odom_main = ROSTopicHz(100)
+        rt_state = ROSTopicHz(2)
 
 
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/tracker_status", TrackerStatus, self.TrackerStatusCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/odometry/odom_main", Odometry, self.OdomMainCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/state", State, self.StateCallback)
 
-        rt_sub_tracker_status = rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/tracker_status", rospy.AnyMsg, rt_tracker_status.callback_hz)        
-        rt_sub_attitude_cmd = rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/attitude_cmd", rospy.AnyMsg, rt_attitude_cmd.callback_hz)        
-        rt_sub_odom_main = rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/odometry/odom_main", rospy.AnyMsg, rt_odom_main.callback_hz)        
-        
+        rt_sub_tracker_status = rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/tracker_status", rospy.AnyMsg, rt_tracker_status.callback_hz)
+        rt_sub_attitude_cmd = rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/attitude_cmd", rospy.AnyMsg, rt_attitude_cmd.callback_hz)
+        rt_sub_odom_main = rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/odometry/odom_main", rospy.AnyMsg, rt_odom_main.callback_hz)
+        rt_sub_state = rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/state", rospy.AnyMsg, rt_state.callback_hz)
+
         rate = rospy.Rate(10)
         time.sleep(0.1)
 
@@ -96,14 +104,15 @@ class Status:
         yellow = curses.color_pair(221)
         red = curses.color_pair(197)
         tmp_color = curses.color_pair(0)
-# , args=(x, source_ys, source_x, target_ys[x], target_x, foils, timepix_segment, direct_rays_queue, reflected_ray_queue, stdout_lock, queue_lock, max_reflections, critical_angle))
         self.process.start()
         cpu_load = 0;
 
         while not rospy.is_shutdown():
             stdscr.clear()
             now = rospy.get_rostime().to_sec() - 1.0
-            stdscr.addstr(0, 0,str(os.environ["UAV_NAME"]), curses.A_BOLD)
+            stdscr.addstr(0, 36,str(os.environ["UAV_NAME"]), curses.A_BOLD)
+
+            # #{ CPU LOAD
 
             if self.process.is_alive():
                 queue_lock.acquire()
@@ -115,10 +124,42 @@ class Status:
                 tmp_color = red
             elif(int(cpu_load) > 74):
                 tmp_color = yellow
-            stdscr.addstr(0, 13, "CPU load: ", tmp_color)
-            stdscr.addstr(0, 21 + (4 - len(str(cpu_load))), str(cpu_load), tmp_color)
-            stdscr.addstr(0, 26, "%", tmp_color)
-            
+            stdscr.addstr(2, 31, "CPU load: ", tmp_color)
+            stdscr.addstr(2, 39 + (4 - len(str(cpu_load))), str(cpu_load), tmp_color)
+            stdscr.addstr(2, 44, "%", tmp_color)
+
+            # #} end of CPU LOAD
+
+            # #{ Mavros state
+
+            tmp_tn = rt_state.get_last_printed_tn()
+            tmp = rt_state.get_hz()
+            tmp2 = "N/A"
+            if (rt_state.get_msg_tn() < now - 1.0):
+                tmp = None
+            rt_state.set_last_printed_tn(tmp_tn)
+            if tmp == None:
+                tmp = "N/A"
+            else:
+                tmp = self.mavros_state.armed
+                tmp2 = self.mavros_state.mode
+            if(str(tmp) == "True"):
+                tmp = "ARMED"
+                tmp_color = green
+            else:
+                tmp = "DISARMED"
+                tmp_color = red
+            stdscr.addstr(4, 31, "State: " + str(tmp), tmp_color)
+            if(str(tmp2) == "OFFBOARD"):
+                tmp_color = green
+            elif(str(tmp2) == "POSITION" or str(tmp2) == "MANUAL" or str(tmp2) == "ALTITUDE" ):
+                tmp_color = yellow
+            else:
+                tmp_color = red
+            stdscr.addstr(5, 31, "Mode:  " + str(tmp2), tmp_color)
+            # #} end of Mavros state
+
+            # #{ Active Tracker
             tmp_tn = rt_tracker_status.get_last_printed_tn()
             tmp = rt_tracker_status.get_hz()
             if (rt_tracker_status.get_msg_tn() < now):
@@ -137,9 +178,12 @@ class Status:
                 tmp_color = yellow
             else:
                 tmp_color = red
-            
+
             stdscr.addstr(1, 0, "Active tracker: " + tracker, tmp_color)
-            
+            # #} end of
+
+            # #{ Attitude cmd rate
+
             tmp_tn = rt_attitude_cmd.get_last_printed_tn()
             tmp = rt_attitude_cmd.get_hz()
             if (rt_attitude_cmd.get_msg_tn() < now):
@@ -155,6 +199,10 @@ class Status:
                     tmp_color = yellow
             stdscr.addstr(2, 0, "Attitude cmd rate: ", tmp_color)
             stdscr.addstr(2, 20 + (4 - len(str(tmp))),str(tmp) + " Hz", tmp_color)
+
+            # #} end of Attitude cmd rate
+
+            # #{ Odom
 
             tmp_tn = rt_odom_main.get_last_printed_tn()
             tmp = rt_odom_main.get_hz()
@@ -183,7 +231,11 @@ class Status:
             tmp = round(self.odom_main.pose.pose.position.z,2)
             stdscr.addstr(7, 10, "Z", tmp_color)
             stdscr.addstr(7, 6-(len(str(tmp).split('.')[0])), str(tmp), tmp_color)
-            
+
+            # #} end of Odom
+
+            # #{ Topics from config
+
             max_length = 0
             for i in range(0, len(param_list)):
                 max_length = len(max(name_list, key=len))
@@ -203,8 +255,11 @@ class Status:
                     if tmp < 0.9*hz_list[i] or tmp > 1.1*hz_list[i]:
                         tmp_color = yellow
 
-                stdscr.addstr(1 + i, 35, str(name_list[i]) + ": ", tmp_color)
-                stdscr.addstr(1 + i, 35 + max_length + 2 + (5 - len(str(tmp))), str(tmp) + " Hz", tmp_color)
+                stdscr.addstr(1 + i, 50, str(name_list[i]) + ": ", tmp_color)
+                stdscr.addstr(1 + i, 50 + max_length + 2 + (5 - len(str(tmp))), str(tmp) + " Hz", tmp_color)
+
+            # #} end of Topics from config
+
             stdscr.refresh()
             rate.sleep()
 
