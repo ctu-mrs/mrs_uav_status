@@ -23,13 +23,14 @@ def get_cpu_load(cpu_load_queue, queue_lock):
         output, error = process.communicate()
         output = output.split()[-3]
         queue_lock.acquire()
-        if not cpu_load_queue.empty():
+        if not exit_queue.empty():
             run = False
         else:
             cpu_load_queue.put(100-int(output));
         queue_lock.release()
 
 cpu_load_queue = mp.Queue()
+exit_queue = mp.Queue()
 queue_lock = mp.Lock()
 
 class Status:
@@ -109,16 +110,19 @@ class Status:
 
             # #{ CPU LOAD
 
+            tmp_color = green
             if self.process.is_alive():
                 queue_lock.acquire()
                 if not cpu_load_queue.empty():
                     cpu_load = cpu_load_queue.get_nowait()
                 queue_lock.release()
-            tmp_color = green
-            if(int(cpu_load) > 89):
+                if(int(cpu_load) > 89):
+                    tmp_color = red
+                elif(int(cpu_load) > 74):
+                    tmp_color = yellow
+            else:
                 tmp_color = red
-            elif(int(cpu_load) > 74):
-                tmp_color = yellow
+                cpu_load = "x"
             stdscr.addstr(2, 31, "CPU load: ", tmp_color)
             stdscr.addstr(2, 39 + (4 - len(str(cpu_load))), str(cpu_load), tmp_color)
             stdscr.addstr(2, 44, "%", tmp_color)
@@ -228,7 +232,7 @@ class Status:
 
     def __del__(self):
         queue_lock.acquire()
-        cpu_load_queue.put("stop");
+        exit_queue.put(1);
         queue_lock.release()
         self.process.terminate()
 
