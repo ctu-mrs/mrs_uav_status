@@ -23,26 +23,26 @@ def get_cpu_load(cpu_load_queue, queue_lock):
         output, error = process.communicate()
         output = output.split()[-3]
         queue_lock.acquire()
-        if not exit_queue.empty():
+        if cpu_load_queue.qsize() > 3:
             run = False
         else:
             cpu_load_queue.put(100-int(output));
         queue_lock.release()
 
 cpu_load_queue = mp.Queue()
-exit_queue = mp.Queue()
 queue_lock = mp.Lock()
+process = mp.Process(target=get_cpu_load, args=(cpu_load_queue, queue_lock))
 
 class Status:
+
     tracker_status = TrackerStatus()
     odom_main = Odometry()
     mavros_state = State()
-    process = mp.Process(target=get_cpu_load, args=(cpu_load_queue, queue_lock))
     count_list = []
     count_odom = 0
     count_state = 0
     count_tracker = 0
-    
+
     def MultiCallback(self, data, callback_id):
         self.count_list[callback_id] = self.count_list[callback_id] + 1
 
@@ -105,7 +105,7 @@ class Status:
         yellow = curses.color_pair(221)
         red = curses.color_pair(197)
         tmp_color = curses.color_pair(0)
-        self.process.start()
+        process.start()
         cpu_load = 0;
         while not rospy.is_shutdown():
             stdscr.clear()
@@ -114,10 +114,12 @@ class Status:
             # #{ CPU LOAD
 
             tmp_color = green
-            if self.process.is_alive():
+            if process.is_alive():
                 queue_lock.acquire()
                 if not cpu_load_queue.empty():
                     cpu_load = cpu_load_queue.get_nowait()
+                    while not cpu_load_queue.empty():
+                        cpu_load_queue.get_nowait()
                 queue_lock.release()
                 if(int(cpu_load) > 89):
                     tmp_color = red
@@ -214,7 +216,7 @@ class Status:
                     self.count_list[i] = 0
                 else:
                     tmp = 0
-                
+
                 tmp_color = green
                 if tmp == 0:
                     tmp_color = red
@@ -226,18 +228,12 @@ class Status:
                 stdscr.addstr(1 + i, 50 + max_length + 2 + (5 - len(str(tmp))), str(tmp) + " Hz", tmp_color)
 
             # #} end of Topics from config
-            
+
             stdscr.refresh()
             rate.sleep()
 
     def __init__(self):
         curses.wrapper(self.status)
-
-    def __del__(self):
-        queue_lock.acquire()
-        exit_queue.put(1);
-        queue_lock.release()
-        self.process.terminate()
 
 if __name__ == '__main__':
     try:
