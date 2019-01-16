@@ -2,9 +2,6 @@ rate: 100.0
 list: [
       "garmin/range Garmin 100",
       "bluefox/image_raw Bluefox 100",
-      "control_manager/cmd_odom Cmd odom 100",
-      "mavros/global_position/local mavros global local 100",
-      "control_manager/position_cmd position cmd 100",
       "control_manager/attitude_cmd attitude cmd 100",
       "mavros/setpoint_raw/attitude mavros setpoint 100",
       ]

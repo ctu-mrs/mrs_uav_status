@@ -1,0 +1,7 @@
+rate: 100.0
+list: [
+      "rs_d435/color/image_raw realsense raw color 30",
+      "/mv_26805850/image_raw Bluefox 0 100",
+      "/mv_26805877/image_raw Bluefox 1 100",
+      "/mv_25002514/image_raw Bluefox 2 100",
+      ]
