@@ -109,7 +109,8 @@ class Status:
         cpu_load = 0;
         while not rospy.is_shutdown():
             stdscr.clear()
-            stdscr.addstr(0, 36,str(os.environ["UAV_NAME"]), curses.A_BOLD)
+            stdscr.addstr(0, 26,str(os.environ["UAV_NAME"]), curses.A_BOLD)
+            stdscr.addstr(0, 36,"UAV_MASS = " + str(os.environ["UAV_MASS"]), curses.A_BOLD)
 
             # #{ CPU LOAD
 
