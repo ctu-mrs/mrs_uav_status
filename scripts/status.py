@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import rospkg
 import rospy
 import curses
 import os
@@ -42,6 +42,7 @@ class Status:
     count_odom = 0
     count_state = 0
     count_tracker = 0
+    rospack = rospkg.RosPack()
 
     def MultiCallback(self, data, callback_id):
         self.count_list[callback_id] = self.count_list[callback_id] + 1
@@ -58,6 +59,16 @@ class Status:
         self.mavros_state = data
         self.count_state = self.count_state + 1
 
+    def ErrorShutdown(self, message, stdscr, color):
+        stdscr.clear()
+        stdscr.attron(color)
+        stdscr.attron(curses.A_BLINK)
+        stdscr.attron(curses.A_BOLD)
+        stdscr.addstr(1, 0,str(message))
+        stdscr.refresh()
+        time.sleep(10)
+        rospy.signal_shutdown('Quit') 
+    
     def status(self, stdscr):
 
         rospy.init_node('status', anonymous=True)
@@ -109,9 +120,29 @@ class Status:
         cpu_load = 0;
         while not rospy.is_shutdown():
             stdscr.clear()
-            stdscr.addstr(0, 26,str(os.environ["UAV_NAME"]), curses.A_BOLD)
-            stdscr.addstr(0, 36,"UAV_MASS = " + str(os.environ["UAV_MASS"]), curses.A_BOLD)
-
+            stdscr.attroff(tmp_color)
+            try:
+                stdscr.addstr(0, 0,str(os.environ["UAV_NAME"]))
+            except:
+                self.ErrorShutdown("UAV_NAME variable is not set!!! Terminating...", stdscr, red)
+            try:
+                stdscr.addstr(0, 9,"UAV_MASS = " + str(os.environ["UAV_MASS"] + " kg"))
+            except:
+                attron(red)
+                stdscr.attron(curses.A_BLINK)
+                stdscr.addstr(0, 9,"UAV_MASS = NOT SET!")
+                stdscr.attroff(curses.A_BLINK)
+                attroff(red)
+            try:
+                stdscr.addstr(0, 31,str(os.readlink(str(self.rospack.get_path('mrs_main')) +"/config/world_current.yaml" )))
+            except:
+                attron(red)
+                stdscr.attron(curses.A_BLINK)
+                stdscr.addstr(0, 9,"NO ARENA DEFINED!")
+                stdscr.attroff(curses.A_BLINK)
+                attroff(red)
+            stdscr.attroff(curses.A_BOLD)
+                
             # #{ CPU LOAD
 
             tmp_color = green
@@ -129,9 +160,10 @@ class Status:
             else:
                 tmp_color = red
                 cpu_load = "x"
-            stdscr.addstr(2, 31, "CPU load: ", tmp_color)
-            stdscr.addstr(2, 39 + (4 - len(str(cpu_load))), str(cpu_load), tmp_color)
-            stdscr.addstr(2, 44, "%", tmp_color)
+            stdscr.attron(tmp_color)
+            stdscr.addstr(2, 31, "CPU load: ")
+            stdscr.addstr(2, 39 + (4 - len(str(cpu_load))), str(cpu_load))
+            stdscr.addstr(2, 44, "%")
 
             # #} end of CPU LOAD
 
@@ -151,14 +183,16 @@ class Status:
             else:
                 tmp = "DISARMED"
                 tmp_color = red
-            stdscr.addstr(4, 31, "State: " + str(tmp), tmp_color)
+            stdscr.attron(tmp_color)
+            stdscr.addstr(4, 31, "State: " + str(tmp))
             if(str(tmp2) == "OFFBOARD"):
                 tmp_color = green
             elif(str(tmp2) == "POSITION" or str(tmp2) == "MANUAL" or str(tmp2) == "ALTITUDE" ):
                 tmp_color = yellow
             else:
                 tmp_color = red
-            stdscr.addstr(5, 31, "Mode:  " + str(tmp2), tmp_color)
+            stdscr.attron(tmp_color)
+            stdscr.addstr(5, 31, "Mode:  " + str(tmp2))
             # #} end of Mavros state
 
             # #{ Active Tracker
@@ -177,7 +211,8 @@ class Status:
             else:
                 tmp_color = red
 
-            stdscr.addstr(1, 0, "Active tracker: " + tracker, tmp_color)
+            stdscr.attron(tmp_color)
+            stdscr.addstr(1, 0, "Active tracker: " + tracker)
             # #} end of
 
             # #{ Odom
@@ -193,17 +228,18 @@ class Status:
                 odom = self.odom_main.child_frame_id
                 if tmp < 0.9*100 or tmp > 1.1*100:
                     tmp_color = yellow
-            stdscr.addstr(3, 0, "Odom:     Hz, " + str(odom), tmp_color)
-            stdscr.addstr(3, 4+ (5 - len(str(tmp))),str(tmp), tmp_color)
+            stdscr.attron(tmp_color)
+            stdscr.addstr(3, 0, "Odom:     Hz, " + str(odom))
+            stdscr.addstr(3, 4+ (5 - len(str(tmp))),str(tmp))
             tmp = round(self.odom_main.pose.pose.position.x,2)
-            stdscr.addstr(4, 10, "X", tmp_color)
-            stdscr.addstr(4, 6-(len(str(tmp).split('.')[0])), str(tmp), tmp_color)
+            stdscr.addstr(4, 10, "X")
+            stdscr.addstr(4, 6-(len(str(tmp).split('.')[0])), str(tmp))
             tmp = round(self.odom_main.pose.pose.position.y,2)
-            stdscr.addstr(5, 10, "Y", tmp_color)
-            stdscr.addstr(5, 6-(len(str(tmp).split('.')[0])), str(tmp), tmp_color)
+            stdscr.addstr(5, 10, "Y")
+            stdscr.addstr(5, 6-(len(str(tmp).split('.')[0])), str(tmp))
             tmp = round(self.odom_main.pose.pose.position.z,2)
-            stdscr.addstr(6, 10, "Z", tmp_color)
-            stdscr.addstr(6, 6-(len(str(tmp).split('.')[0])), str(tmp), tmp_color)
+            stdscr.addstr(6, 10, "Z")
+            stdscr.addstr(6, 6-(len(str(tmp).split('.')[0])), str(tmp))
 
             # #} end of Odom
 
@@ -225,8 +261,9 @@ class Status:
                     if tmp < 0.9*hz_list[i] or tmp > 1.1*hz_list[i]:
                         tmp_color = yellow
 
-                stdscr.addstr(1 + i, 50, str(name_list[i]) + ": ", tmp_color)
-                stdscr.addstr(1 + i, 50 + max_length + 2 + (5 - len(str(tmp))), str(tmp) + " Hz", tmp_color)
+                stdscr.attron(tmp_color)
+                stdscr.addstr(1 + i, 50, str(name_list[i]) + ": ")
+                stdscr.addstr(1 + i, 50 + max_length + 2 + (5 - len(str(tmp))), str(tmp) + " Hz")
 
             # #} end of Topics from config
 
