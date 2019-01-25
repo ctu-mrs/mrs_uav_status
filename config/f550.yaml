@@ -1,0 +1,7 @@
+rate: 100.0
+list: [
+      "garmin/range Garmin 100",
+      "bluefox/image_raw Bluefox 60",
+      "optic_flow/velocity OptFlow 60",
+      "mavros/setpoint_raw/target_attitude Mavros setpoint attitude 100",
+      ]

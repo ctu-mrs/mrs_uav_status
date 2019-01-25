@@ -128,19 +128,19 @@ class Status:
             try:
                 stdscr.addstr(0, 9,"UAV_MASS = " + str(os.environ["UAV_MASS"] + " kg"))
             except:
-                attron(red)
+                stdscr.attron(red)
                 stdscr.attron(curses.A_BLINK)
                 stdscr.addstr(0, 9,"UAV_MASS = NOT SET!")
                 stdscr.attroff(curses.A_BLINK)
-                attroff(red)
+                stdscr.attroff(red)
             try:
                 stdscr.addstr(0, 31,str(os.readlink(str(self.rospack.get_path('mrs_main')) +"/config/world_current.yaml" )))
             except:
-                attron(red)
+                stdscr.attron(red)
                 stdscr.attron(curses.A_BLINK)
                 stdscr.addstr(0, 9,"NO ARENA DEFINED!")
                 stdscr.attroff(curses.A_BLINK)
-                attroff(red)
+                stdscr.attroff(red)
             stdscr.attroff(curses.A_BOLD)
                 
             # #{ CPU LOAD
