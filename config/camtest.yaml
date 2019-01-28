@@ -1,0 +1,9 @@
+rate: 100.0
+list: [
+      "rs_d435/color/image_raw realsense raw color 30",
+      "/mv_0/image_raw Bluefox 0 60",
+      "/mv_1/image_raw Bluefox 1 60",
+      "/mv_2/image_raw Bluefox 2 60",
+      "/mv_3/image_raw Bluefox 3 60",
+      "/scan RPlidar 10",
+      ]
