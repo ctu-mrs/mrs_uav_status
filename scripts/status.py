@@ -78,6 +78,7 @@ class Status:
         name_list = []
         hz_list = []
         sub_list = []
+        dark_mode = True;
 
         # Initialize curses
         curses.initscr()
@@ -95,6 +96,7 @@ class Status:
             tmp = i.rsplit(' ', 1)[0]
             name_list.append(tmp.split(' ', 1)[1])
             hz_list.append(float(i.rsplit()[-1]))
+        dark_mode = rospy.get_param('~dark_mode', True)
 
         # Create ROSTopicHz and subscribers defined by the loaded config
         for i in range(0, len(param_list)):
@@ -110,38 +112,54 @@ class Status:
 
         rate = rospy.Rate(1)
         time.sleep(1)
-
+       
+        # for topics from config list
+        max_length = 0
+        for i in range(0, len(param_list)):
+            max_length = len(max(name_list, key=len))
+        spacer_string = "          "
+        for i in range(0, max_length):
+            spacer_string = spacer_string + " "
+        
         # green = 47, yellow = 227, red = 197
-        green = curses.color_pair(47)
-        yellow = curses.color_pair(221)
-        red = curses.color_pair(197)
+        if(dark_mode):
+            green = curses.color_pair(47)
+            yellow = curses.color_pair(221)
+            red = curses.color_pair(197)
+        else:
+            green = curses.color_pair(29)
+            yellow = curses.color_pair(173)
+            red = curses.color_pair(125)
         tmp_color = curses.color_pair(0)
         process.start()
         cpu_load = 0;
+
         while not rospy.is_shutdown():
             stdscr.clear()
             stdscr.attroff(tmp_color)
+            if(not dark_mode):
+                stdscr.attron(curses.A_REVERSE)
+            stdscr.attron(curses.A_BOLD)
             try:
-                stdscr.addstr(0, 0,str(os.environ["UAV_NAME"]))
+                stdscr.addstr(0, 0," " + str(os.environ["UAV_NAME"]) + " ")
             except:
-                self.ErrorShutdown("UAV_NAME variable is not set!!! Terminating...", stdscr, red)
+                self.ErrorShutdown(" UAV_NAME variable is not set!!! Terminating... ", stdscr, red)
             try:
-                stdscr.addstr(0, 9,"UAV_MASS = " + str(os.environ["UAV_MASS"] + " kg"))
-            except:
-                stdscr.attron(red)
-                stdscr.attron(curses.A_BLINK)
-                stdscr.addstr(0, 9,"UAV_MASS = NOT SET!")
-                stdscr.attroff(curses.A_BLINK)
-                stdscr.attroff(red)
-            try:
-                stdscr.addstr(0, 31,str(os.readlink(str(self.rospack.get_path('mrs_main')) +"/config/world_current.yaml" )))
+                stdscr.addstr(0, 9," UAV_MASS = " + str(os.environ["UAV_MASS"] + " kg "))
             except:
                 stdscr.attron(red)
                 stdscr.attron(curses.A_BLINK)
-                stdscr.addstr(0, 9,"NO ARENA DEFINED!")
+                stdscr.addstr(0, 9," UAV_MASS = NOT SET! ")
                 stdscr.attroff(curses.A_BLINK)
                 stdscr.attroff(red)
-            stdscr.attroff(curses.A_BOLD)
+            try:
+                stdscr.addstr(0, 31, " " + str(os.readlink(str(self.rospack.get_path('mrs_main')) +"/config/world_current.yaml")) + " ")
+            except:
+                stdscr.attron(red)
+                stdscr.attron(curses.A_BLINK)
+                stdscr.addstr(0, 9," NO ARENA DEFINED! ")
+                stdscr.attroff(curses.A_BLINK)
+                stdscr.attroff(red)
                 
             # #{ CPU LOAD
 
@@ -161,9 +179,9 @@ class Status:
                 tmp_color = red
                 cpu_load = "x"
             stdscr.attron(tmp_color)
-            stdscr.addstr(2, 31, "CPU load: ")
-            stdscr.addstr(2, 39 + (4 - len(str(cpu_load))), str(cpu_load))
-            stdscr.addstr(2, 44, "%")
+            stdscr.addstr(2, 31, " CPU load: ")
+            stdscr.addstr(2, 40 + (4 - len(str(cpu_load))), str(cpu_load))
+            stdscr.addstr(2, 44, "% ")
 
             # #} end of CPU LOAD
 
@@ -184,7 +202,7 @@ class Status:
                 tmp = "DISARMED"
                 tmp_color = red
             stdscr.attron(tmp_color)
-            stdscr.addstr(4, 31, "State: " + str(tmp))
+            stdscr.addstr(4, 31, " State: " + str(tmp) + " ")
             if(str(tmp2) == "OFFBOARD"):
                 tmp_color = green
             elif(str(tmp2) == "POSITION" or str(tmp2) == "MANUAL" or str(tmp2) == "ALTITUDE" ):
@@ -192,7 +210,7 @@ class Status:
             else:
                 tmp_color = red
             stdscr.attron(tmp_color)
-            stdscr.addstr(5, 31, "Mode:  " + str(tmp2))
+            stdscr.addstr(5, 31, " Mode:  " + str(tmp2) + " ")
             # #} end of Mavros state
 
             # #{ Active Tracker
@@ -212,7 +230,7 @@ class Status:
                 tmp_color = red
 
             stdscr.attron(tmp_color)
-            stdscr.addstr(1, 0, "Active tracker: " + tracker)
+            stdscr.addstr(1, 0, " Active tracker: " + tracker + " ")
             # #} end of
 
             # #{ Odom
@@ -229,24 +247,24 @@ class Status:
                 if tmp < 0.9*100 or tmp > 1.1*100:
                     tmp_color = yellow
             stdscr.attron(tmp_color)
-            stdscr.addstr(3, 0, "Odom:     Hz, " + str(odom))
-            stdscr.addstr(3, 4+ (5 - len(str(tmp))),str(tmp))
+            stdscr.addstr(3, 0, " Odom:     Hz, " + str(odom))
+            stdscr.addstr(3, 4+ (5 - len(str(tmp))),str(tmp) + " ")
             tmp = round(self.odom_main.pose.pose.position.x,2)
-            stdscr.addstr(4, 10, "X")
-            stdscr.addstr(4, 6-(len(str(tmp).split('.')[0])), str(tmp))
+            stdscr.addstr(4, 2, "       ")
+            stdscr.addstr(4, 9, " X ")
+            stdscr.addstr(4, 5-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
             tmp = round(self.odom_main.pose.pose.position.y,2)
-            stdscr.addstr(5, 10, "Y")
-            stdscr.addstr(5, 6-(len(str(tmp).split('.')[0])), str(tmp))
+            stdscr.addstr(5, 2, "       ")
+            stdscr.addstr(5, 9, " Y ")
+            stdscr.addstr(5, 5-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
             tmp = round(self.odom_main.pose.pose.position.z,2)
-            stdscr.addstr(6, 10, "Z")
-            stdscr.addstr(6, 6-(len(str(tmp).split('.')[0])), str(tmp))
+            stdscr.addstr(6, 2, "       ")
+            stdscr.addstr(6, 9, " Z ")
+            stdscr.addstr(6, 5-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
 
             # #} end of Odom
 
             # #{ Topics from config
-            max_length = 0
-            for i in range(0, len(param_list)):
-                max_length = len(max(name_list, key=len))
             for i in range(0, len(param_list)):
                 if(self.count_list[i] > 0):
                     tmp = self.count_list[i]
@@ -262,8 +280,9 @@ class Status:
                         tmp_color = yellow
 
                 stdscr.attron(tmp_color)
-                stdscr.addstr(1 + i, 50, str(name_list[i]) + ": ")
-                stdscr.addstr(1 + i, 50 + max_length + 2 + (5 - len(str(tmp))), str(tmp) + " Hz")
+                stdscr.addstr(1 + i, 50, spacer_string)
+                stdscr.addstr(1 + i, 50, " " + str(name_list[i]) + ": ")
+                stdscr.addstr(1 + i, 50 + max_length + 2 + (5 - len(str(tmp))), " " + str(tmp) + " Hz ")
 
             # #} end of Topics from config
 

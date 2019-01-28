@@ -6,7 +6,7 @@
     
     <node name="mrs_status" pkg="mrs_status" type="status.py" output="screen">
       
-      <rosparam file="$(find mrs_status)/config/camtest.yaml" />
+      <rosparam file="$(find mrs_status)/config/f550.yaml" />
 
     </node>
   
