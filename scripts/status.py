@@ -121,12 +121,14 @@ class Status:
         for i in range(0, max_length):
             spacer_string = spacer_string + " "
         
-        # green = 47, yellow = 227, red = 197
+        # blue = 47, yellow = 227, red = 197
         if(dark_mode):
+            blue = curses.color_pair(34)
             green = curses.color_pair(47)
             yellow = curses.color_pair(221)
             red = curses.color_pair(197)
         else:
+            blue = curses.color_pair(20)
             green = curses.color_pair(29)
             yellow = curses.color_pair(173)
             red = curses.color_pair(125)
@@ -163,7 +165,7 @@ class Status:
                 
             # #{ CPU LOAD
 
-            tmp_color = green
+            tmp_color = blue
             if process.is_alive():
                 queue_lock.acquire()
                 if not cpu_load_queue.empty():
@@ -179,7 +181,7 @@ class Status:
                 tmp_color = red
                 cpu_load = "x"
             stdscr.attron(tmp_color)
-            stdscr.addstr(2, 31, " CPU load: ")
+            stdscr.addstr(2, 31, " CPU load:   ")
             stdscr.addstr(2, 40 + (4 - len(str(cpu_load))), str(cpu_load))
             stdscr.addstr(2, 44, "% ")
 
@@ -197,14 +199,14 @@ class Status:
                 tmp2 = self.mavros_state.mode
             if(str(tmp) == "True"):
                 tmp = "ARMED"
-                tmp_color = green
+                tmp_color = blue
             else:
                 tmp = "DISARMED"
                 tmp_color = red
             stdscr.attron(tmp_color)
             stdscr.addstr(4, 31, " State: " + str(tmp) + " ")
             if(str(tmp2) == "OFFBOARD"):
-                tmp_color = green
+                tmp_color = blue
             elif(str(tmp2) == "POSITION" or str(tmp2) == "MANUAL" or str(tmp2) == "ALTITUDE" ):
                 tmp_color = yellow
             else:
@@ -223,7 +225,7 @@ class Status:
                 tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
 
             if tracker == "MpcTracker":
-                tmp_color = green
+                tmp_color = blue
             elif tracker == "LineTracker" or tracker == "LandoffTracker" or tracker == "NullTracker":
                 tmp_color = yellow
             else:
@@ -238,7 +240,7 @@ class Status:
             tmp = self.count_odom
             self.count_odom = 0
             odom = ""
-            tmp_color = green
+            tmp_color = blue
             if tmp == 0:
                 odom = "NO ODOM"
                 tmp_color = red
@@ -272,7 +274,7 @@ class Status:
                 else:
                     tmp = 0
 
-                tmp_color = green
+                tmp_color = blue
                 if tmp == 0:
                     tmp_color = red
                 else:
