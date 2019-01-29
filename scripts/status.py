@@ -79,6 +79,7 @@ class Status:
         hz_list = []
         sub_list = []
         dark_mode = True;
+        colorblind_mode = True;
 
         # Initialize curses
         curses.initscr()
@@ -97,6 +98,7 @@ class Status:
             name_list.append(tmp.split(' ', 1)[1])
             hz_list.append(float(i.rsplit()[-1]))
         dark_mode = rospy.get_param('~dark_mode', True)
+        colorblind_mode = rospy.get_param('~colorblind_mode', True)
 
         # Create ROSTopicHz and subscribers defined by the loaded config
         for i in range(0, len(param_list)):
@@ -121,15 +123,18 @@ class Status:
         for i in range(0, max_length):
             spacer_string = spacer_string + " "
         
-        # blue = 47, yellow = 227, red = 197
         if(dark_mode):
-            blue = curses.color_pair(34)
-            green = curses.color_pair(47)
+            if(colorblind_mode):
+                green = curses.color_pair(34)
+            else:
+                green = curses.color_pair(47)
             yellow = curses.color_pair(221)
             red = curses.color_pair(197)
         else:
-            blue = curses.color_pair(20)
-            green = curses.color_pair(29)
+            if(colorblind_mode):
+                green = curses.color_pair(20)
+            else:
+                green = curses.color_pair(29)
             yellow = curses.color_pair(173)
             red = curses.color_pair(125)
         tmp_color = curses.color_pair(0)
@@ -165,7 +170,7 @@ class Status:
                 
             # #{ CPU LOAD
 
-            tmp_color = blue
+            tmp_color = green
             if process.is_alive():
                 queue_lock.acquire()
                 if not cpu_load_queue.empty():
@@ -199,14 +204,14 @@ class Status:
                 tmp2 = self.mavros_state.mode
             if(str(tmp) == "True"):
                 tmp = "ARMED"
-                tmp_color = blue
+                tmp_color = green
             else:
                 tmp = "DISARMED"
                 tmp_color = red
             stdscr.attron(tmp_color)
             stdscr.addstr(4, 31, " State: " + str(tmp) + " ")
             if(str(tmp2) == "OFFBOARD"):
-                tmp_color = blue
+                tmp_color = green
             elif(str(tmp2) == "POSITION" or str(tmp2) == "MANUAL" or str(tmp2) == "ALTITUDE" ):
                 tmp_color = yellow
             else:
@@ -225,7 +230,7 @@ class Status:
                 tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
 
             if tracker == "MpcTracker":
-                tmp_color = blue
+                tmp_color = green
             elif tracker == "LineTracker" or tracker == "LandoffTracker" or tracker == "NullTracker":
                 tmp_color = yellow
             else:
@@ -240,7 +245,7 @@ class Status:
             tmp = self.count_odom
             self.count_odom = 0
             odom = ""
-            tmp_color = blue
+            tmp_color = green
             if tmp == 0:
                 odom = "NO ODOM"
                 tmp_color = red
@@ -274,7 +279,7 @@ class Status:
                 else:
                     tmp = 0
 
-                tmp_color = blue
+                tmp_color = green
                 if tmp == 0:
                     tmp_color = red
                 else:
