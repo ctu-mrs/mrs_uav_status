@@ -155,7 +155,7 @@ class Status:
                 stdscr.attroff(curses.A_BLINK)
                 stdscr.attroff(red)
             try:
-                stdscr.addstr(0, 31, " " + str(os.readlink(str(self.rospack.get_path('mrs_main')) +"/config/world_current.yaml")) + " ")
+                stdscr.addstr(0, 31, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
             except:
                 stdscr.attron(red)
                 stdscr.attron(curses.A_BLINK)
@@ -250,7 +250,7 @@ class Status:
                     tmp_color = yellow
             stdscr.attron(tmp_color)
             stdscr.addstr(3, 0, " Odom:     Hz, " + str(odom))
-            stdscr.addstr(3, 4+ (5 - len(str(tmp))),str(tmp) + " ")
+            stdscr.addstr(3, 5 + (5 - len(str(tmp))),str(tmp) + " ")
             tmp = round(self.odom_main.pose.pose.position.x,2)
             stdscr.addstr(4, 2, "       ")
             stdscr.addstr(4, 9, " X ")
