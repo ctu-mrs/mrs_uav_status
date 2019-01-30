@@ -164,7 +164,7 @@ class Status:
             except:
                 stdscr.attron(red)
                 stdscr.attron(curses.A_BLINK)
-                stdscr.addstr(0, 9," NO ARENA DEFINED! ")
+                stdscr.addstr(0, 31," NO ARENA DEFINED! ")
                 stdscr.attroff(curses.A_BLINK)
                 stdscr.attroff(red)
                 
