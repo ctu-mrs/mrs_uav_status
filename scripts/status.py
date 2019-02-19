@@ -6,6 +6,7 @@ import os
 import time
 import multiprocessing as mp
 import subprocess
+import rosnode
 
 from rostopic import ROSTopicHz
 
@@ -35,6 +36,8 @@ process = mp.Process(target=get_cpu_load, args=(cpu_load_queue, queue_lock))
 
 class Status:
 
+    # #{ Var definitions
+    
     tracker_status = TrackerStatus()
     controller_status = ControllerStatus()
     odom_main = Odometry()
@@ -47,14 +50,18 @@ class Status:
     count_attitude = 0
     count_controller = 0
     rospack = rospkg.RosPack()
+    
+    # #} end of Var definitions
 
+    # #{ Callbacks
+    
     def MultiCallback(self, data, callback_id):
         self.count_list[callback_id] = self.count_list[callback_id] + 1
-
+    
     def TrackerStatusCallback(self, data):
         self.tracker_status = data
         self.count_tracker = self.count_tracker + 1
-
+    
     def ControllerStatusCallback(self, data):
         self.controller_status = data
         self.count_controller = self.count_controller + 1
@@ -66,11 +73,15 @@ class Status:
     def OdomMainCallback(self, data):
         self.odom_main = data
         self.count_odom = self.count_odom + 1
-
+    
     def StateCallback(self, data):
         self.mavros_state = data
         self.count_state = self.count_state + 1
+    
+    # #} end of Callbacks
 
+    # #{ ErrorShutdown
+    
     def ErrorShutdown(self, message, stdscr, color):
         stdscr.clear()
         stdscr.attron(color)
@@ -80,6 +91,8 @@ class Status:
         stdscr.refresh()
         time.sleep(10)
         rospy.signal_shutdown('Quit') 
+    
+    # #} end of ErrorShutdown
     
     def status(self, stdscr):
 
@@ -103,7 +116,8 @@ class Status:
 
         # Get parameters from config file and put them in lists
 
-        param_list = rospy.get_param('~list', "");
+        param_list = rospy.get_param('~want_hz', "");
+        needed_nodes = rospy.get_param('~needed_nodes', "");
         for i in param_list:
             topic_list.append(i.rsplit()[0])
             tmp = i.rsplit(' ', 1)[0]
@@ -346,6 +360,28 @@ class Status:
 
             # #} end of Topics from config
 
+            # #{ Nodes running
+            
+            stdscr.attroff(tmp_color)
+            tmp_color = curses.color_pair(0)
+            stdscr.attron(tmp_color)
+
+            nodelist = rosnode.get_node_names()
+            iterator = 1;
+            stdscr.addstr(1, 95 + max_length, " Missing nodes: ")
+            
+            stdscr.attroff(tmp_color)
+            stdscr.attron(red)
+            for i in needed_nodes:
+                if not any(str(i) in s for s in nodelist):
+                    iterator = iterator + 1
+                    stdscr.addstr(iterator, 95 + max_length, " " + str(i) + " ")
+            if iterator == 1:
+                    stdscr.attroff(red)
+                    stdscr.attron(green)
+                    stdscr.addstr(2, 95 + max_length, " None ")
+            # #} end of Nodes running
+
             # #{ Misc
             
             stdscr.attroff(tmp_color)
@@ -383,10 +419,11 @@ class Status:
                 stdscr.attron(red)
                 stdscr.addstr(3, 70 + max_length, " Disk space: N/A ")
 
+            # #} end of Misc
+            
             stdscr.refresh()
             rate.sleep()
             
-            # #} end of Misc
 
     def __init__(self):
         curses.wrapper(self.status)

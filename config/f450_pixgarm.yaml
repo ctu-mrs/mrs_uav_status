@@ -5,10 +5,23 @@ colorblind_mode: True # Set True to change green color to blue
 # topic_name Displayed name (can be multiple words) expected_frequency
 # if "/" is provided at the beginning of topic_name, the topic name is considered as written, 
 # if there is no "/" at the beginning, UAV_NAME is automatically added in from of the topic name (/uav1/topic_name)
-list: [
+want_hz: [
       "mavros/distance_sensor/garmin Garmin 20",
       "bluefox/image_raw Bluefox 60",
       "optic_flow/velocity OptFlow 60",
       "mavros/setpoint_raw/target_attitude Mavros setpoint attitude 100",
       "mavros/global_position/global Mavros global global 100",
       ]
+
+needed_nodes: [
+      "constraint_manager",
+      "control_manager",
+      "gain_manager",
+      "mavros",
+      "mavros_interface",
+      "odometry",
+      "nodelet_manager",
+      "uav_manager",
+     ]
+
+
