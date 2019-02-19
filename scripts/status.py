@@ -305,7 +305,7 @@ class Status:
                 output, error = p1.communicate()
                 output = [line for line in output.split('\n') if line[-1:]=="/" in line]
                 output = output[0].split()[3]
-                remaining = int(output[:-1])
+                remaining = float(output[:-1].replace(",",".")) 
                 stdscr.attroff(tmp_color)
                 if remaining > 25:
                     tmp_color = green
