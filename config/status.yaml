@@ -8,6 +8,5 @@ colorblind_mode: True # Set True to change green color to blue
 list: [
       "garmin/range Garmin 100",
       "bluefox/image_raw Bluefox 100",
-      "control_manager/attitude_cmd attitude cmd 100",
       "mavros/setpoint_raw/attitude mavros setpoint 100",
       ]

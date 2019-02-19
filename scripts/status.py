@@ -38,10 +38,12 @@ class Status:
     tracker_status = TrackerStatus()
     odom_main = Odometry()
     mavros_state = State()
+    attitude_cmd = AttitudeCommand()
     count_list = []
     count_odom = 0
     count_state = 0
     count_tracker = 0
+    count_attitude = 0
     rospack = rospkg.RosPack()
 
     def MultiCallback(self, data, callback_id):
@@ -51,6 +53,10 @@ class Status:
         self.tracker_status = data
         self.count_tracker = self.count_tracker + 1
 
+    def AttitudeCmdCallback(self, data):
+        self.attitude_cmd = data
+        self.count_attitude = self.count_attitude + 1
+    
     def OdomMainCallback(self, data):
         self.odom_main = data
         self.count_odom = self.count_odom + 1
@@ -109,6 +115,7 @@ class Status:
             self.count_list.append(0)
 
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/tracker_status", TrackerStatus, self.TrackerStatusCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/attitude_cmd", AttitudeCommand, self.AttitudeCmdCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/odometry/odom_main", Odometry, self.OdomMainCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/state", State, self.StateCallback)
 
@@ -283,20 +290,45 @@ class Status:
             except:
                 self.ErrorShutdown(" UAV_NAME variable is not set!!! Terminating... ", stdscr, red)
             try:
-                stdscr.addstr(1, 70 + max_length," UAV_MASS = " + str(os.environ["UAV_MASS"] + " kg "))
+                set_mass = float(os.environ["UAV_MASS"].replace(",","."))
+                stdscr.addstr(1, 70 + max_length," UAV_MASS: " + str(set_mass) + " kg ")
+                est_mass = set_mass - round(self.attitude_cmd.mass_difference, 2)
+                tmp_color = green
+                if abs(self.attitude_cmd.mass_difference) > 2.0:
+                    tmp_color = red
+                    stdscr.attron(curses.A_BLINK)
+                elif abs(self.attitude_cmd.mass_difference) > 1.0:
+                    tmp_color = yellow
+
+                stdscr.attron(tmp_color)
+                
+                if self.count_attitude > 0:
+                    self.count_attitude = 0
+                    stdscr.addstr(2, 70 + max_length," Est mass: " + str(est_mass) + " kg ")
+                else:
+                    tmp_color = red
+                    stdscr.attron(tmp_color)
+                    stdscr.addstr(2, 70 + max_length," Est mass: N/A ")
+                
+                stdscr.attroff(curses.A_BLINK)
             except:
                 stdscr.attron(red)
                 stdscr.attron(curses.A_BLINK)
-                stdscr.addstr(1, 70 + max_length," UAV_MASS = NOT SET! ")
+                stdscr.addstr(1, 70 + max_length," UAV_MASS: NOT SET! ")
                 stdscr.attroff(curses.A_BLINK)
                 stdscr.attroff(red)
                 stdscr.attron(tmp_color)
+
+            stdscr.attroff(tmp_color)
+            tmp_color = curses.color_pair(0)
+            stdscr.attron(tmp_color)
+
             try:
-                stdscr.addstr(2, 70 + max_length, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
+                stdscr.addstr(4, 70 + max_length, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
             except:
                 stdscr.attron(red)
                 stdscr.attron(curses.A_BLINK)
-                stdscr.addstr(0, 70 + max_length," NO ARENA DEFINED! ")
+                stdscr.addstr(4, 70 + max_length," NO ARENA DEFINED! ")
                 stdscr.attroff(curses.A_BLINK)
                 stdscr.attroff(red)
             try:
@@ -306,6 +338,7 @@ class Status:
                 output = [line for line in output.split('\n') if line[-1:]=="/" in line]
                 output = output[0].split()[3]
                 remaining = float(output[:-1].replace(",",".")) 
+
                 stdscr.attroff(tmp_color)
                 if remaining > 25:
                     tmp_color = green
@@ -315,11 +348,11 @@ class Status:
                     tmp_color = red
                     stdscr.attron(curses.A_BLINK)
                 stdscr.attron(tmp_color)
-                stdscr.addstr(3, 70 + max_length, " Disk space: " + str(output) + " ")
+                stdscr.addstr(5, 70 + max_length, " Disk space: " + str(output) + " ")
                 stdscr.attroff(curses.A_BLINK)
             except:
                 stdscr.attron(red)
-                stdscr.addstr(3, 70 + max_length, " Disk space: N/A ")
+                stdscr.addstr(5, 70 + max_length, " Disk space: N/A ")
 
             stdscr.refresh()
             rate.sleep()
@@ -334,3 +367,4 @@ if __name__ == '__main__':
         status = Status()
     except rospy.ROSInterruptException:
         pass
+
