@@ -147,26 +147,6 @@ class Status:
             if(not dark_mode):
                 stdscr.attron(curses.A_REVERSE)
             stdscr.attron(curses.A_BOLD)
-            try:
-                stdscr.addstr(0, 0," " + str(os.environ["UAV_NAME"]) + " ")
-            except:
-                self.ErrorShutdown(" UAV_NAME variable is not set!!! Terminating... ", stdscr, red)
-            try:
-                stdscr.addstr(0, 9," UAV_MASS = " + str(os.environ["UAV_MASS"] + " kg "))
-            except:
-                stdscr.attron(red)
-                stdscr.attron(curses.A_BLINK)
-                stdscr.addstr(0, 9," UAV_MASS = NOT SET! ")
-                stdscr.attroff(curses.A_BLINK)
-                stdscr.attroff(red)
-            try:
-                stdscr.addstr(0, 31, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
-            except:
-                stdscr.attron(red)
-                stdscr.attron(curses.A_BLINK)
-                stdscr.addstr(0, 31," NO ARENA DEFINED! ")
-                stdscr.attroff(curses.A_BLINK)
-                stdscr.attroff(red)
                 
             # #{ CPU LOAD
 
@@ -186,9 +166,9 @@ class Status:
                 tmp_color = red
                 cpu_load = "x"
             stdscr.attron(tmp_color)
-            stdscr.addstr(2, 31, " CPU load:   ")
-            stdscr.addstr(2, 40 + (4 - len(str(cpu_load))), str(cpu_load))
-            stdscr.addstr(2, 44, "% ")
+            stdscr.addstr(1, 31, " CPU load:   ")
+            stdscr.addstr(1, 40 + (4 - len(str(cpu_load))), str(cpu_load))
+            stdscr.addstr(1, 44, "% ")
 
             # #} end of CPU LOAD
 
@@ -209,7 +189,7 @@ class Status:
                 tmp = "DISARMED"
                 tmp_color = red
             stdscr.attron(tmp_color)
-            stdscr.addstr(4, 31, " State: " + str(tmp) + " ")
+            stdscr.addstr(3, 31, " State: " + str(tmp) + " ")
             if(str(tmp2) == "OFFBOARD"):
                 tmp_color = green
             elif(str(tmp2) == "POSITION" or str(tmp2) == "MANUAL" or str(tmp2) == "ALTITUDE" ):
@@ -217,7 +197,7 @@ class Status:
             else:
                 tmp_color = red
             stdscr.attron(tmp_color)
-            stdscr.addstr(5, 31, " Mode:  " + str(tmp2) + " ")
+            stdscr.addstr(4, 31, " Mode:  " + str(tmp2) + " ")
             # #} end of Mavros state
 
             # #{ Active Tracker
@@ -287,14 +267,64 @@ class Status:
                         tmp_color = yellow
 
                 stdscr.attron(tmp_color)
-                stdscr.addstr(1 + i, 50, spacer_string)
-                stdscr.addstr(1 + i, 50, " " + str(name_list[i]) + ": ")
-                stdscr.addstr(1 + i, 50 + max_length + 2 + (5 - len(str(tmp))), " " + str(tmp) + " Hz ")
+                stdscr.addstr(1 + i, 53, spacer_string)
+                stdscr.addstr(1 + i, 53, " " + str(name_list[i]) + ": ")
+                stdscr.addstr(1 + i, 53 + max_length + 2 + (5 - len(str(tmp))), " " + str(tmp) + " Hz ")
 
             # #} end of Topics from config
 
+            # #{ UAV config
+           
+            stdscr.attroff(tmp_color)
+            tmp_color = curses.color_pair(0)
+            stdscr.attron(tmp_color)
+            try:
+                stdscr.addstr(0, 36," " + str(os.environ["UAV_NAME"]) + " ")
+            except:
+                self.ErrorShutdown(" UAV_NAME variable is not set!!! Terminating... ", stdscr, red)
+            try:
+                stdscr.addstr(1, 70 + max_length," UAV_MASS = " + str(os.environ["UAV_MASS"] + " kg "))
+            except:
+                stdscr.attron(red)
+                stdscr.attron(curses.A_BLINK)
+                stdscr.addstr(1, 70 + max_length," UAV_MASS = NOT SET! ")
+                stdscr.attroff(curses.A_BLINK)
+                stdscr.attroff(red)
+                stdscr.attron(tmp_color)
+            try:
+                stdscr.addstr(2, 70 + max_length, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
+            except:
+                stdscr.attron(red)
+                stdscr.attron(curses.A_BLINK)
+                stdscr.addstr(0, 70 + max_length," NO ARENA DEFINED! ")
+                stdscr.attroff(curses.A_BLINK)
+                stdscr.attroff(red)
+            try:
+                bashCommand = "df -h"
+                p1 = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+                output, error = p1.communicate()
+                output = [line for line in output.split('\n') if line[-1:]=="/" in line]
+                output = output[0].split()[3]
+                remaining = int(output[:-1])
+                stdscr.attroff(tmp_color)
+                if remaining > 25:
+                    tmp_color = green
+                elif remaining > 10:
+                    tmp_color = yellow
+                else:
+                    tmp_color = red
+                    stdscr.attron(curses.A_BLINK)
+                stdscr.attron(tmp_color)
+                stdscr.addstr(3, 70 + max_length, " Disk space: " + str(output) + " ")
+                stdscr.attroff(curses.A_BLINK)
+            except:
+                stdscr.attron(red)
+                stdscr.addstr(3, 70 + max_length, " Disk space: N/A ")
+
             stdscr.refresh()
             rate.sleep()
+            
+            # #} end of UAV config
 
     def __init__(self):
         curses.wrapper(self.status)
