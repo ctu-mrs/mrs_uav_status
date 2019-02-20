@@ -314,17 +314,17 @@ class Status:
             
             tmp_offset = len(tracker) + 1
 
-            tmp = self.count_gains
-            self.count_gains = 0
+            tmp = self.count_constraints
+            self.count_constraints = 0
             if tmp == 0:
-                cur_gains = "N/A"
+                cur_constraints= "N/A"
                 tmp_color = red
             else:
-                cur_gains = self.gains.data
+                cur_constraints = self.constraints.data
 
-            if cur_gains == "soft":
+            if cur_constraints == "medium":
                 tmp_color = green
-            elif cur_gains == "supersoft" or cur_gains == "tight":
+            elif cur_constraints == "slow" or cur_constraints == "fast":
                 tmp_color = yellow
             else:
                 tmp_color = red
@@ -332,7 +332,7 @@ class Status:
             stdscr.attroff(tmp_color)
             stdscr.addstr(1, tmp_offset, "/")
             stdscr.attron(tmp_color)
-            stdscr.addstr(1, tmp_offset + 1, cur_gains + " ")
+            stdscr.addstr(1, tmp_offset + 1, cur_constraints + " ")
             # #} end of Active Tracker
 
             # #{ Active Controller
@@ -354,17 +354,17 @@ class Status:
 
             tmp_offset = len(controller) + 1
 
-            tmp = self.count_constraints
-            self.count_constraints = 0
+            tmp = self.count_gains
+            self.count_gains = 0
             if tmp == 0:
-                cur_constraints= "N/A"
+                cur_gains = "N/A"
                 tmp_color = red
             else:
-                cur_constraints = self.constraints.data
+                cur_gains = self.gains.data
 
-            if cur_constraints == "medium":
+            if cur_gains == "soft":
                 tmp_color = green
-            elif cur_constraints == "slow" or cur_constraints == "fast":
+            elif cur_gains == "supersoft" or cur_gains == "tight":
                 tmp_color = yellow
             else:
                 tmp_color = red
@@ -372,7 +372,7 @@ class Status:
             stdscr.attroff(tmp_color)
             stdscr.addstr(3, tmp_offset, "/")
             stdscr.attron(tmp_color)
-            stdscr.addstr(3, tmp_offset + 1, cur_constraints + " ")
+            stdscr.addstr(3, tmp_offset + 1, cur_gains + " ")
             # #} end of Active Controller
 
             # #{ Odom
