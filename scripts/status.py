@@ -28,7 +28,7 @@ def get_cpu_load(cpu_load_queue, queue_lock):
         if cpu_load_queue.qsize() > 3:
             run = False
         else:
-            cpu_load_queue.put(100-int(output));
+            cpu_load_queue.put(100-int(output))
         queue_lock.release()
 
 cpu_load_queue = mp.Queue()
@@ -45,6 +45,7 @@ class Status:
     mavros_state = State()
     attitude_cmd = AttitudeCommand()
     gains = String()
+    constraints = String()
     count_list = []
     count_odom = 0
     count_state = 0
@@ -52,6 +53,7 @@ class Status:
     count_attitude = 0
     count_controller = 0
     count_gains = 0
+    count_constraints= 0
     rospack = rospkg.RosPack()
     
     # #} end of Var definitions
@@ -60,6 +62,10 @@ class Status:
     
     def MultiCallback(self, data, callback_id):
         self.count_list[callback_id] = self.count_list[callback_id] + 1
+    
+    def ConstraintsCallback(self, data):
+        self.constraints = data
+        self.count_constraints= self.count_constraints + 1
     
     def GainsCallback(self, data):
         self.gains = data
@@ -110,8 +116,8 @@ class Status:
         name_list = []
         hz_list = []
         sub_list = []
-        dark_mode = True;
-        colorblind_mode = True;
+        dark_mode = True
+        colorblind_mode = True
 
         # Initialize curses
         curses.initscr()
@@ -123,8 +129,11 @@ class Status:
 
         # Get parameters from config file and put them in lists
 
-        param_list = rospy.get_param('~want_hz', "");
-        needed_nodes = rospy.get_param('~needed_nodes', "");
+        param_list = rospy.get_param('~want_hz', "")
+        needed_nodes = rospy.get_param('~needed_nodes', "")
+        for i in needed_nodes:
+            i = str(os.environ["UAV_NAME"]) + "/" + i
+
         for i in param_list:
             topic_list.append(i.rsplit()[0])
             tmp = i.rsplit(' ', 1)[0]
@@ -147,12 +156,16 @@ class Status:
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/odometry/odom_main", Odometry, self.OdomMainCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/state", State, self.StateCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/gain_manager/current_gains", String, self.GainsCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/constraint_manager/current_constraints", String, self.ConstraintsCallback)
 
         rate = rospy.Rate(1)
         time.sleep(1)
        
         # for topics from config list
         max_length = 0
+        
+        # disk space 
+        last_remaining = 0;
         for i in range(0, len(param_list)):
             max_length = len(max(name_list, key=len))
         spacer_string = "          "
@@ -175,7 +188,7 @@ class Status:
             red = curses.color_pair(125)
         tmp_color = curses.color_pair(0)
         process.start()
-        cpu_load = 0;
+        cpu_load = 0
 
         while not rospy.is_shutdown():
             stdscr.clear()
@@ -202,9 +215,9 @@ class Status:
                 tmp_color = red
                 cpu_load = "x"
             stdscr.attron(tmp_color)
-            stdscr.addstr(1, 31, " CPU load:   ")
-            stdscr.addstr(1, 40 + (4 - len(str(cpu_load))), str(cpu_load))
-            stdscr.addstr(1, 44, "% ")
+            stdscr.addstr(1, 26, " CPU load:   ")
+            stdscr.addstr(1, 35 + (4 - len(str(cpu_load))), str(cpu_load))
+            stdscr.addstr(1, 39, "% ")
 
             # #} end of CPU LOAD
 
@@ -225,7 +238,7 @@ class Status:
                 tmp = "DISARMED"
                 tmp_color = red
             stdscr.attron(tmp_color)
-            stdscr.addstr(3, 31, " State: " + str(tmp) + " ")
+            stdscr.addstr(3, 26, " State: " + str(tmp) + " ")
             if(str(tmp2) == "OFFBOARD"):
                 tmp_color = green
             elif(str(tmp2) == "POSITION" or str(tmp2) == "MANUAL" or str(tmp2) == "ALTITUDE" ):
@@ -233,7 +246,7 @@ class Status:
             else:
                 tmp_color = red
             stdscr.attron(tmp_color)
-            stdscr.addstr(4, 31, " Mode:  " + str(tmp2) + " ")
+            stdscr.addstr(4, 26, " Mode:  " + str(tmp2) + " ")
             # #} end of Mavros state
 
             # #{ Mass
@@ -242,12 +255,14 @@ class Status:
             tmp_color = curses.color_pair(0)
             stdscr.attron(tmp_color)
             try:
-                stdscr.addstr(0, 36," " + str(os.environ["UAV_NAME"]) + " ")
+                stdscr.addstr(0, 26," " + str(os.environ["UAV_NAME"]) + " ")
             except:
                 self.ErrorShutdown(" UAV_NAME variable is not set!!! Terminating... ", stdscr, red)
             try:
                 set_mass = float(os.environ["UAV_MASS"].replace(",","."))
-                stdscr.addstr(6, 31," UAV_MASS: " + str(set_mass) + " kg ")
+                set_mass = round(set_mass, 2)
+                stdscr.addstr(6, 40,"0 kg ")
+                stdscr.addstr(6, 26," UAV_MASS: " + str(set_mass))
                 est_mass = set_mass - round(self.attitude_cmd.mass_difference, 2)
                 tmp_color = green
                 if abs(self.attitude_cmd.mass_difference) > 2.0:
@@ -260,17 +275,18 @@ class Status:
             
                 if self.count_attitude > 0:
                     self.count_attitude = 0
-                    stdscr.addstr(7, 31," Est mass: " + str(est_mass) + " kg ")
+                    stdscr.addstr(7, 40,"0 kg ")
+                    stdscr.addstr(7, 26," Est mass: " + str(est_mass))
                 else:
                     tmp_color = red
                     stdscr.attron(tmp_color)
-                    stdscr.addstr(7, 31," Est mass: N/A ")
+                    stdscr.addstr(7, 26," Est mass: N/A ")
             
                 stdscr.attroff(curses.A_BLINK)
             except:
                 stdscr.attron(red)
                 stdscr.attron(curses.A_BLINK)
-                stdscr.addstr(6, 31," UAV_MASS: NOT SET! ")
+                stdscr.addstr(6, 26," UAV_MASS: NOT SET! ")
                 stdscr.attroff(curses.A_BLINK)
                 stdscr.attroff(red)
                 stdscr.attron(tmp_color)
@@ -294,7 +310,29 @@ class Status:
                 tmp_color = red
 
             stdscr.attron(tmp_color)
-            stdscr.addstr(1, 0, " Tracker:    " + tracker + " ")
+            stdscr.addstr(1, 0, " " + tracker + " ")
+            
+            tmp_offset = len(tracker) + 1
+
+            tmp = self.count_gains
+            self.count_gains = 0
+            if tmp == 0:
+                cur_gains = "N/A"
+                tmp_color = red
+            else:
+                cur_gains = self.gains.data
+
+            if cur_gains == "soft":
+                tmp_color = green
+            elif cur_gains == "supersoft" or cur_gains == "tight":
+                tmp_color = yellow
+            else:
+                tmp_color = red
+
+            stdscr.attroff(tmp_color)
+            stdscr.addstr(1, tmp_offset, "/")
+            stdscr.attron(tmp_color)
+            stdscr.addstr(1, tmp_offset + 1, cur_gains + " ")
             # #} end of Active Tracker
 
             # #{ Active Controller
@@ -312,28 +350,30 @@ class Status:
                 tmp_color = red
 
             stdscr.attron(tmp_color)
-            stdscr.addstr(2, 0, " Controller: " + controller + " ")
-            # #} end of Active Controller
+            stdscr.addstr(3, 0, " " + controller)
 
-            # #{ Current gains
-            tmp = self.count_gains
-            self.count_gains = 0
+            tmp_offset = len(controller) + 1
+
+            tmp = self.count_constraints
+            self.count_constraints = 0
             if tmp == 0:
-                cur_gains = "NO GAINS"
+                cur_constraints= "N/A"
                 tmp_color = red
             else:
-                cur_gains = self.gains.data
+                cur_constraints = self.constraints.data
 
-            if cur_gains == "soft":
+            if cur_constraints == "medium":
                 tmp_color = green
-            elif cur_gains == "supersoft" or cur_gains == "tight":
+            elif cur_constraints == "slow" or cur_constraints == "fast":
                 tmp_color = yellow
             else:
                 tmp_color = red
 
+            stdscr.attroff(tmp_color)
+            stdscr.addstr(3, tmp_offset, "/")
             stdscr.attron(tmp_color)
-            stdscr.addstr(3, 0, " Gains:      " + cur_gains + " ")
-            # #} end of Current gains
+            stdscr.addstr(3, tmp_offset + 1, cur_constraints + " ")
+            # #} end of Active Controller
 
             # #{ Odom
 
@@ -353,17 +393,17 @@ class Status:
             stdscr.addstr(5, 5 + (5 - len(str(tmp))),str(tmp) + " ")
             stdscr.addstr(6, 0, " " + str(odom) + " ")
             tmp = round(self.odom_main.pose.pose.position.x,2)
-            stdscr.addstr(5, 16, "       ")
-            stdscr.addstr(5, 23, " X ")
-            stdscr.addstr(5, 19-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+            stdscr.addstr(5, 14, "       ")
+            stdscr.addstr(5, 21, " X ")
+            stdscr.addstr(5, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
             tmp = round(self.odom_main.pose.pose.position.y,2)
-            stdscr.addstr(6, 16, "       ")
-            stdscr.addstr(6, 23, " Y ")
-            stdscr.addstr(6, 19-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+            stdscr.addstr(6, 14, "       ")
+            stdscr.addstr(6, 21, " Y ")
+            stdscr.addstr(6, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
             tmp = round(self.odom_main.pose.pose.position.z,2)
-            stdscr.addstr(7, 16, "       ")
-            stdscr.addstr(7, 23, " Z ")
-            stdscr.addstr(7, 19-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+            stdscr.addstr(7, 14, "       ")
+            stdscr.addstr(7, 21, " Z ")
+            stdscr.addstr(7, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
 
             # #} end of Odom
 
@@ -383,9 +423,9 @@ class Status:
                         tmp_color = yellow
 
                 stdscr.attron(tmp_color)
-                stdscr.addstr(1 + i, 53, spacer_string)
-                stdscr.addstr(1 + i, 53, " " + str(name_list[i]) + ": ")
-                stdscr.addstr(1 + i, 53 + max_length + 2 + (5 - len(str(tmp))), " " + str(tmp) + " Hz ")
+                stdscr.addstr(1 + i, 46, spacer_string)
+                stdscr.addstr(1 + i, 46, " " + str(name_list[i]) + ": ")
+                stdscr.addstr(1 + i, 46 + max_length + 2 + (5 - len(str(tmp))), " " + str(tmp) + " Hz ")
 
             # #} end of Topics from config
 
@@ -396,33 +436,30 @@ class Status:
             stdscr.attron(tmp_color)
 
             nodelist = rosnode.get_node_names()
-            iterator = 1;
-            stdscr.addstr(1, 95 + max_length, " Missing nodes: ")
+            iterator = 3
+            stdscr.addstr(3, 60 + max_length, " Missing nodes: ")
             
             stdscr.attroff(tmp_color)
             stdscr.attron(red)
             for i in needed_nodes:
                 if not any(str(i) in s for s in nodelist):
                     iterator = iterator + 1
-                    stdscr.addstr(iterator, 95 + max_length, " " + str(i) + " ")
-            if iterator == 1:
+                    stdscr.addstr(iterator, 60 + max_length, " " + str(i) + " ")
+            if iterator == 3:
                     stdscr.attroff(red)
                     stdscr.attron(green)
-                    stdscr.addstr(2, 95 + max_length, " None ")
+                    stdscr.addstr(4, 60 + max_length, " None ")
             # #} end of Nodes running
 
             # #{ Misc
             
-            stdscr.attroff(tmp_color)
-            tmp_color = curses.color_pair(0)
-            stdscr.attron(tmp_color)
-
+            stdscr.attroff(green)
             try:
-                stdscr.addstr(1, 70 + max_length, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
+                stdscr.addstr(0, 46, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
             except:
                 stdscr.attron(red)
                 stdscr.attron(curses.A_BLINK)
-                stdscr.addstr(1, 70 + max_length," NO ARENA DEFINED! ")
+                stdscr.addstr(0, 46," NO ARENA DEFINED! ")
                 stdscr.attroff(curses.A_BLINK)
                 stdscr.attroff(red)
             try:
@@ -431,22 +468,27 @@ class Status:
                 output, error = p1.communicate()
                 output = [line for line in output.split('\n') if line[-1:]=="/" in line]
                 output = output[0].split()[3]
+
                 remaining = float(output[:-1].replace(",",".")) 
 
                 stdscr.attroff(tmp_color)
                 if remaining > 25:
-                    tmp_color = green
+                    if not remaining == last_remaining:
+                        tmp_color = yellow
+                    else:
+                        tmp_color = green
                 elif remaining > 10:
                     tmp_color = yellow
                 else:
                     tmp_color = red
                     stdscr.attron(curses.A_BLINK)
+                last_remaining = remaining 
                 stdscr.attron(tmp_color)
-                stdscr.addstr(3, 70 + max_length, " Disk space: " + str(output) + " ")
+                stdscr.addstr(1, 60 + max_length, " Disk space: " + str(output) + " ")
                 stdscr.attroff(curses.A_BLINK)
             except:
                 stdscr.attron(red)
-                stdscr.addstr(3, 70 + max_length, " Disk space: N/A ")
+                stdscr.addstr(1, 60 + max_length, " Disk space: N/A ")
 
             # #} end of Misc
             
