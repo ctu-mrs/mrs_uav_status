@@ -13,6 +13,7 @@ from rostopic import ROSTopicHz
 from mrs_msgs.msg import *
 from sensor_msgs.msg import *
 from nav_msgs.msg import *
+from std_msgs.msg import *
 from geometry_msgs.msg import *
 from mavros_msgs.msg import *
 
@@ -43,12 +44,14 @@ class Status:
     odom_main = Odometry()
     mavros_state = State()
     attitude_cmd = AttitudeCommand()
+    gains = String()
     count_list = []
     count_odom = 0
     count_state = 0
     count_tracker = 0
     count_attitude = 0
     count_controller = 0
+    count_gains = 0
     rospack = rospkg.RosPack()
     
     # #} end of Var definitions
@@ -57,6 +60,10 @@ class Status:
     
     def MultiCallback(self, data, callback_id):
         self.count_list[callback_id] = self.count_list[callback_id] + 1
+    
+    def GainsCallback(self, data):
+        self.gains = data
+        self.count_gains = self.count_gains + 1
     
     def TrackerStatusCallback(self, data):
         self.tracker_status = data
@@ -139,6 +146,7 @@ class Status:
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/attitude_cmd", AttitudeCommand, self.AttitudeCmdCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/odometry/odom_main", Odometry, self.OdomMainCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/state", State, self.StateCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/gain_manager/current_gains", String, self.GainsCallback)
 
         rate = rospy.Rate(1)
         time.sleep(1)
@@ -307,6 +315,26 @@ class Status:
             stdscr.addstr(2, 0, " Controller: " + controller + " ")
             # #} end of Active Controller
 
+            # #{ Current gains
+            tmp = self.count_gains
+            self.count_gains = 0
+            if tmp == 0:
+                cur_gains = "NO GAINS"
+                tmp_color = red
+            else:
+                cur_gains = self.gains.data
+
+            if cur_gains == "soft":
+                tmp_color = green
+            elif cur_gains == "supersoft" or cur_gains == "tight":
+                tmp_color = yellow
+            else:
+                tmp_color = red
+
+            stdscr.attron(tmp_color)
+            stdscr.addstr(3, 0, " Gains:      " + cur_gains + " ")
+            # #} end of Current gains
+
             # #{ Odom
 
             tmp = self.count_odom
@@ -321,20 +349,21 @@ class Status:
                 if tmp < 0.9*100 or tmp > 1.1*100:
                     tmp_color = yellow
             stdscr.attron(tmp_color)
-            stdscr.addstr(4, 0, " Odom:     Hz, " + str(odom))
-            stdscr.addstr(4, 5 + (5 - len(str(tmp))),str(tmp) + " ")
+            stdscr.addstr(5, 0, " Odom:     Hz ")
+            stdscr.addstr(5, 5 + (5 - len(str(tmp))),str(tmp) + " ")
+            stdscr.addstr(6, 0, " " + str(odom) + " ")
             tmp = round(self.odom_main.pose.pose.position.x,2)
-            stdscr.addstr(5, 2, "       ")
-            stdscr.addstr(5, 9, " X ")
-            stdscr.addstr(5, 5-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+            stdscr.addstr(5, 16, "       ")
+            stdscr.addstr(5, 23, " X ")
+            stdscr.addstr(5, 19-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
             tmp = round(self.odom_main.pose.pose.position.y,2)
-            stdscr.addstr(6, 2, "       ")
-            stdscr.addstr(6, 9, " Y ")
-            stdscr.addstr(6, 5-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+            stdscr.addstr(6, 16, "       ")
+            stdscr.addstr(6, 23, " Y ")
+            stdscr.addstr(6, 19-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
             tmp = round(self.odom_main.pose.pose.position.z,2)
-            stdscr.addstr(7, 2, "       ")
-            stdscr.addstr(7, 9, " Z ")
-            stdscr.addstr(7, 5-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+            stdscr.addstr(7, 16, "       ")
+            stdscr.addstr(7, 23, " Z ")
+            stdscr.addstr(7, 19-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
 
             # #} end of Odom
 
