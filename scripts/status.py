@@ -438,6 +438,9 @@ class Status:
 
             nodelist = rosnode.get_node_names()
             iterator = 3
+            iterator2 = 0
+            tmp_max_len = 0
+            tmp_max_len_latch = 0
             stdscr.addstr(3, 60 + max_length, " Missing nodes: ")
             
             stdscr.attroff(tmp_color)
@@ -445,8 +448,15 @@ class Status:
             for i in needed_nodes:
                 if not any(str(i) in s for s in nodelist):
                     iterator = iterator + 1
-                    stdscr.addstr(iterator, 60 + max_length, " " + str(i) + " ")
-            if iterator == 3:
+                    if iterator == 8:
+                        iterator = 4
+                        iterator2 = iterator2 + 1
+                        tmp_max_len_latch = tmp_max_len
+                        tmp_max_len = 0
+                    stdscr.addstr(iterator, 60 + max_length + (2 + tmp_max_len_latch) * iterator2, " " + str(i) + " ")
+                    if tmp_max_len < len(str(i)):
+                        tmp_max_len = len(str(i))
+            if iterator == 3 and iterator2 == 0:
                     stdscr.attroff(red)
                     stdscr.attron(green)
                     stdscr.addstr(4, 60 + max_length, " None ")
