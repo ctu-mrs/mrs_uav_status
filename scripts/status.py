@@ -191,6 +191,7 @@ class Status:
         cpu_load = 0
 
         while not rospy.is_shutdown():
+            curses.resizeterm(30, 150)
             stdscr.clear()
             stdscr.attroff(tmp_color)
             if(not dark_mode):
