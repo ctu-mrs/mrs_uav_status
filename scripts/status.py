@@ -264,7 +264,7 @@ class Status:
                 set_mass = round(set_mass, 2)
                 stdscr.addstr(6, 40,"0 kg ")
                 stdscr.addstr(6, 26," UAV_MASS: " + str(set_mass))
-                est_mass = set_mass - round(self.attitude_cmd.mass_difference, 2)
+                est_mass = set_mass + round(self.attitude_cmd.mass_difference, 2)
                 tmp_color = green
                 if abs(self.attitude_cmd.mass_difference) > 2.0:
                     tmp_color = red
