@@ -1,4 +1,4 @@
-dark_mode: False # Set False if you use white terminal background (intended for outdoor usage)
+dark_mode: true # Set False if you use white terminal background (intended for outdoor usage)
 colorblind_mode: True # Set True to change green color to blue
 
 # List of topics to monitor, format is:
@@ -13,7 +13,7 @@ want_hz: [
       "optic_flow/velocity OptFlow 60",
       "rplidar/scan RPLidar 12",
       "rs_d435/aligned_depth_to_color/image_raw Realsense 15",
-      "mavros/setpoint_raw/target_attitude Mavros setpoint attitude 100",
+      "orb_slam/odom OrbOdom 10",
       ]
 
 needed_nodes: [
