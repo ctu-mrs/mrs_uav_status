@@ -115,6 +115,7 @@ class Status:
         topic_list = []
         name_list = []
         hz_list = []
+        hz_list_modifiers = []
         sub_list = []
         dark_mode = True
         colorblind_mode = True
@@ -138,7 +139,13 @@ class Status:
             topic_list.append(i.rsplit()[0])
             tmp = i.rsplit(' ', 1)[0]
             name_list.append(tmp.split(' ', 1)[1])
-            hz_list.append(float(i.rsplit()[-1]))
+            tmp_string = i.rsplit()[-1]
+            if tmp_string[-1] == "+" or tmp_string[-1] == "+":
+                hz_list_modifiers.append(tmp_string[-1])
+                tmp_string = tmp_string[:-1]
+            else:
+                hz_list_modifiers.append("0")
+            hz_list.append(tmp_string)
         dark_mode = rospy.get_param('~dark_mode', True)
         colorblind_mode = rospy.get_param('~colorblind_mode', True)
 
@@ -420,9 +427,12 @@ class Status:
                 if tmp == 0:
                     tmp_color = red
                 else:
+                    if tmp < 0.9*hz_list[i] and hz_list_modifiers[i] == "+":
+                        tmp_color = yellow
+                    if tmp > 1.1*hz_list[i] and hz_list_modifiers[i] == "-":
+                        tmp_color = yellow
                     if tmp < 0.9*hz_list[i] or tmp > 1.1*hz_list[i]:
                         tmp_color = yellow
-
                 stdscr.attron(tmp_color)
                 stdscr.addstr(1 + i, 46, spacer_string)
                 stdscr.addstr(1 + i, 46, " " + str(name_list[i]) + ": ")
