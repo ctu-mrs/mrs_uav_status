@@ -145,7 +145,7 @@ class Status:
                 tmp_string = tmp_string[:-1]
             else:
                 hz_list_modifiers.append("0")
-            hz_list.append(tmp_string)
+            hz_list.append(float(tmp_string))
         dark_mode = rospy.get_param('~dark_mode', True)
         colorblind_mode = rospy.get_param('~colorblind_mode', True)
 
