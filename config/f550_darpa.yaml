@@ -7,11 +7,10 @@ colorblind_mode: True # Set True to change green color to blue
 # if there is no "/" at the beginning, UAV_NAME is automatically added in from of the topic name (/uav1/topic_name)
 want_hz: [
       "garmin/range Garmin 88",
+      "garmin/range_up Garmin UP 60+",
       "bluefox/image_raw Bluefox 60",
-      "bluefox_right/image_raw BluefoxR 10",
-      "bluefox_left/image_raw BluefoxL 10",
       "optic_flow/velocity OptFlow 60",
-      "rplidar/scan RPLidar 12",
+      "rplidar/scan RPLidar 20",
       "rs_d435/aligned_depth_to_color/image_raw Realsense 15",
       "orb_slam/odom OrbOdom 10",
       ]
