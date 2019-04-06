@@ -43,12 +43,14 @@ class Status:
     controller_status = ControllerStatus()
     odom_main = Odometry()
     mavros_state = State()
+    attitude_target = AttitudeTarget()
     attitude_cmd = AttitudeCommand()
     gains = String()
     constraints = String()
     count_list = []
     count_odom = 0
     count_state = 0
+    count_attitude_target = 0
     count_tracker = 0
     count_attitude = 0
     count_controller = 0
@@ -91,6 +93,9 @@ class Status:
         self.mavros_state = data
         self.count_state = self.count_state + 1
     
+    def AttitudeTargetCallback(self, data):
+        self.attitude_target = data
+        self.count_attitude_target = self.count_attitude_target + 1
     # #} end of Callbacks
 
     # #{ ErrorShutdown
@@ -162,6 +167,7 @@ class Status:
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/attitude_cmd", AttitudeCommand, self.AttitudeCmdCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/odometry/odom_main", Odometry, self.OdomMainCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/state", State, self.StateCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/setpoint_raw/target_attitude", AttitudeTarget, self.AttitudeTargetCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/gain_manager/current_gains", String, self.GainsCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/constraint_manager/current_constraints", String, self.ConstraintsCallback)
 
@@ -257,7 +263,49 @@ class Status:
             stdscr.addstr(4, 26, " Mode:  " + str(tmp2) + " ")
             # #} end of Mavros state
 
-            # #{ Mass
+            # #{ Active Tracker
+            tmp = self.count_tracker
+            self.count_tracker = 0
+            if tmp == 0:
+                tracker = "NO TRACKER"
+                tmp_color = red
+            else:
+                tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
+
+            if tracker == "MpcTracker":
+                tmp_color = green
+            elif tracker == "LineTracker" or tracker == "LandoffTracker" or tracker == "NullTracker":
+                tmp_color = yellow
+            else:
+                tmp_color = red
+
+            stdscr.attron(tmp_color)
+            stdscr.addstr(1, 0, " " + tracker + " ")
+            
+            tmp_offset = len(tracker) + 1
+
+            tmp = self.count_constraints
+            self.count_constraints = 0
+            if tmp == 0:
+                cur_constraints= "N/A"
+                tmp_color = red
+            else:
+                cur_constraints = self.constraints.data
+
+            if cur_constraints == "medium":
+                tmp_color = green
+            elif cur_constraints == "slow" or cur_constraints == "fast":
+                tmp_color = yellow
+            else:
+                tmp_color = red
+
+            stdscr.attroff(tmp_color)
+            stdscr.addstr(1, tmp_offset, "/")
+            stdscr.attron(tmp_color)
+            stdscr.addstr(1, tmp_offset + 1, cur_constraints + " ")
+            # #} end of Active Tracker
+
+# #{ Mass
             
             stdscr.attroff(tmp_color)
             tmp_color = curses.color_pair(0)
@@ -301,47 +349,22 @@ class Status:
             
             # #} end of Mass
 
-            # #{ Active Tracker
-            tmp = self.count_tracker
-            self.count_tracker = 0
+            # #{ Thrust
+            tmp = self.count_attitude_target
+            self.count_attitude_target = 0
             if tmp == 0:
-                tracker = "NO TRACKER"
+                thrust = "N/A"
                 tmp_color = red
             else:
-                tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
-
-            if tracker == "MpcTracker":
+                thrust = round(self.attitude_target.thrust, 3)
                 tmp_color = green
-            elif tracker == "LineTracker" or tracker == "LandoffTracker" or tracker == "NullTracker":
-                tmp_color = yellow
-            else:
-                tmp_color = red
-
+                if thrust > 0.7 or thrust < 0.15:
+                    tmp_color = yellow
+                if thrust > 0.79:
+                    tmp_color = red
             stdscr.attron(tmp_color)
-            stdscr.addstr(1, 0, " " + tracker + " ")
-            
-            tmp_offset = len(tracker) + 1
-
-            tmp = self.count_constraints
-            self.count_constraints = 0
-            if tmp == 0:
-                cur_constraints= "N/A"
-                tmp_color = red
-            else:
-                cur_constraints = self.constraints.data
-
-            if cur_constraints == "medium":
-                tmp_color = green
-            elif cur_constraints == "slow" or cur_constraints == "fast":
-                tmp_color = yellow
-            else:
-                tmp_color = red
-
-            stdscr.attroff(tmp_color)
-            stdscr.addstr(1, tmp_offset, "/")
-            stdscr.attron(tmp_color)
-            stdscr.addstr(1, tmp_offset + 1, cur_constraints + " ")
-            # #} end of Active Tracker
+            stdscr.addstr(4, 0, " Thrust: " + str(thrust) + " ")
+            # #} end of Thrust
 
             # #{ Active Controller
             tmp = self.count_controller
