@@ -364,8 +364,8 @@ class Status:
                 thrust = "N/A"
                 tmp_color = red
             else:
-                thrust = round(self.attitude_target.thrust, 3)
-                # thrust = "N/A"
+                # thrust = round(self.attitude_target.thrust, 3)
+                thrust = "N/A"
                 tmp_color = green
                 if thrust > 0.7 or thrust < 0.15:
                     tmp_color = yellow
