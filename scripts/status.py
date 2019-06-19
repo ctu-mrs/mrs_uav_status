@@ -7,6 +7,7 @@ import time
 import multiprocessing as mp
 import subprocess
 import rosnode
+import tf
 
 from rostopic import ROSTopicHz
 
@@ -47,6 +48,7 @@ class Status:
     attitude_cmd = AttitudeCommand()
     gains = String()
     constraints = String()
+    bestpos = Bestpos()
     count_list = []
     count_odom = 0
     count_state = 0
@@ -55,7 +57,8 @@ class Status:
     count_attitude = 0
     count_controller = 0
     count_gains = 0
-    count_constraints= 0
+    count_constraints = 0
+    count_bestpos = 0
     rospack = rospkg.RosPack()
     
     # #} end of Var definitions
@@ -96,6 +99,10 @@ class Status:
     def AttitudeTargetCallback(self, data):
         self.attitude_target = data
         self.count_attitude_target = self.count_attitude_target + 1
+
+    def BestposCallback(self, data):
+        self.bestpos = data
+        self.count_bestpos = self.count_bestpos + 1
     # #} end of Callbacks
 
     # #{ ErrorShutdown
@@ -170,6 +177,7 @@ class Status:
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/setpoint_raw/target_attitude", AttitudeTarget, self.AttitudeTargetCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/gain_manager/current_gains", String, self.GainsCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/constraint_manager/current_constraints", String, self.ConstraintsCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/tersus/bestpos", Bestpos, self.BestposCallback)
 
         rate = rospy.Rate(1)
         time.sleep(1)
@@ -356,8 +364,8 @@ class Status:
                 thrust = "N/A"
                 tmp_color = red
             else:
-                # thrust = round(self.attitude_target.thrust, 3)
-                thrust = "N/A"
+                thrust = round(self.attitude_target.thrust, 3)
+                # thrust = "N/A"
                 tmp_color = green
                 if thrust > 0.7 or thrust < 0.15:
                     tmp_color = yellow
@@ -436,6 +444,17 @@ class Status:
             stdscr.addstr(7, 14, "       ")
             stdscr.addstr(7, 21, " Z ")
             stdscr.addstr(7, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+            
+            quaternion = (
+                self.odom_main.pose.pose.orientation.x,
+                self.odom_main.pose.pose.orientation.y,
+                self.odom_main.pose.pose.orientation.z,
+                self.odom_main.pose.pose.orientation.w)
+            euler = tf.transformations.euler_from_quaternion(quaternion)
+            tmp = round(euler[2], 2)
+            stdscr.addstr(7, 4, "       ")
+            stdscr.addstr(7, 9, " yaw ")
+            stdscr.addstr(7, 5 - (len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
 
             # #} end of Odom
 
@@ -495,6 +514,25 @@ class Status:
                     stdscr.attron(green)
                     stdscr.addstr(4, 60 + max_length, " None ")
             # #} end of Nodes running
+
+            # #{ RTK
+            tmp = self.count_bestpos
+            self.count_bestpos = 0
+            if tmp == 0:
+                rtk = "no msgs"
+                tmp_color = red
+            else:
+                rtk = self.bestpos.position_type
+                tmp_color = green
+                if rtk == "L1_INT" or rtk == "WIDE_INT" or rtk == "NARROW_INT":
+                    tmp_color = green
+                if rtk == "L1_FLOAT" or rtk == "NARROW_FLOAT":
+                    tmp_color = yellow
+                else:
+                    tmp_color = red
+            stdscr.attron(tmp_color)
+            stdscr.addstr(2, 60 + max_length, " RTK: " + str(rtk) + " ")
+            # #} end of RTK
 
             # #{ Misc
             
