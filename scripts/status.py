@@ -38,33 +38,6 @@ process = mp.Process(target=get_cpu_load, args=(cpu_load_queue, queue_lock))
 
 class Status:
 
-    # #{ Var definitions
-    
-    tracker_status = TrackerStatus()
-    controller_status = ControllerStatus()
-    odom_main = Odometry()
-    mavros_state = State()
-    attitude_target = AttitudeTarget()
-    attitude_cmd = AttitudeCommand()
-    gains = String()
-    constraints = String()
-    bestpos = Bestpos()
-    battery = BatteryState()
-    count_list = []
-    count_odom = 0
-    count_state = 0
-    count_attitude_target = 0
-    count_tracker = 0
-    count_attitude = 0
-    count_controller = 0
-    count_gains = 0
-    count_constraints = 0
-    count_bestpos = 0
-    count_battery = 0
-    rospack = rospkg.RosPack()
-    
-    # #} end of Var definitions
-
     # #{ Callbacks
     
     def MultiCallback(self, data, callback_id):
@@ -99,7 +72,7 @@ class Status:
         self.count_state = self.count_state + 1
     
     def AttitudeTargetCallback(self, data):
-        self.attitude_target = data
+        # self.attitude_target = AttitudeTarget(data)
         self.count_attitude_target = self.count_attitude_target + 1
 
     def BestposCallback(self, data):
@@ -609,6 +582,34 @@ class Status:
             
 
     def __init__(self):
+
+        # #{ Var definitions
+        
+        self.tracker_status = TrackerStatus()
+        self.controller_status = ControllerStatus()
+        self.odom_main = Odometry()
+        self.mavros_state = State()
+        self.attitude_target = AttitudeTarget()
+        self.attitude_cmd = AttitudeCommand()
+        self.gains = String()
+        self.constraints = String()
+        self.bestpos = Bestpos()
+        self.battery = BatteryState()
+        self.count_list = []
+        self.count_odom = 0
+        self.count_state = 0
+        self.count_attitude_target = 0
+        self.count_tracker = 0
+        self.count_attitude = 0
+        self.count_controller = 0
+        self.count_gains = 0
+        self.count_constraints = 0
+        self.count_bestpos = 0
+        self.count_battery = 0
+        self.rospack = rospkg.RosPack()
+        
+        # #} end of Var definitions
+
         curses.wrapper(self.status)
 
 if __name__ == '__main__':
