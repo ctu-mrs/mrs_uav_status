@@ -72,7 +72,7 @@ class Status:
         self.count_state = self.count_state + 1
     
     def AttitudeTargetCallback(self, data):
-        # self.attitude_target = AttitudeTarget(data)
+        self.attitude_target = data
         self.count_attitude_target = self.count_attitude_target + 1
 
     def BestposCallback(self, data):
@@ -141,13 +141,6 @@ class Status:
         colorblind_mode = rospy.get_param('~colorblind_mode', True)
 
         # Create ROSTopicHz and subscribers defined by the loaded config
-        for i in range(0, len(param_list)):
-            if(str(topic_list[i][0]) == "/"):
-                sub_list.append(rospy.Subscriber(str(topic_list[i]), rospy.AnyMsg, self.MultiCallback, callback_args = i))
-            else:
-                sub_list.append(rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/" + str(topic_list[i]), rospy.AnyMsg, self.MultiCallback, callback_args = i))
-            self.count_list.append(0)
-
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/tracker_status", TrackerStatus, self.TrackerStatusCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/controller_status", ControllerStatus, self.ControllerStatusCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/attitude_cmd", AttitudeCommand, self.AttitudeCmdCallback)
@@ -158,6 +151,13 @@ class Status:
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/constraint_manager/current_constraints", String, self.ConstraintsCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/tersus/bestpos", Bestpos, self.BestposCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/battery", BatteryState, self.BatteryCallback)
+
+        for i in range(0, len(param_list)):
+            if(str(topic_list[i][0]) == "/"):
+                sub_list.append(rospy.Subscriber(str(topic_list[i]), rospy.AnyMsg, self.MultiCallback, callback_args = i))
+            else:
+                sub_list.append(rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/" + str(topic_list[i]), rospy.AnyMsg, self.MultiCallback, callback_args = i))
+            self.count_list.append(0)
 
         rate = rospy.Rate(1)
         time.sleep(1)
@@ -344,10 +344,9 @@ class Status:
                 thrust = "N/A"
                 tmp_color = red
             else:
-                # thrust = round(self.attitude_target.thrust, 3)
-                thrust = "N/A"
+                thrust = round(self.attitude_target.thrust, 3)
                 tmp_color = green
-                if thrust > 0.7 or thrust < 0.15:
+                if thrust > 0.7 or thrust < 0.25:
                     tmp_color = yellow
                 if thrust > 0.79:
                     tmp_color = red
