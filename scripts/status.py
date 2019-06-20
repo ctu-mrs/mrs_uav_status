@@ -49,6 +49,7 @@ class Status:
     gains = String()
     constraints = String()
     bestpos = Bestpos()
+    battery = BatteryState()
     count_list = []
     count_odom = 0
     count_state = 0
@@ -59,6 +60,7 @@ class Status:
     count_gains = 0
     count_constraints = 0
     count_bestpos = 0
+    count_battery = 0
     rospack = rospkg.RosPack()
     
     # #} end of Var definitions
@@ -103,6 +105,10 @@ class Status:
     def BestposCallback(self, data):
         self.bestpos = data
         self.count_bestpos = self.count_bestpos + 1
+
+    def BatteryCallback(self, data):
+        self.battery = data
+        self.count_battery = self.count_battery + 1
     # #} end of Callbacks
 
     # #{ ErrorShutdown
@@ -178,6 +184,7 @@ class Status:
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/gain_manager/current_gains", String, self.GainsCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/constraint_manager/current_constraints", String, self.ConstraintsCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/tersus/bestpos", Bestpos, self.BestposCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/battery", BatteryState, self.BatteryCallback)
 
         rate = rospy.Rate(1)
         time.sleep(1)
@@ -364,8 +371,8 @@ class Status:
                 thrust = "N/A"
                 tmp_color = red
             else:
-                # thrust = round(self.attitude_target.thrust, 3)
-                thrust = "N/A"
+                thrust = round(self.attitude_target.thrust, 3)
+                # thrust = "N/A"
                 tmp_color = green
                 if thrust > 0.7 or thrust < 0.15:
                     tmp_color = yellow
@@ -534,7 +541,29 @@ class Status:
             stdscr.addstr(2, 60 + max_length, " RTK: " + str(rtk) + " ")
             # #} end of RTK
 
-            # #{ Misc
+            # #{ Battery
+            tmp = self.count_battery
+            self.count_battery = 0
+            if tmp == 0:
+                battery = "N/A"
+                tmp_color = red
+            else:
+                battery = round(self.battery.voltage, 2)
+                tmp_color = green
+                if (battery > 15.0 and battery < 20.0) or battery > 22.5:
+                    tmp_color = green
+                elif (battery > 14.2 and battery < 15.0) or (battery > 21.3 and battery < 22.5):
+                    tmp_color = yellow
+                else:
+                    stdscr.attron(curses.A_BLINK)
+                    tmp_color = red
+            stdscr.attron(tmp_color)
+            stdscr.addstr(5, 26, " Battery:  " + str(battery) + " ")
+            stdscr.addstr(5, 43, "V")
+            stdscr.attroff(curses.A_BLINK)
+            # #} end of Battery
+
+# #{ Misc
             
             stdscr.attroff(green)
             try:
