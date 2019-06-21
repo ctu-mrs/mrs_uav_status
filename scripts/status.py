@@ -38,31 +38,6 @@ process = mp.Process(target=get_cpu_load, args=(cpu_load_queue, queue_lock))
 
 class Status:
 
-    # #{ Var definitions
-    
-    tracker_status = TrackerStatus()
-    controller_status = ControllerStatus()
-    odom_main = Odometry()
-    mavros_state = State()
-    attitude_target = AttitudeTarget()
-    attitude_cmd = AttitudeCommand()
-    gains = String()
-    constraints = String()
-    bestpos = Bestpos()
-    count_list = []
-    count_odom = 0
-    count_state = 0
-    count_attitude_target = 0
-    count_tracker = 0
-    count_attitude = 0
-    count_controller = 0
-    count_gains = 0
-    count_constraints = 0
-    count_bestpos = 0
-    rospack = rospkg.RosPack()
-    
-    # #} end of Var definitions
-
     # #{ Callbacks
     
     def MultiCallback(self, data, callback_id):
@@ -103,6 +78,10 @@ class Status:
     def BestposCallback(self, data):
         self.bestpos = data
         self.count_bestpos = self.count_bestpos + 1
+
+    def BatteryCallback(self, data):
+        self.battery = data
+        self.count_battery = self.count_battery + 1
     # #} end of Callbacks
 
     # #{ ErrorShutdown
@@ -162,13 +141,6 @@ class Status:
         colorblind_mode = rospy.get_param('~colorblind_mode', True)
 
         # Create ROSTopicHz and subscribers defined by the loaded config
-        for i in range(0, len(param_list)):
-            if(str(topic_list[i][0]) == "/"):
-                sub_list.append(rospy.Subscriber(str(topic_list[i]), rospy.AnyMsg, self.MultiCallback, callback_args = i))
-            else:
-                sub_list.append(rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/" + str(topic_list[i]), rospy.AnyMsg, self.MultiCallback, callback_args = i))
-            self.count_list.append(0)
-
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/tracker_status", TrackerStatus, self.TrackerStatusCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/controller_status", ControllerStatus, self.ControllerStatusCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/attitude_cmd", AttitudeCommand, self.AttitudeCmdCallback)
@@ -178,6 +150,14 @@ class Status:
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/gain_manager/current_gains", String, self.GainsCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/constraint_manager/current_constraints", String, self.ConstraintsCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/tersus/bestpos", Bestpos, self.BestposCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/battery", BatteryState, self.BatteryCallback)
+
+        for i in range(0, len(param_list)):
+            if(str(topic_list[i][0]) == "/"):
+                sub_list.append(rospy.Subscriber(str(topic_list[i]), rospy.AnyMsg, self.MultiCallback, callback_args = i))
+            else:
+                sub_list.append(rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/" + str(topic_list[i]), rospy.AnyMsg, self.MultiCallback, callback_args = i))
+            self.count_list.append(0)
 
         rate = rospy.Rate(1)
         time.sleep(1)
@@ -364,10 +344,9 @@ class Status:
                 thrust = "N/A"
                 tmp_color = red
             else:
-                # thrust = round(self.attitude_target.thrust, 3)
-                thrust = "N/A"
+                thrust = round(self.attitude_target.thrust, 3)
                 tmp_color = green
-                if thrust > 0.7 or thrust < 0.15:
+                if thrust > 0.7 or thrust < 0.25:
                     tmp_color = yellow
                 if thrust > 0.79:
                     tmp_color = red
@@ -534,7 +513,29 @@ class Status:
             stdscr.addstr(2, 60 + max_length, " RTK: " + str(rtk) + " ")
             # #} end of RTK
 
-            # #{ Misc
+            # #{ Battery
+            tmp = self.count_battery
+            self.count_battery = 0
+            if tmp == 0:
+                battery = "N/A"
+                tmp_color = red
+            else:
+                battery = round(self.battery.voltage, 2)
+                tmp_color = green
+                if (battery > 15.0 and battery < 20.0) or battery > 22.5:
+                    tmp_color = green
+                elif (battery > 14.2 and battery < 15.0) or (battery > 21.3 and battery < 22.5):
+                    tmp_color = yellow
+                else:
+                    stdscr.attron(curses.A_BLINK)
+                    tmp_color = red
+            stdscr.attron(tmp_color)
+            stdscr.addstr(5, 26, " Battery:  " + str(battery) + " ")
+            stdscr.addstr(5, 43, "V")
+            stdscr.attroff(curses.A_BLINK)
+            # #} end of Battery
+
+# #{ Misc
             
             stdscr.attroff(green)
             try:
@@ -580,6 +581,34 @@ class Status:
             
 
     def __init__(self):
+
+        # #{ Var definitions
+        
+        self.tracker_status = TrackerStatus()
+        self.controller_status = ControllerStatus()
+        self.odom_main = Odometry()
+        self.mavros_state = State()
+        self.attitude_target = AttitudeTarget()
+        self.attitude_cmd = AttitudeCommand()
+        self.gains = String()
+        self.constraints = String()
+        self.bestpos = Bestpos()
+        self.battery = BatteryState()
+        self.count_list = []
+        self.count_odom = 0
+        self.count_state = 0
+        self.count_attitude_target = 0
+        self.count_tracker = 0
+        self.count_attitude = 0
+        self.count_controller = 0
+        self.count_gains = 0
+        self.count_constraints = 0
+        self.count_bestpos = 0
+        self.count_battery = 0
+        self.rospack = rospkg.RosPack()
+        
+        # #} end of Var definitions
+
         curses.wrapper(self.status)
 
 if __name__ == '__main__':
