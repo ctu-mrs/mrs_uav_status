@@ -527,16 +527,16 @@ class Status:
                     battery = battery/4
                 battery = round(battery, 2)
                 tmp_color = green
-                if (battery > 3.8):
+                if (battery > 3.7):
                     tmp_color = green
-                elif (battery > 3.6):
+                elif (battery > 3.55):
                     tmp_color = yellow
                 else:
                     stdscr.attron(curses.A_BLINK)
                     tmp_color = red
             stdscr.attron(tmp_color)
             stdscr.addstr(5, 26, " Battery:  " + str(battery) + " ")
-            stdscr.addstr(5, 43, "V")
+            stdscr.addstr(5, 42, "V")
             stdscr.attroff(curses.A_BLINK)
             # #} end of Battery
 
