@@ -520,11 +520,12 @@ class Status:
                 battery = "N/A"
                 tmp_color = red
             else:
-                battery = round(self.battery.voltage, 2)
+                battery = self.battery.voltage
                 if battery > 17.0:
                     battery = battery/6
-                else
+                else:
                     battery = battery/4
+                battery = round(battery, 2)
                 tmp_color = green
                 if (battery > 3.8):
                     tmp_color = green
