@@ -526,9 +526,9 @@ class Status:
                 else
                     battery = battery/4
                 tmp_color = green
-                if (battery > 15.0 and battery < 20.0) or battery > 22.5:
+                if (battery > 3.8):
                     tmp_color = green
-                elif (battery > 14.2 and battery < 15.0) or (battery > 21.3 and battery < 22.5):
+                elif (battery > 3.6):
                     tmp_color = yellow
                 else:
                     stdscr.attron(curses.A_BLINK)
