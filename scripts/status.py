@@ -505,7 +505,7 @@ class Status:
                 tmp_color = green
                 if rtk == "L1_INT" or rtk == "WIDE_INT" or rtk == "NARROW_INT":
                     tmp_color = green
-                if rtk == "L1_FLOAT" or rtk == "NARROW_FLOAT":
+                elif rtk == "L1_FLOAT" or rtk == "NARROW_FLOAT":
                     tmp_color = yellow
                 else:
                     tmp_color = red
@@ -521,6 +521,10 @@ class Status:
                 tmp_color = red
             else:
                 battery = round(self.battery.voltage, 2)
+                if battery > 17.0:
+                    battery = battery/6
+                else
+                    battery = battery/4
                 tmp_color = green
                 if (battery > 15.0 and battery < 20.0) or battery > 22.5:
                     tmp_color = green
