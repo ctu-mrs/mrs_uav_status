@@ -10,7 +10,7 @@ want_hz: [
       "bluefox/image_raw Bluefox 60",
       "optic_flow/velocity OptFlow 60",
       "mavros/setpoint_raw/target_attitude Mavros setpoint attitude 100",
-      "mavros/global_position/global Mavros global global 100",
+      "rplidar/scan rplidar 10",
       ]
 
 needed_nodes: [
