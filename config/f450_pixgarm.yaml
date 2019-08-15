@@ -6,11 +6,14 @@ colorblind_mode: True # Set True to change green color to blue
 # if "/" is provided at the beginning of topic_name, the topic name is considered as written, 
 # if there is no "/" at the beginning, UAV_NAME is automatically added in from of the topic name (/uav1/topic_name)
 want_hz: [
-      "mavros/distance_sensor/garmin Garmin 20",
-      "bluefox/image_raw Bluefox 60",
-      "optic_flow/velocity OptFlow 60",
-      "mavros/setpoint_raw/target_attitude Mavros setpoint attitude 100",
-      "rplidar/scan rplidar 10",
+      "mavros/distance_sensor/garmin Garmin 20+",
+      "ultrasound/range ultrasound 40+",
+      "bluefox_det/image_raw bluefox_det 5+",
+      "mavros/setpoint_raw/target_attitude Pixhawk 100",
+      "rplidar/scan rplidar 10+",
+      "/subt_odom subt odom 1+",
+      "apriltag apriltag 5+",
+      "artifact_detection/artifact_detections artifact detect 1+",
       ]
 
 needed_nodes: [

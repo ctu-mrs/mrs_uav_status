@@ -201,25 +201,25 @@ class Status:
                 
             # #{ CPU LOAD
 
-            # tmp_color = green
-            # if process.is_alive():
-            #     queue_lock.acquire()
-            #     if not cpu_load_queue.empty():
-            #         cpu_load = cpu_load_queue.get_nowait()
-            #         while not cpu_load_queue.empty():
-            #             cpu_load_queue.get_nowait()
-            #     queue_lock.release()
-            #     if(int(cpu_load) > 89):
-            #         tmp_color = red
-            #     elif(int(cpu_load) > 74):
-            #         tmp_color = yellow
-            # else:
-            #     tmp_color = red
-            #     cpu_load = "x"
-            # stdscr.attron(tmp_color)
-            # stdscr.addstr(1, 26, " CPU load:   ")
-            # stdscr.addstr(1, 35 + (4 - len(str(cpu_load))), str(cpu_load))
-            # stdscr.addstr(1, 39, "% ")
+            tmp_color = green
+            if process.is_alive():
+                queue_lock.acquire()
+                if not cpu_load_queue.empty():
+                    cpu_load = cpu_load_queue.get_nowait()
+                    while not cpu_load_queue.empty():
+                        cpu_load_queue.get_nowait()
+                queue_lock.release()
+                if(int(cpu_load) > 89):
+                    tmp_color = red
+                elif(int(cpu_load) > 74):
+                    tmp_color = yellow
+            else:
+                tmp_color = red
+                cpu_load = "x"
+            stdscr.attron(tmp_color)
+            stdscr.addstr(1, 26, " CPU load:   ")
+            stdscr.addstr(1, 35 + (4 - len(str(cpu_load))), str(cpu_load))
+            stdscr.addstr(1, 39, "% ")
 
             # #} end of CPU LOAD
 
@@ -282,7 +282,7 @@ class Status:
 
             if cur_constraints == "medium":
                 tmp_color = green
-            elif cur_constraints == "slow" or cur_constraints == "fast":
+            elif cur_constraints == "slow" or cur_constraints == "fast" or cur_constraints == "optflow" or cur_constraints == "darpa":
                 tmp_color = yellow
             else:
                 tmp_color = red
@@ -363,7 +363,7 @@ class Status:
             else:
                 controller = self.controller_status.controller.rsplit('/', 1)[-1]
 
-            if controller == "So3Controller":
+            if controller == "So3Controller" or controller == "MpcController":
                 tmp_color = green
             else:
                 tmp_color = red
