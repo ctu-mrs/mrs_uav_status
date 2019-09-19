@@ -51,13 +51,12 @@ class Status:
         self.gains = data
         self.count_gains = self.count_gains + 1
     
-    def TrackerStatusCallback(self, data):
-        self.tracker_status = data
-        self.count_tracker = self.count_tracker + 1
-    
-    def ControllerStatusCallback(self, data):
-        self.controller_status = data
+    def ControlManagerDiagnostics(self, data):
+        self.controller_status = data.controller_status
         self.count_controller = self.count_controller + 1
+
+        self.tracker_status = data.tracker_status
+        self.count_tracker = self.count_tracker + 1
     
     def AttitudeCmdCallback(self, data):
         self.attitude_cmd = data
@@ -141,8 +140,7 @@ class Status:
         colorblind_mode = rospy.get_param('~colorblind_mode', True)
 
         # Create ROSTopicHz and subscribers defined by the loaded config
-        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/tracker_status", TrackerStatus, self.TrackerStatusCallback)
-        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/controller_status", ControllerStatus, self.ControllerStatusCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/diagnostics", ControlManagerDiagnostics, self.ControlManagerDiagnostics)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/attitude_cmd", AttitudeCommand, self.AttitudeCmdCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/odometry/odom_main", Odometry, self.OdomMainCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/state", State, self.StateCallback)
@@ -161,10 +159,10 @@ class Status:
 
         rate = rospy.Rate(1)
         time.sleep(1)
-       
+
         # for topics from config list
         max_length = 0
-        
+
         # disk space 
         last_remaining = 0;
         for i in range(0, len(param_list)):
@@ -282,7 +280,7 @@ class Status:
 
             if cur_constraints == "medium":
                 tmp_color = green
-            elif cur_constraints == "slow" or cur_constraints == "fast" or cur_constraints == "optflow" or cur_constraints == "darpa":
+            elif cur_constraints == "slow" or cur_constraints == "fast" or cur_constraints == "optflow":
                 tmp_color = yellow
             else:
                 tmp_color = red
@@ -307,7 +305,7 @@ class Status:
                 set_mass = round(set_mass, 2)
                 stdscr.addstr(6, 40,"0 kg ")
                 stdscr.addstr(6, 26," UAV_MASS: " + str(set_mass))
-                est_mass = set_mass + round(self.attitude_cmd.mass_difference, 2)
+                est_mass = round(self.attitude_cmd.total_mass, 2)
                 tmp_color = green
                 if abs(self.attitude_cmd.mass_difference) > 2.0:
                     tmp_color = red
@@ -373,25 +371,26 @@ class Status:
 
             tmp_offset = len(controller) + 1
 
-            tmp = self.count_gains
-            self.count_gains = 0
-            if tmp == 0:
-                cur_gains = "N/A"
-                tmp_color = red
-            else:
-                cur_gains = self.gains.data
-
-            if cur_gains == "soft":
-                tmp_color = green
-            elif cur_gains == "supersoft" or cur_gains == "tight":
-                tmp_color = yellow
-            else:
-                tmp_color = red
-
-            stdscr.attroff(tmp_color)
-            stdscr.addstr(3, tmp_offset, "/")
-            stdscr.attron(tmp_color)
-            stdscr.addstr(3, tmp_offset + 1, cur_gains + " ")
+            if controller == "So3Controller":
+              tmp = self.count_gains
+              self.count_gains = 0
+              if tmp == 0:
+                  cur_gains = "N/A"
+                  tmp_color = red
+              else:
+                  cur_gains = self.gains.data
+              
+              if cur_gains == "soft":
+                  tmp_color = green
+              elif cur_gains == "supersoft" or cur_gains == "tight":
+                  tmp_color = yellow
+              else:
+                  tmp_color = red
+              
+              stdscr.attroff(tmp_color)
+              stdscr.addstr(3, tmp_offset, "/")
+              stdscr.attron(tmp_color)
+              stdscr.addstr(3, tmp_offset + 1, cur_gains + " ")
             # #} end of Active Controller
 
             # #{ Odom
@@ -603,9 +602,9 @@ class Status:
         self.count_odom = 0
         self.count_state = 0
         self.count_attitude_target = 0
-        self.count_tracker = 0
         self.count_attitude = 0
         self.count_controller = 0
+        self.count_tracker = 0
         self.count_gains = 0
         self.count_constraints = 0
         self.count_bestpos = 0
