@@ -547,13 +547,13 @@ class Status:
             # #{ mpcstatus
             tmp = self.count_mpcstatus
             self.count_mpcstatus = 0
-            if tmp == 0:
+            if tmp == 0 or str(self.mpcstatus.collision_avoidance_active) != "True":
                 tmp_color = red
             else:
                 tmp_color = green
 
             stdscr.attron(tmp_color)
-            stdscr.addstr(1, 92, " Col. Avoid: " )
+            stdscr.addstr(1, 92, " Col. Avoid: " + str(self.mpcstatus.collision_avoidance_active))
             stdscr.addstr(2, 93, str(self.mpcstatus.avoidance_active_uavs))
             tmp_color = red
             stdscr.attron(tmp_color)
