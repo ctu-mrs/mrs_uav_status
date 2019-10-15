@@ -81,6 +81,10 @@ class Status:
     def BatteryCallback(self, data):
         self.battery = data
         self.count_battery = self.count_battery + 1
+    
+    def MPCstatusCallback(self, data):
+        self.mpcstatus = data
+        self.count_mpcstatus = self.count_mpcstatus + 1
     # #} end of Callbacks
 
     # #{ ErrorShutdown
@@ -149,6 +153,7 @@ class Status:
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/constraint_manager/current_constraints", String, self.ConstraintsCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/tersus/bestpos", Bestpos, self.BestposCallback)
         rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/battery", BatteryState, self.BatteryCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/mpc_tracker/diagnostics", MpcTrackerDiagnostics, self.MPCstatusCallback)
 
         for i in range(0, len(param_list)):
             if(str(topic_list[i][0]) == "/"):
@@ -539,6 +544,23 @@ class Status:
             stdscr.attroff(curses.A_BLINK)
             # #} end of Battery
 
+            # #{ mpcstatus
+            tmp = self.count_mpcstatus
+            self.count_mpcstatus = 0
+            if tmp == 0:
+                tmp_color = red
+            else:
+                tmp_color = green
+
+            stdscr.attron(tmp_color)
+            stdscr.addstr(1, 92, " Col. Avoid: " )
+            stdscr.addstr(2, 93, str(self.mpcstatus.avoidance_active_uavs))
+            tmp_color = red
+            stdscr.attron(tmp_color)
+            if str(self.mpcstatus.avoiding_collision) == "True" :
+                stdscr.addstr(3, 93, " ! AVOIDING COLLISION ! ")
+            # #} end of mpcstatus
+
 # #{ Misc
             
             stdscr.attroff(green)
@@ -609,6 +631,7 @@ class Status:
         self.count_constraints = 0
         self.count_bestpos = 0
         self.count_battery = 0
+        self.count_mpcstatus = 0
         self.rospack = rospkg.RosPack()
         
         # #} end of Var definitions
@@ -620,4 +643,5 @@ if __name__ == '__main__':
         status = Status()
     except rospy.ROSInterruptException:
         pass
+
 
