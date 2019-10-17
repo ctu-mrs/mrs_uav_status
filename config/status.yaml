@@ -6,9 +6,9 @@ colorblind_mode: True # Set True to change green color to blue
 # if "/" is provided at the beginning of topic_name, the topic name is considered as written, 
 # if there is no "/" at the beginning, UAV_NAME is automatically added in from of the topic name (/uav1/topic_name)
 want_hz: [
-      "garmin/range Garmin 100",
-      "bluefox/image_raw Bluefox 100",
-      "mavros/setpoint_raw/attitude mavros setpoint 100",
+      # "garmin/range Garmin 100",
+      # "bluefox/image_raw Bluefox 100",
+      # "mavros/setpoint_raw/attitude mavros setpoint 100",
       ]
 
 needed_nodes: [

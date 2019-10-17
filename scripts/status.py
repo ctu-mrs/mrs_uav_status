@@ -85,6 +85,11 @@ class Status:
     def MPCstatusCallback(self, data):
         self.mpcstatus = data
         self.count_mpcstatus = self.count_mpcstatus + 1
+    
+    def GPSCallback(self, data):
+        self.gpsdata = data
+        self.count_gpsdata = self.count_gpsdata + 1
+
     # #} end of Callbacks
 
     # #{ ErrorShutdown
@@ -130,10 +135,10 @@ class Status:
             i = str(self.UAV_NAME) + "/" + i
 
         if str(self.PIXGARM) == "true":
-            param_list.insert(0, "mavros/distance_sensor/garimin Garmin_p 80+")
+            param_list.insert(0, "mavros/distance_sensor/garmin Garmin_p 80+")
 
         if str(self.BLUEFOX_OF) != "":
-            param_list.insert(0, "bluefox_of/image_raw Bluefox_OF 60+")
+            param_list.insert(0, "bluefox_optflow/image_raw Bluefox_OF 60+")
             param_list.insert(0, "optic_flow/velocity OpticFlow 60+")
         
         if str(self.BLUEFOX_UV_LEFT) != "":
@@ -172,6 +177,7 @@ class Status:
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/tersus/bestpos", Bestpos, self.BestposCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/battery", BatteryState, self.BatteryCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/mpc_tracker/diagnostics", MpcTrackerDiagnostics, self.MPCstatusCallback)
+        rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/global_position/global", NavSatFix, self.GPSCallback)
 
         for i in range(0, len(param_list)):
             if(str(topic_list[i][0]) == "/"):
@@ -514,6 +520,27 @@ class Status:
             #         stdscr.addstr(4, 60 + max_length, " None ")
             # #} end of Nodes running
 
+            # #{ GPS
+            tmp = self.count_gpsdata
+            self.count_gpsdata = 0
+            if tmp == 0:
+                gps = ""
+            else:
+                gps = (self.gpsdata.position_covariance[0] + self.gpsdata.position_covariance[4] + self.gpsdata.position_covariance[8])/3
+                gps = round(gps,2)
+                tmp_color = green
+                if float(gps) < 10.0:
+                    tmp_color = green
+                elif float(gps) < 20.0:
+                    tmp_color = yellow
+                else:
+                    stdscr.attron(curses.A_BLINK)
+                    tmp_color = red
+            stdscr.attron(tmp_color)
+            stdscr.addstr(2, 60 + max_length, " GPS qual: " + str(gps) + " ")
+            stdscr.attroff(curses.A_BLINK)
+            # #} end of GPS
+
             # #{ RTK
             tmp = self.count_bestpos
             self.count_bestpos = 0
@@ -530,7 +557,7 @@ class Status:
                 else:
                     tmp_color = red
             stdscr.attron(tmp_color)
-            stdscr.addstr(2, 60 + max_length, " RTK: " + str(rtk) + " ")
+            stdscr.addstr(3, 60 + max_length, " RTK: " + str(rtk) + " ")
             # #} end of RTK
 
             # #{ Battery
@@ -638,6 +665,7 @@ class Status:
         self.constraints = String()
         self.bestpos = Bestpos()
         self.battery = BatteryState()
+        self.gpsdata = NavSatFix()
         self.count_list = []
         self.count_odom = 0
         self.count_state = 0
@@ -650,6 +678,7 @@ class Status:
         self.count_bestpos = 0
         self.count_battery = 0
         self.count_mpcstatus = 0
+        self.count_gpsdata = 0
         self.rospack = rospkg.RosPack()
         
         try:
