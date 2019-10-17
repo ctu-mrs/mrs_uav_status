@@ -1,4 +1,4 @@
-dark_mode: True # Set False if you use white terminal background (intended for outdoor usage)
+dark_mode: False # Set False if you use white terminal background (intended for outdoor usage)
 colorblind_mode: True # Set True to change green color to blue
 
 # List of topics to monitor, format is:
