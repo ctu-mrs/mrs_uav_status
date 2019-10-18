@@ -136,8 +136,11 @@ class Status:
             i = str(self.UAV_NAME) + "/" + i
 
         if str(self.PIXGARM) == "true":
-            param_list.insert(0, "mavros/distance_sensor/garmin Garmin_p 80+")
+            param_list.insert(0, "mavros/distance_sensor/garmin Garmin_pix 80+")
         
+        if str(self.PIXGARM) == "false" and 'garmin_down' in sensor_list:
+            param_list.insert(0, "garmin/range Garmin_down 80+")
+
         if 'realsense_brick' in sensor_list:
             param_list.insert(0, "rs_d435/color/image_raw Realsense_Brick 25+")
 
@@ -715,7 +718,7 @@ class Status:
         try:
             self.PIXGARM =str(os.environ["PIXGARM"])
         except:
-            self.PIXGARM =""
+            self.PIXGARM ="false"
         
         try:
             self.NATO_NAME =str(os.environ["NATO_NAME"])
