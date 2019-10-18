@@ -598,22 +598,23 @@ class Status:
             # #} end of Battery
 
             # #{ mpcstatus
-            tmp = self.count_mpcstatus
-            self.count_mpcstatus = 0
-            if tmp == 0 :
-                tmp_color = red
-            elif str(self.mpcstatus.collision_avoidance_active) != "True":
-                tmp_color = red
-            else:
-                tmp_color = green
+            if tracker == "MpcTracker":
+                tmp = self.count_mpcstatus
+                self.count_mpcstatus = 0
+                if tmp == 0 :
+                    tmp_color = red
+                elif str(self.mpcstatus.collision_avoidance_active) != "True":
+                    tmp_color = red
+                else:
+                    tmp_color = green
 
-            stdscr.attron(tmp_color)
-            stdscr.addstr(1, 92, " Col. Avoid: " + str(self.mpcstatus.collision_avoidance_active))
-            stdscr.addstr(2, 93, str(self.mpcstatus.avoidance_active_uavs))
-            tmp_color = red
-            stdscr.attron(tmp_color)
-            if str(self.mpcstatus.avoiding_collision) == "True" :
-                stdscr.addstr(3, 93, " ! AVOIDING COLLISION ! ")
+                stdscr.attron(tmp_color)
+                stdscr.addstr(1, 92, " Col. Avoid: " + str(self.mpcstatus.collision_avoidance_active))
+                stdscr.addstr(2, 93, str(self.mpcstatus.avoidance_active_uavs))
+                tmp_color = red
+                stdscr.attron(tmp_color)
+                if str(self.mpcstatus.avoiding_collision) == "True" :
+                    stdscr.addstr(3, 93, " ! AVOIDING COLLISION ! ")
             # #} end of mpcstatus
 
 # #{ Misc
