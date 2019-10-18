@@ -159,7 +159,7 @@ class Status:
 
         if str(self.ODOMETRY_TYPE) == "gps":
             param_list.insert(0, "mavros/global_position/global PX4 GPS 100")
-
+        tmp_string = ""
         for i in param_list:
             topic_list.append(i.rsplit()[0])
             tmp = i.rsplit(' ', 1)[0]
