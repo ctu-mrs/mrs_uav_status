@@ -131,16 +131,26 @@ class Status:
 
         param_list = rospy.get_param('~want_hz', "")
         needed_nodes = rospy.get_param('~needed_nodes', "")
+        sensor_list = str(self.SENSORS).split(', ')
         for i in needed_nodes:
             i = str(self.UAV_NAME) + "/" + i
 
         if str(self.PIXGARM) == "true":
             param_list.insert(0, "mavros/distance_sensor/garmin Garmin_p 80+")
-
-        if str(self.BLUEFOX_OF) != "":
-            param_list.insert(0, "bluefox_optflow/image_raw Bluefox_OF 60+")
-            param_list.insert(0, "optic_flow/velocity OpticFlow 60+")
         
+        if 'realsense_brick' in sensor_list:
+            param_list.insert(0, "rs_d435/color/image_raw Realsense_Brick 25+")
+
+        if 'bluefox_brick' in sensor_list:
+            param_list.insert(0, "bluefox_brick/image_raw Bluefox_Brick 50+")
+
+        if 'bluefox_optflow' in sensor_list:
+            param_list.insert(0, "bluefox_optflow/image_raw Bluefox_Optflow 60+")
+            param_list.insert(0, "optic_flow/velocity Optic_flow 60+")
+
+        if 'rplidar' in sensor_list:
+            param_list.insert(0, "rplidar/scan Rplidar 10+")
+
         if str(self.BLUEFOX_UV_LEFT) != "":
             param_list.insert(0, "bluefox_uvdar/left/image_raw Bluefox_UV_left 70+")
 
@@ -715,11 +725,6 @@ class Status:
             self.SENSORS =str(os.environ["SENSORS"])
         except:
             self.SENSORS =""
-
-        try:
-            self.BLUEFOX_OF =str(os.environ["BLUEFOX_OF"])
-        except:
-            self.BLUEFOX_OF =""
 
         try:
             self.BLUEFOX_UV_LEFT =str(os.environ["BLUEFOX_UV_LEFT"])
