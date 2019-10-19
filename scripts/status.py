@@ -130,7 +130,8 @@ class Status:
         # Get parameters from config file and put them in lists
 
         param_list = rospy.get_param('~want_hz', "")
-        sensor_list = str(self.SENSORS).split(', ')
+        self.SENSORS = str(self.SENSORS).replace(',', ' ') 
+        sensor_list = str(self.SENSORS).split(' ')
         # needed_nodes = rospy.get_param('~needed_nodes', "")
         # for i in needed_nodes:
         #     i = str(self.UAV_NAME) + "/" + i
@@ -155,10 +156,10 @@ class Status:
             param_list.insert(0, "rplidar/scan Rplidar 10+")
 
         if str(self.BLUEFOX_UV_LEFT) != "":
-            param_list.insert(0, "bluefox_uvdar/left/image_raw Bluefox_UV_left 70+")
+            param_list.insert(0, "uvdar_bluefox/left/image_raw Bluefox_UV_left 70+")
 
         if str(self.BLUEFOX_UV_RIGHT) != "":
-            param_list.insert(0, "bluefox_uvdar/right/image_raw Bluefox_UV_right 70+")
+            param_list.insert(0, "uvdar_bluefox/right/image_raw Bluefox_UV_right 70+")
 
         if str(self.ODOMETRY_TYPE) == "gps":
             param_list.insert(0, "mavros/global_position/global PX4 GPS 100")
