@@ -145,7 +145,7 @@ class Status:
             param_list.insert(0, "rs_d435/color/image_raw Realsense_Brick 25+")
 
         if 'bluefox_brick' in sensor_list:
-            param_list.insert(0, "bluefox_brick/image_raw Bluefox_Brick 50+")
+            param_list.insert(0, "bluefox_brick/image_raw Bluefox_Brick 25+")
 
         if 'bluefox_optflow' in sensor_list:
             param_list.insert(0, "bluefox_optflow/image_raw Bluefox_Optflow 60+")
@@ -539,24 +539,26 @@ class Status:
             # #} end of Nodes running
 
             # #{ GPS
-            tmp = self.count_gpsdata
-            self.count_gpsdata = 0
-            if tmp == 0:
-                gps = ""
-            else:
-                gps = (self.gpsdata.position_covariance[0] + self.gpsdata.position_covariance[4] + self.gpsdata.position_covariance[8])/3
-                gps = round(gps,2)
-                tmp_color = green
-                if float(gps) < 10.0:
-                    tmp_color = green
-                elif float(gps) < 20.0:
-                    tmp_color = yellow
+
+            if "GPS" in str(odom) or  "Gps" in str(odom) or "gps" in str(odom):
+                tmp = self.count_gpsdata
+                self.count_gpsdata = 0
+                if tmp == 0:
+                    gps = ""
                 else:
-                    stdscr.attron(curses.A_BLINK)
-                    tmp_color = red
-            stdscr.attron(tmp_color)
-            stdscr.addstr(2, 60 + max_length, " GPS qual: " + str(gps) + " ")
-            stdscr.attroff(curses.A_BLINK)
+                    gps = (self.gpsdata.position_covariance[0] + self.gpsdata.position_covariance[4] + self.gpsdata.position_covariance[8])/3
+                    gps = round(gps,2)
+                    tmp_color = green
+                    if float(gps) < 10.0:
+                        tmp_color = green
+                    elif float(gps) < 20.0:
+                        tmp_color = yellow
+                    else:
+                        stdscr.attron(curses.A_BLINK)
+                        tmp_color = red
+                stdscr.attron(tmp_color)
+                stdscr.addstr(2, 60 + max_length, " GPS qual: " + str(gps) + " ")
+                stdscr.attroff(curses.A_BLINK)
             # #} end of GPS
 
             # #{ RTK
@@ -581,26 +583,31 @@ class Status:
             # #{ Battery
             tmp = self.count_battery
             self.count_battery = 0
-            if tmp == 0:
-                battery = "N/A"
+            if tmp == 0 and self.last_battery == "N/A ":
+                bat_out = "N/A "
                 tmp_color = red
             else:
-                battery = self.battery.voltage
-                if battery > 17.0:
-                    battery = battery/6
+                if tmp == 0:
+                    battery = self.last_battery
+                    self.last_battery = "N/A "
                 else:
-                    battery = battery/4
-                battery = round(battery, 2)
+                    battery = self.battery.voltage
+                    self.last_battery = self.battery.voltage
+                if battery > 17.0:
+                    bat_out = battery/6
+                else:
+                    bat_out = battery/4
+                bat_out = round(bat_out, 2)
                 tmp_color = green
-                if (battery > 3.7):
+                if (bat_out > 3.7):
                     tmp_color = green
-                elif (battery > 3.55):
+                elif (bat_out > 3.55):
                     tmp_color = yellow
                 else:
                     stdscr.attron(curses.A_BLINK)
                     tmp_color = red
             stdscr.attron(tmp_color)
-            stdscr.addstr(5, 26, " Battery:  " + str(battery) + " ")
+            stdscr.addstr(5, 26, " Battery:  " + str(bat_out) + " ")
             stdscr.addstr(5, 42, "V ")
             stdscr.attroff(curses.A_BLINK)
             # #} end of Battery
@@ -696,6 +703,7 @@ class Status:
         self.count_constraints = 0
         self.count_bestpos = 0
         self.count_battery = 0
+        self.last_battery = 0
         self.count_mpcstatus = 0
         self.count_gpsdata = 0
         self.rospack = rospkg.RosPack()
