@@ -130,10 +130,10 @@ class Status:
         # Get parameters from config file and put them in lists
 
         param_list = rospy.get_param('~want_hz', "")
-        needed_nodes = rospy.get_param('~needed_nodes', "")
         sensor_list = str(self.SENSORS).split(', ')
-        for i in needed_nodes:
-            i = str(self.UAV_NAME) + "/" + i
+        # needed_nodes = rospy.get_param('~needed_nodes', "")
+        # for i in needed_nodes:
+        #     i = str(self.UAV_NAME) + "/" + i
 
         if str(self.PIXGARM) == "true":
             param_list.insert(0, "mavros/distance_sensor/garmin Garmin_pix 80+")
@@ -174,7 +174,12 @@ class Status:
             else:
                 hz_list_modifiers.append("0")
             hz_list.append(float(tmp_string))
-        dark_mode = rospy.get_param('~dark_mode', True)
+        profile_list = str(self.PROFILES_BOTH).split(' ')
+        dark_mode = False
+        if 'COLORSCHEME_DARK' in profile_list:
+            dark_mode = True
+        
+        # dark_mode = rospy.get_param('~dark_mode', True)
         colorblind_mode = rospy.get_param('~colorblind_mode', True)
 
         stdscr.addstr(10, 40," " + str(tmp_string))
@@ -407,7 +412,7 @@ class Status:
                 tmp_color = red
 
             stdscr.attron(tmp_color)
-            stdscr.addstr(3, 0, " " + controller)
+            stdscr.addstr(3, 0, " " + controller + " ")
 
             tmp_offset = len(controller) + 1
 
@@ -596,7 +601,7 @@ class Status:
                     tmp_color = red
             stdscr.attron(tmp_color)
             stdscr.addstr(5, 26, " Battery:  " + str(battery) + " ")
-            stdscr.addstr(5, 42, "V")
+            stdscr.addstr(5, 42, "V ")
             stdscr.attroff(curses.A_BLINK)
             # #} end of Battery
 
@@ -612,12 +617,12 @@ class Status:
                     tmp_color = green
 
                 stdscr.attron(tmp_color)
-                stdscr.addstr(1, 92, " Col. Avoid: " + str(self.mpcstatus.collision_avoidance_active))
-                stdscr.addstr(2, 93, str(self.mpcstatus.avoidance_active_uavs))
+                stdscr.addstr(5,  60 + max_length, " C.Avoid: " + str(self.mpcstatus.collision_avoidance_active))
+                stdscr.addstr(6, 61 + max_length, str(self.mpcstatus.avoidance_active_uavs))
                 tmp_color = red
                 stdscr.attron(tmp_color)
                 if str(self.mpcstatus.avoiding_collision) == "True" :
-                    stdscr.addstr(3, 93, " ! AVOIDING COLLISION ! ")
+                    stdscr.addstr(7, 61 + max_length, " ! AVOIDING COLLISION ! ")
             # #} end of mpcstatus
 
 # #{ Misc
@@ -740,7 +745,10 @@ class Status:
         except:
             self.BLUEFOX_UV_RIGHT =""
 
-
+        try:
+            self.PROFILES_BOTH =str(os.environ["PROFILES_BOTH"])
+        except:
+            self.PROFILES_BOTH =""
 
         # #} end of Var definitions
 

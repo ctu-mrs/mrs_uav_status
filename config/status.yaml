@@ -1,4 +1,3 @@
-dark_mode: False # Set False if you use white terminal background (intended for outdoor usage)
 colorblind_mode: True # Set True to change green color to blue
 
 # List of topics to monitor, format is:
@@ -10,14 +9,3 @@ want_hz: [
       # "bluefox/image_raw Bluefox 100",
       # "mavros/setpoint_raw/attitude mavros setpoint 100",
       ]
-
-needed_nodes: [
-      "constraint_manager",
-      "control_manager",
-      "gain_manager",
-      "mavros",
-      "mavros_interface",
-      "odometry",
-      "nodelet_manager",
-      "uav_manager",
-     ]
