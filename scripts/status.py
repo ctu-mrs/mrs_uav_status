@@ -39,37 +39,38 @@ process = mp.Process(target=get_cpu_load, args=(cpu_load_queue, queue_lock))
 class Status:
 
     # #{ Callbacks
-
+    
     def MultiCallback(self, data, callback_id):
         self.count_list[callback_id] = self.count_list[callback_id] + 1
-
+    
     def ConstraintsCallback(self, data):
         self.constraints = data
         self.count_constraints= self.count_constraints + 1
-
+    
     def GainsCallback(self, data):
         self.gains = data
         self.count_gains = self.count_gains + 1
-
-    def ControlManagerDiagnostics(self, data):
-        self.controller_status = data.controller_status
-        self.count_controller = self.count_controller + 1
-
-        self.tracker_status = data.tracker_status
+    
+    def TrackerStatusCallback(self, data):
+        self.tracker_status = data
         self.count_tracker = self.count_tracker + 1
-
+    
+    def ControllerStatusCallback(self, data):
+        self.controller_status = data
+        self.count_controller = self.count_controller + 1
+    
     def AttitudeCmdCallback(self, data):
         self.attitude_cmd = data
         self.count_attitude = self.count_attitude + 1
-
+    
     def OdomMainCallback(self, data):
         self.odom_main = data
         self.count_odom = self.count_odom + 1
-
+    
     def StateCallback(self, data):
         self.mavros_state = data
         self.count_state = self.count_state + 1
-
+    
     def AttitudeTargetCallback(self, data):
         self.attitude_target = data
         self.count_attitude_target = self.count_attitude_target + 1
@@ -81,19 +82,10 @@ class Status:
     def BatteryCallback(self, data):
         self.battery = data
         self.count_battery = self.count_battery + 1
-
-    def MPCstatusCallback(self, data):
-        self.mpcstatus = data
-        self.count_mpcstatus = self.count_mpcstatus + 1
-    
-    def GPSCallback(self, data):
-        self.gpsdata = data
-        self.count_gpsdata = self.count_gpsdata + 1
-
     # #} end of Callbacks
 
     # #{ ErrorShutdown
-
+    
     def ErrorShutdown(self, message, stdscr, color):
         stdscr.clear()
         stdscr.attron(color)
@@ -103,9 +95,9 @@ class Status:
         stdscr.refresh()
         time.sleep(10)
         rospy.signal_shutdown('Quit') 
-
+    
     # #} end of ErrorShutdown
-
+    
     def status(self, stdscr):
 
         rospy.init_node('status', anonymous=True)
@@ -130,39 +122,10 @@ class Status:
         # Get parameters from config file and put them in lists
 
         param_list = rospy.get_param('~want_hz', "")
-        sensor_list = str(self.SENSORS).split(', ')
-        # needed_nodes = rospy.get_param('~needed_nodes', "")
-        # for i in needed_nodes:
-        #     i = str(self.UAV_NAME) + "/" + i
+        needed_nodes = rospy.get_param('~needed_nodes', "")
+        for i in needed_nodes:
+            i = str(os.environ["UAV_NAME"]) + "/" + i
 
-        if str(self.PIXGARM) == "true":
-            param_list.insert(0, "mavros/distance_sensor/garmin Garmin_pix 80+")
-        
-        if str(self.PIXGARM) == "false" and 'garmin_down' in sensor_list:
-            param_list.insert(0, "garmin/range Garmin_down 80+")
-
-        if 'realsense_brick' in sensor_list:
-            param_list.insert(0, "rs_d435/color/image_raw Realsense_Brick 25+")
-
-        if 'bluefox_brick' in sensor_list:
-            param_list.insert(0, "bluefox_brick/image_raw Bluefox_Brick 50+")
-
-        if 'bluefox_optflow' in sensor_list:
-            param_list.insert(0, "bluefox_optflow/image_raw Bluefox_Optflow 60+")
-            param_list.insert(0, "optic_flow/velocity Optic_flow 60+")
-
-        if 'rplidar' in sensor_list:
-            param_list.insert(0, "rplidar/scan Rplidar 10+")
-
-        if str(self.BLUEFOX_UV_LEFT) != "":
-            param_list.insert(0, "bluefox_uvdar/left/image_raw Bluefox_UV_left 70+")
-
-        if str(self.BLUEFOX_UV_RIGHT) != "":
-            param_list.insert(0, "bluefox_uvdar/right/image_raw Bluefox_UV_right 70+")
-
-        if str(self.ODOMETRY_TYPE) == "gps":
-            param_list.insert(0, "mavros/global_position/global PX4 GPS 100")
-        tmp_string = ""
         for i in param_list:
             topic_list.append(i.rsplit()[0])
             tmp = i.rsplit(' ', 1)[0]
@@ -174,42 +137,34 @@ class Status:
             else:
                 hz_list_modifiers.append("0")
             hz_list.append(float(tmp_string))
-        profile_list = str(self.PROFILES_BOTH).split(' ')
-        dark_mode = False
-        if 'COLORSCHEME_DARK' in profile_list:
-            dark_mode = True
-        
-        # dark_mode = rospy.get_param('~dark_mode', True)
+        dark_mode = rospy.get_param('~dark_mode', True)
         colorblind_mode = rospy.get_param('~colorblind_mode', True)
 
-        stdscr.addstr(10, 40," " + str(tmp_string))
-
         # Create ROSTopicHz and subscribers defined by the loaded config
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/diagnostics", ControlManagerDiagnostics, self.ControlManagerDiagnostics)
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/attitude_cmd", AttitudeCommand, self.AttitudeCmdCallback)
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/odometry/odom_main", Odometry, self.OdomMainCallback)
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/state", State, self.StateCallback)
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/setpoint_raw/target_attitude", AttitudeTarget, self.AttitudeTargetCallback)
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/gain_manager/current_gains", String, self.GainsCallback)
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/constraint_manager/current_constraints", String, self.ConstraintsCallback)
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/tersus/bestpos", Bestpos, self.BestposCallback)
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/battery", BatteryState, self.BatteryCallback)
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/mpc_tracker/diagnostics", MpcTrackerDiagnostics, self.MPCstatusCallback)
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/global_position/global", NavSatFix, self.GPSCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/tracker_status", TrackerStatus, self.TrackerStatusCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/controller_status", ControllerStatus, self.ControllerStatusCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/control_manager/attitude_cmd", AttitudeCommand, self.AttitudeCmdCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/odometry/odom_main", Odometry, self.OdomMainCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/state", State, self.StateCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/setpoint_raw/target_attitude", AttitudeTarget, self.AttitudeTargetCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/gain_manager/current_gains", String, self.GainsCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/constraint_manager/current_constraints", String, self.ConstraintsCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/tersus/bestpos", Bestpos, self.BestposCallback)
+        rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/mavros/battery", BatteryState, self.BatteryCallback)
 
         for i in range(0, len(param_list)):
             if(str(topic_list[i][0]) == "/"):
                 sub_list.append(rospy.Subscriber(str(topic_list[i]), rospy.AnyMsg, self.MultiCallback, callback_args = i))
             else:
-                sub_list.append(rospy.Subscriber("/" + str(self.UAV_NAME) + "/" + str(topic_list[i]), rospy.AnyMsg, self.MultiCallback, callback_args = i))
+                sub_list.append(rospy.Subscriber("/" + str(os.environ["UAV_NAME"]) + "/" + str(topic_list[i]), rospy.AnyMsg, self.MultiCallback, callback_args = i))
             self.count_list.append(0)
 
         rate = rospy.Rate(1)
         time.sleep(1)
-
+       
         # for topics from config list
         max_length = 0
-
+        
         # disk space 
         last_remaining = 0;
         for i in range(0, len(param_list)):
@@ -217,7 +172,7 @@ class Status:
         spacer_string = "          "
         for i in range(0, max_length):
             spacer_string = spacer_string + " "
-
+        
         if(dark_mode):
             if(colorblind_mode):
                 green = curses.color_pair(34)
@@ -243,7 +198,7 @@ class Status:
             if(not dark_mode):
                 stdscr.attron(curses.A_REVERSE)
             stdscr.attron(curses.A_BOLD)
-
+                
             # #{ CPU LOAD
 
             tmp_color = green
@@ -327,7 +282,7 @@ class Status:
 
             if cur_constraints == "medium":
                 tmp_color = green
-            elif cur_constraints == "slow" or cur_constraints == "fast" or cur_constraints == "optflow":
+            elif cur_constraints == "slow" or cur_constraints == "fast":
                 tmp_color = yellow
             else:
                 tmp_color = red
@@ -338,45 +293,47 @@ class Status:
             stdscr.addstr(1, tmp_offset + 1, cur_constraints + " ")
             # #} end of Active Tracker
 
-# #{ names
-
-            stdscr.attroff(tmp_color)
-            tmp_color = curses.color_pair(0)
-            stdscr.attron(tmp_color)
-            stdscr.addstr(0, 0," " + str(self.UAV_NAME) + " ")
-            stdscr.addstr(0, 6," " + str(self.UAV_TYPE) + " ")
-            stdscr.addstr(0, 12," " + str(self.NATO_NAME) + " ")
-            # #} end of names
-
 # #{ Mass
             
             stdscr.attroff(tmp_color)
             tmp_color = curses.color_pair(0)
             stdscr.attron(tmp_color)
-            set_mass = float(self.UAV_MASS.replace(",","."))
-            set_mass = round(set_mass, 2)
-            stdscr.addstr(6, 40,"0 kg ")
-            stdscr.addstr(6, 26," UAV_MASS: " + str(set_mass))
-            est_mass = round(self.attitude_cmd.total_mass, 2)
-            tmp_color = green
-            if abs(self.attitude_cmd.mass_difference) > 2.0:
-                tmp_color = red
-                stdscr.attron(curses.A_BLINK)
-            elif abs(self.attitude_cmd.mass_difference) > 1.0:
-               tmp_color = yellow
+            try:
+                stdscr.addstr(0, 26," " + str(os.environ["UAV_NAME"]) + " ")
+            except:
+                self.ErrorShutdown(" UAV_NAME variable is not set!!! Terminating... ", stdscr, red)
+            try:
+                set_mass = float(os.environ["UAV_MASS"].replace(",","."))
+                set_mass = round(set_mass, 2)
+                stdscr.addstr(6, 40,"0 kg ")
+                stdscr.addstr(6, 26," UAV_MASS: " + str(set_mass))
+                est_mass = set_mass + round(self.attitude_cmd.mass_difference, 2)
+                tmp_color = green
+                if abs(self.attitude_cmd.mass_difference) > 2.0:
+                    tmp_color = red
+                    stdscr.attron(curses.A_BLINK)
+                elif abs(self.attitude_cmd.mass_difference) > 1.0:
+                    tmp_color = yellow
             
-            stdscr.attron(tmp_color)
-           
-            if self.count_attitude > 0:
-                self.count_attitude = 0
-                stdscr.addstr(7, 40,"0 kg ")
-                stdscr.addstr(7, 26," Est mass: " + str(est_mass))
-            else:
-                tmp_color = red
                 stdscr.attron(tmp_color)
-                stdscr.addstr(7, 26," Est mass: N/A ")
             
-            stdscr.attroff(curses.A_BLINK)
+                if self.count_attitude > 0:
+                    self.count_attitude = 0
+                    stdscr.addstr(7, 40,"0 kg ")
+                    stdscr.addstr(7, 26," Est mass: " + str(est_mass))
+                else:
+                    tmp_color = red
+                    stdscr.attron(tmp_color)
+                    stdscr.addstr(7, 26," Est mass: N/A ")
+            
+                stdscr.attroff(curses.A_BLINK)
+            except:
+                stdscr.attron(red)
+                stdscr.attron(curses.A_BLINK)
+                stdscr.addstr(6, 26," UAV_MASS: NOT SET! ")
+                stdscr.attroff(curses.A_BLINK)
+                stdscr.attroff(red)
+                stdscr.attron(tmp_color)
             
             # #} end of Mass
 
@@ -406,36 +363,35 @@ class Status:
             else:
                 controller = self.controller_status.controller.rsplit('/', 1)[-1]
 
-            if controller == "So3Controller" or controller == "MpcController":
+            if controller == "So3Controller":
                 tmp_color = green
             else:
                 tmp_color = red
 
             stdscr.attron(tmp_color)
-            stdscr.addstr(3, 0, " " + controller + " ")
+            stdscr.addstr(3, 0, " " + controller)
 
             tmp_offset = len(controller) + 1
 
-            if controller == "So3Controller":
-              tmp = self.count_gains
-              self.count_gains = 0
-              if tmp == 0:
-                  cur_gains = "N/A"
-                  tmp_color = red
-              else:
-                  cur_gains = self.gains.data
-              
-              if cur_gains == "soft":
-                  tmp_color = green
-              elif cur_gains == "supersoft" or cur_gains == "tight":
-                  tmp_color = yellow
-              else:
-                  tmp_color = red
-              
-              stdscr.attroff(tmp_color)
-              stdscr.addstr(3, tmp_offset, "/")
-              stdscr.attron(tmp_color)
-              stdscr.addstr(3, tmp_offset + 1, cur_gains + " ")
+            tmp = self.count_gains
+            self.count_gains = 0
+            if tmp == 0:
+                cur_gains = "N/A"
+                tmp_color = red
+            else:
+                cur_gains = self.gains.data
+
+            if cur_gains == "soft":
+                tmp_color = green
+            elif cur_gains == "supersoft" or cur_gains == "tight":
+                tmp_color = yellow
+            else:
+                tmp_color = red
+
+            stdscr.attroff(tmp_color)
+            stdscr.addstr(3, tmp_offset, "/")
+            stdscr.attron(tmp_color)
+            stdscr.addstr(3, tmp_offset + 1, cur_gains + " ")
             # #} end of Active Controller
 
             # #{ Odom
@@ -508,56 +464,35 @@ class Status:
 
             # #{ Nodes running
             
-            # stdscr.attroff(tmp_color)
-            # tmp_color = curses.color_pair(0)
-            # stdscr.attron(tmp_color)
-
-            # nodelist = rosnode.get_node_names()
-            # iterator = 3
-            # iterator2 = 0
-            # tmp_max_len = 0
-            # tmp_max_len_latch = 0
-            # stdscr.addstr(3, 60 + max_length, " Missing nodes: ")
-            
-            # stdscr.attroff(tmp_color)
-            # stdscr.attron(red)
-            # for i in needed_nodes:
-            #     if not any(str(i) in s for s in nodelist):
-            #         iterator = iterator + 1
-            #         if iterator == 8:
-            #             iterator = 4
-            #             iterator2 = iterator2 + 1
-            #             tmp_max_len_latch = tmp_max_len
-            #             tmp_max_len = 0
-            #         stdscr.addstr(iterator, 60 + max_length + (2 + tmp_max_len_latch) * iterator2, " " + str(i) + " ")
-            #         if tmp_max_len < len(str(i)):
-            #             tmp_max_len = len(str(i))
-            # if iterator == 3 and iterator2 == 0:
-            #         stdscr.attroff(red)
-            #         stdscr.attron(green)
-            #         stdscr.addstr(4, 60 + max_length, " None ")
-            # #} end of Nodes running
-
-            # #{ GPS
-            tmp = self.count_gpsdata
-            self.count_gpsdata = 0
-            if tmp == 0:
-                gps = ""
-            else:
-                gps = (self.gpsdata.position_covariance[0] + self.gpsdata.position_covariance[4] + self.gpsdata.position_covariance[8])/3
-                gps = round(gps,2)
-                tmp_color = green
-                if float(gps) < 10.0:
-                    tmp_color = green
-                elif float(gps) < 20.0:
-                    tmp_color = yellow
-                else:
-                    stdscr.attron(curses.A_BLINK)
-                    tmp_color = red
+            stdscr.attroff(tmp_color)
+            tmp_color = curses.color_pair(0)
             stdscr.attron(tmp_color)
-            stdscr.addstr(2, 60 + max_length, " GPS qual: " + str(gps) + " ")
-            stdscr.attroff(curses.A_BLINK)
-            # #} end of GPS
+
+            nodelist = rosnode.get_node_names()
+            iterator = 3
+            iterator2 = 0
+            tmp_max_len = 0
+            tmp_max_len_latch = 0
+            stdscr.addstr(3, 60 + max_length, " Missing nodes: ")
+            
+            stdscr.attroff(tmp_color)
+            stdscr.attron(red)
+            for i in needed_nodes:
+                if not any(str(i) in s for s in nodelist):
+                    iterator = iterator + 1
+                    if iterator == 8:
+                        iterator = 4
+                        iterator2 = iterator2 + 1
+                        tmp_max_len_latch = tmp_max_len
+                        tmp_max_len = 0
+                    stdscr.addstr(iterator, 60 + max_length + (2 + tmp_max_len_latch) * iterator2, " " + str(i) + " ")
+                    if tmp_max_len < len(str(i)):
+                        tmp_max_len = len(str(i))
+            if iterator == 3 and iterator2 == 0:
+                    stdscr.attroff(red)
+                    stdscr.attron(green)
+                    stdscr.addstr(4, 60 + max_length, " None ")
+            # #} end of Nodes running
 
             # #{ RTK
             tmp = self.count_bestpos
@@ -575,7 +510,7 @@ class Status:
                 else:
                     tmp_color = red
             stdscr.attron(tmp_color)
-            stdscr.addstr(3, 60 + max_length, " RTK: " + str(rtk) + " ")
+            stdscr.addstr(2, 60 + max_length, " RTK: " + str(rtk) + " ")
             # #} end of RTK
 
             # #{ Battery
@@ -601,29 +536,9 @@ class Status:
                     tmp_color = red
             stdscr.attron(tmp_color)
             stdscr.addstr(5, 26, " Battery:  " + str(battery) + " ")
-            stdscr.addstr(5, 42, "V ")
+            stdscr.addstr(5, 42, "V")
             stdscr.attroff(curses.A_BLINK)
             # #} end of Battery
-
-            # #{ mpcstatus
-            if tracker == "MpcTracker":
-                tmp = self.count_mpcstatus
-                self.count_mpcstatus = 0
-                if tmp == 0 :
-                    tmp_color = red
-                elif str(self.mpcstatus.collision_avoidance_active) != "True":
-                    tmp_color = red
-                else:
-                    tmp_color = green
-
-                stdscr.attron(tmp_color)
-                stdscr.addstr(5,  60 + max_length, " C.Avoid: " + str(self.mpcstatus.collision_avoidance_active))
-                stdscr.addstr(6, 61 + max_length, str(self.mpcstatus.avoidance_active_uavs))
-                tmp_color = red
-                stdscr.attron(tmp_color)
-                if str(self.mpcstatus.avoiding_collision) == "True" :
-                    stdscr.addstr(7, 61 + max_length, " ! AVOIDING COLLISION ! ")
-            # #} end of mpcstatus
 
 # #{ Misc
             
@@ -684,72 +599,19 @@ class Status:
         self.constraints = String()
         self.bestpos = Bestpos()
         self.battery = BatteryState()
-        self.gpsdata = NavSatFix()
         self.count_list = []
         self.count_odom = 0
         self.count_state = 0
         self.count_attitude_target = 0
+        self.count_tracker = 0
         self.count_attitude = 0
         self.count_controller = 0
-        self.count_tracker = 0
         self.count_gains = 0
         self.count_constraints = 0
         self.count_bestpos = 0
         self.count_battery = 0
-        self.count_mpcstatus = 0
-        self.count_gpsdata = 0
         self.rospack = rospkg.RosPack()
         
-        try:
-            self.UAV_NAME =str(os.environ["UAV_NAME"])
-        except:
-            self.ErrorShutdown(" UAV_NAME variable is not set!!! Terminating... ", stdscr, red)
-        
-        try:
-            self.UAV_MASS =str(os.environ["UAV_MASS"])
-        except:
-            self.ErrorShutdown(" UAV_MASS variable is not set!!! Terminating... ", stdscr, red)
-        
-        try:
-            self.UAV_TYPE =str(os.environ["UAV_TYPE"])
-        except:
-            self.ErrorShutdown(" UAV_TYPE variable is not set!!! Terminating... ", stdscr, red)
-
-        try:
-            self.ODOMETRY_TYPE =str(os.environ["ODOMETRY_TYPE"])
-        except:
-            self.ErrorShutdown(" ODOMETRY_TYPE variable is not set!!! Terminating... ", stdscr, red)
-
-        try:
-            self.PIXGARM =str(os.environ["PIXGARM"])
-        except:
-            self.PIXGARM ="false"
-        
-        try:
-            self.NATO_NAME =str(os.environ["NATO_NAME"])
-        except:
-            self.NATO_NAME =""
-        
-        try:
-            self.SENSORS =str(os.environ["SENSORS"])
-        except:
-            self.SENSORS =""
-
-        try:
-            self.BLUEFOX_UV_LEFT =str(os.environ["BLUEFOX_UV_LEFT"])
-        except:
-            self.BLUEFOX_UV_LEFT =""
-        
-        try:
-            self.BLUEFOX_UV_RIGHT =str(os.environ["BLUEFOX_UV_RIGHT"])
-        except:
-            self.BLUEFOX_UV_RIGHT =""
-
-        try:
-            self.PROFILES_BOTH =str(os.environ["PROFILES_BOTH"])
-        except:
-            self.PROFILES_BOTH =""
-
         # #} end of Var definitions
 
         curses.wrapper(self.status)
@@ -759,5 +621,4 @@ if __name__ == '__main__':
         status = Status()
     except rospy.ROSInterruptException:
         pass
-
 
