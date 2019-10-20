@@ -89,6 +89,7 @@ class Status:
     def GPSCallback(self, data):
         self.gpsdata = data
         self.count_gpsdata = self.count_gpsdata + 1
+        self.has_gps = True
 
     # #} end of Callbacks
 
@@ -541,7 +542,7 @@ class Status:
 
             # #{ GPS
 
-            if "GPS" in str(odom) or  "Gps" in str(odom) or "gps" in str(odom):
+            if self.has_gps:
                 tmp = self.count_gpsdata
                 self.count_gpsdata = 0
                 if tmp == 0:
@@ -707,6 +708,7 @@ class Status:
         self.last_battery = 0
         self.count_mpcstatus = 0
         self.count_gpsdata = 0
+        self.has_gps = False
         self.rospack = rospkg.RosPack()
         
         try:
