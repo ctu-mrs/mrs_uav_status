@@ -542,7 +542,7 @@ class Status:
 
             # #{ GPS
 
-            if self.has_gps:
+            if "GPS" in str(odom) or  "Gps" in str(odom) or "gps" in str(odom) or self.has_gps:
                 tmp = self.count_gpsdata
                 self.count_gpsdata = 0
                 if tmp == 0:
