@@ -673,11 +673,11 @@ class Status:
             stdscr.attron(tmp_color)
             stdscr.addstr(4, 78 + max_length, " BUMPER: ")
             if self.bumper_status.repulsing:
-                stdscr.addstr(5, 79 + " REPULSING ")
+                stdscr.addstr(5, 79 + max_length, " REPULSING ")
             elif self.bumper_status.modifying_reference:
-                stdscr.addstr(5, 79 + " MODIFYING ")
+                stdscr.addstr(5, 79 + max_length, " MODIFYING ")
             else:
-                stdscr.addstr(" no msgs ")
+                stdscr.addstr(5, 79 + max_length, " no msgs ")
             self.bumper_status.repulsing = False
             self.bumper_status.modifying_reference = False
 
