@@ -91,6 +91,11 @@ class Status:
         self.count_gpsdata = self.count_gpsdata + 1
         self.has_gps = True
 
+    def uvdarCallback(self, data):
+        self.uvdar = data
+        self.count_uvdar = self.count_mpcstatus + 1
+    
+
     # #} end of Callbacks
 
     # #{ ErrorShutdown
@@ -198,6 +203,8 @@ class Status:
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/battery", BatteryState, self.BatteryCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/mpc_tracker/diagnostics", MpcTrackerDiagnostics, self.MPCstatusCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/global_position/global", NavSatFix, self.GPSCallback)
+        if 'uvdar' in sensor_list:
+            rospy.Subscriber("/" + str(self.UAV_NAME) + "/uvdar/targetSeenCount", Int16, self.uvdarCallback)
 
         for i in range(0, len(param_list)):
             if(str(topic_list[i][0]) == "/"):
@@ -634,6 +641,24 @@ class Status:
                     stdscr.addstr(7, 61 + max_length, " ! AVOIDING COLLISION ! ")
             # #} end of mpcstatus
 
+            # #{ uvdar_status
+            if 'uvdar' in sensor_list:
+                tmp = self.count_uvdar
+                self.count_uvdar = 0
+                if tmp == 0:
+                    uvdar_text = "no msgs"
+                    tmp_color = red
+                else:
+                    uvdar_text = str(self.uvdar.data)
+                    uvdar_text = uvdar_text + " targets"
+                    tmp_color = green
+                    if self.uvdar.data == 0:
+                        tmp_color = red
+                stdscr.attron(tmp_color)
+                stdscr.addstr(1, 80 + max_length, " UVDAR sees: ")
+                stdscr.addstr(2, 81 + max_length, " " + uvdar_text + " ")
+            # #} end of uvdar_status
+
 # #{ Misc
             
             stdscr.attroff(green)
@@ -694,6 +719,7 @@ class Status:
         self.bestpos = Bestpos()
         self.battery = BatteryState()
         self.gpsdata = NavSatFix()
+        self.uvdar = Int16()
         self.count_list = []
         self.count_odom = 0
         self.count_state = 0
@@ -708,6 +734,7 @@ class Status:
         self.last_battery = 0
         self.count_mpcstatus = 0
         self.count_gpsdata = 0
+        self.count_uvdar = 0
         self.has_gps = False
         self.rospack = rospkg.RosPack()
         
