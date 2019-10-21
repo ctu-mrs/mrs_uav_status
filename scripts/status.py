@@ -93,7 +93,12 @@ class Status:
 
     def uvdarCallback(self, data):
         self.uvdar = data
-        self.count_uvdar = self.count_mpcstatus + 1
+        self.count_uvdar = self.count_uvdar + 1
+    
+    def bumperCallback(self, data):
+        self.bumper_status = data
+        self.bumper_repulsing |= self.bumper_status.repulsing
+        self.bumper_constraining |= self.bumper_status.modifying_reference
     
 
     # #} end of Callbacks
@@ -203,6 +208,7 @@ class Status:
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/battery", BatteryState, self.BatteryCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/mpc_tracker/diagnostics", MpcTrackerDiagnostics, self.MPCstatusCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/global_position/global", NavSatFix, self.GPSCallback)
+        rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/bumper_status", BumperStatus, self.bumperCallback)
         if 'uvdar' in sensor_list:
             rospy.Subscriber("/" + str(self.UAV_NAME) + "/uvdar/targetSeenCount", Int16, self.uvdarCallback)
 
@@ -655,9 +661,27 @@ class Status:
                     if self.uvdar.data == 0:
                         tmp_color = red
                 stdscr.attron(tmp_color)
-                stdscr.addstr(1, 80 + max_length, " UVDAR sees: ")
-                stdscr.addstr(2, 81 + max_length, " " + uvdar_text + " ")
+                stdscr.addstr(1, 78 + max_length, " UVDAR sees: ")
+                stdscr.addstr(2, 79 + max_length, " " + uvdar_text + " ")
             # #} end of uvdar_status
+
+            # #{ bumper_status
+            if self.bumper_status.repulsing or self.bumper_status.modifying_reference:
+                tmp_color = red
+            else:
+                tmp_color = green
+            stdscr.attron(tmp_color)
+            stdscr.addstr(4, 78 + max_length, " BUMPER: ")
+            if self.bumper_status.repulsing:
+                stdscr.addstr(5, 79 + " REPULSING ")
+            elif self.bumper_status.modifying_reference:
+                stdscr.addstr(5, 79 + " MODIFYING ")
+            else:
+                stdscr.addstr(" no msgs ")
+            self.bumper_status.repulsing = False
+            self.bumper_status.modifying_reference = False
+
+            # #} end of bumper_status
 
 # #{ Misc
             
@@ -719,6 +743,7 @@ class Status:
         self.bestpos = Bestpos()
         self.battery = BatteryState()
         self.gpsdata = NavSatFix()
+        self.bumper_status = BumperStatus()
         self.uvdar = Int16()
         self.count_list = []
         self.count_odom = 0
@@ -735,6 +760,8 @@ class Status:
         self.count_mpcstatus = 0
         self.count_gpsdata = 0
         self.count_uvdar = 0
+        self.bumper_repulsing = 0
+        self.bumper_constraining = 0
         self.has_gps = False
         self.rospack = rospkg.RosPack()
         
