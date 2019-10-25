@@ -2,6 +2,17 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* added bumper stuff
+* added uvdar
+* small gps fix
+* gps update
+* added SENSORS variable config
+* added collision avoidance
+* updated tracker and controller status, fixed mass
+* Contributors: Dan Hert, Tomas Baca, Viktor Walter, uav42, uav43, uav46, uav64
+
 0.0.2 (2019-07-01)
 ------------------
 * + battery level
