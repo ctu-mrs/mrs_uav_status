@@ -2,8 +2,8 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.3 (2019-10-25)
+------------------
 * added bumper stuff
 * added uvdar
 * small gps fix
