@@ -121,6 +121,8 @@ class Status:
 
         rospy.init_node('status', anonymous=True)
 
+        self.UAV_MASS = "{}".format(float(rospy.get_param("~uav_mass")))
+
         # Initialize some lists
         topic_list = []
         name_list = []
@@ -764,16 +766,11 @@ class Status:
         self.bumper_constraining = 0
         self.has_gps = False
         self.rospack = rospkg.RosPack()
-        
+
         try:
             self.UAV_NAME =str(os.environ["UAV_NAME"])
         except:
             self.ErrorShutdown(" UAV_NAME variable is not set!!! Terminating... ", stdscr, red)
-        
-        try:
-            self.UAV_MASS =str(os.environ["UAV_MASS"])
-        except:
-            self.ErrorShutdown(" UAV_MASS variable is not set!!! Terminating... ", stdscr, red)
         
         try:
             self.UAV_TYPE =str(os.environ["UAV_TYPE"])
