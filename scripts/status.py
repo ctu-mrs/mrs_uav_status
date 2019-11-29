@@ -465,7 +465,7 @@ class Status:
                 odom = "NO ODOM"
                 tmp_color = red
             else:
-                odom = self.odom_main.child_frame_id
+                odom = self.odom_main.header.frame_id.split("/")[1]
                 if tmp < 0.9*100 or tmp > 1.1*100:
                     tmp_color = yellow
             stdscr.attron(tmp_color)
