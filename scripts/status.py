@@ -264,13 +264,13 @@ class Status:
         begin_x = 0; begin_y = 5
         height = 3; width = 26
         uav_state_win = curses.newwin(height, width, begin_y, begin_x)
-        begin_x = 100; begin_y = 0
+        begin_x = 97; begin_y = 1
         height = 5; width = 60
         bar_win = curses.newwin(height, width, begin_y, begin_x)
 
         while not rospy.is_shutdown():
             loop_counter = loop_counter + 1;
-            curses.resizeterm(30, 150)
+            curses.resizeterm(30, 180)
 
             if loop_counter == 10:
                 loop_counter = 0;  
@@ -288,6 +288,9 @@ class Status:
 
             uav_state_win.clear()
             bar_win.clear()
+            if(not dark_mode):
+                uav_state_win.attron(curses.A_REVERSE)
+                bar_win.attron(curses.A_REVERSE)
             self.odom10(uav_state_win, c_odom)
             self.bar10(bar_win, c_odom)
 
@@ -366,12 +369,12 @@ class Status:
     # #{ bar10()
 
     def bar10(self, win, c_odom):
-        vlim_x = 11.3123
-        vlim_y = 1
-        vlim_z = 411.3123
-        acclim_x = 3.0
-        acclim_y = 3.0
-        acclim_z = 3.0
+        vlim_x = 3
+        vlim_y = 3
+        vlim_z = 3
+        acclim_x = 2.0
+        acclim_y = 2.0
+        acclim_z = 2.0
         vlim_x = round(vlim_x,1)
         vlim_y = round(vlim_y,1)
         vlim_z = round(vlim_z,1)
@@ -404,15 +407,21 @@ class Status:
             za_bars = 10
 
         win.attron(self.white)
-        win.addstr(0, 15 - (len(str(vlim_x).split('.')[0])), str(vlim_x))
-        win.addstr(0, 31 - (len(str(vlim_y).split('.')[0])), str(vlim_y))
-        win.addstr(0, 47 - (len(str(vlim_z).split('.')[0])), str(vlim_z))
-        win.addstr(1, 0, "Vel X:[          ]  Y:[          ]  Z:[          ]")
+        win.addstr(0, 15 - (len(str(vlim_x).split('.')[0])), " " + str(vlim_x) + " ")
+        win.addstr(0, 31 - (len(str(vlim_y).split('.')[0])), " " + str(vlim_y) + " ")
+        win.addstr(0, 47 - (len(str(vlim_z).split('.')[0])), " " + str(vlim_z) + " ")
+        win.addstr(1, 0, " Vel X:[")
+        win.addstr(1, 18, "]  Y:[")
+        win.addstr(1, 34, "]  Z:[")
+        win.addstr(1, 50, "] ")
 
-        win.addstr(3, 15 - (len(str(acclim_x).split('.')[0])), str(acclim_x))
-        win.addstr(3, 31 - (len(str(acclim_y).split('.')[0])), str(acclim_y))
-        win.addstr(3, 47 - (len(str(acclim_z).split('.')[0])), str(acclim_z))
-        win.addstr(4, 0, "Acc X:[          ]  Y:[          ]  Z:[          ]")
+        win.addstr(3, 15 - (len(str(acclim_x).split('.')[0])), " " + str(acclim_x) + " ")
+        win.addstr(3, 31 - (len(str(acclim_y).split('.')[0])), " " + str(acclim_y) + " ")
+        win.addstr(3, 47 - (len(str(acclim_z).split('.')[0])), " " + str(acclim_z) + " ")
+        win.addstr(4, 0, " Acc X:[")
+        win.addstr(4, 18, "]  Y:[")
+        win.addstr(4, 34, "]  Z:[")
+        win.addstr(4, 50, "] ")
 
         win.attron(self.green)
         for i in range(0, xv_bars):
@@ -420,7 +429,7 @@ class Status:
                 win.attron(self.yellow)
             if i > 7:
                 win.attron(self.red)
-            win.addstr(1, 7+i, "|")
+            win.addstr(1, 8+i, "|")
         
         win.attron(self.green)
         for i in range(0, yv_bars):
@@ -428,7 +437,7 @@ class Status:
                 win.attron(self.yellow)
             if i > 7:
                 win.attron(self.red)
-            win.addstr(1, 23+i, "|")
+            win.addstr(1, 24+i, "|")
 
         win.attron(self.green)
         for i in range(0, zv_bars):
@@ -436,7 +445,7 @@ class Status:
                 win.attron(self.yellow)
             if i > 7:
                 win.attron(self.red)
-            win.addstr(1, 39+i, "|")
+            win.addstr(1, 40+i, "|")
 
         win.attron(self.green)
         for i in range(0, xa_bars):
@@ -444,7 +453,7 @@ class Status:
                 win.attron(self.yellow)
             if i > 7:
                 win.attron(self.red)
-            win.addstr(4, 7+i, "|")
+            win.addstr(4, 8+i, "|")
         
         win.attron(self.green)
         for i in range(0, ya_bars):
@@ -452,7 +461,7 @@ class Status:
                 win.attron(self.yellow)
             if i > 7:
                 win.attron(self.red)
-            win.addstr(4, 23+i, "|")
+            win.addstr(4, 24+i, "|")
 
         win.attron(self.green)
         for i in range(0, za_bars):
@@ -460,7 +469,7 @@ class Status:
                 win.attron(self.yellow)
             if i > 7:
                 win.attron(self.red)
-            win.addstr(4, 39+i, "|")
+            win.addstr(4, 40+i, "|")
         win.attroff(self.green)
         win.attroff(self.red)
         win.attroff(self.yellow)
