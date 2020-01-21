@@ -127,9 +127,9 @@ class Status:
     
         # Initialize some lists
         topic_list = []
-        name_list = []
-        hz_list = []
-        hz_list_modifiers = []
+        self.name_list = []
+        self.hz_list = []
+        self.hz_list_modifiers = []
         sub_list = []
         dark_mode = True
         colorblind_mode = True
@@ -144,52 +144,52 @@ class Status:
     
         # Get parameters from config file and put them in lists
     
-        param_list = rospy.get_param('~want_hz', "")
+        self.param_list = rospy.get_param('~want_hz', "")
         self.SENSORS = str(self.SENSORS).replace(',', ' ') 
-        sensor_list = str(self.SENSORS).split(' ')
+        self.sensor_list = str(self.SENSORS).split(' ')
         # needed_nodes = rospy.get_param('~needed_nodes', "")
         # for i in needed_nodes:
         #     i = str(self.UAV_NAME) + "/" + i
     
         if str(self.PIXGARM) == "true":
-            param_list.insert(0, "mavros/distance_sensor/garmin Garmin_pix 80+")
+            self.param_list.insert(0, "mavros/distance_sensor/garmin Garmin_pix 80+")
     
-        if str(self.PIXGARM) == "false" and 'garmin_down' in sensor_list:
-            param_list.insert(0, "garmin/range Garmin_down 80+")
+        if str(self.PIXGARM) == "false" and 'garmin_down' in self.sensor_list:
+            self.param_list.insert(0, "garmin/range Garmin_down 80+")
     
-        if 'realsense_brick' in sensor_list:
-            param_list.insert(0, "rs_d435/color/image_raw Realsense_Brick 25+")
+        if 'realsense_brick' in self.sensor_list:
+            self.param_list.insert(0, "rs_d435/color/image_raw Realsense_Brick 25+")
     
-        if 'bluefox_brick' in sensor_list:
-            param_list.insert(0, "bluefox_brick/image_raw Bluefox_Brick 25+")
+        if 'bluefox_brick' in self.sensor_list:
+            self.param_list.insert(0, "bluefox_brick/image_raw Bluefox_Brick 25+")
     
-        if 'bluefox_optflow' in sensor_list:
-            param_list.insert(0, "bluefox_optflow/image_raw Bluefox_Optflow 60+")
-            param_list.insert(0, "optic_flow/velocity Optic_flow 60+")
+        if 'bluefox_optflow' in self.sensor_list:
+            self.param_list.insert(0, "bluefox_optflow/image_raw Bluefox_Optflow 60+")
+            self.param_list.insert(0, "optic_flow/velocity Optic_flow 60+")
     
-        if 'rplidar' in sensor_list:
-            param_list.insert(0, "rplidar/scan Rplidar 10+")
+        if 'rplidar' in self.sensor_list:
+            self.param_list.insert(0, "rplidar/scan Rplidar 10+")
     
         if str(self.BLUEFOX_UV_LEFT) != "":
-            param_list.insert(0, "uvdar_bluefox/left/image_raw Bluefox_UV_left 70+")
+            self.param_list.insert(0, "uvdar_bluefox/left/image_raw Bluefox_UV_left 70+")
     
         if str(self.BLUEFOX_UV_RIGHT) != "":
-            param_list.insert(0, "uvdar_bluefox/right/image_raw Bluefox_UV_right 70+")
+            self.param_list.insert(0, "uvdar_bluefox/right/image_raw Bluefox_UV_right 70+")
     
         if str(self.ODOMETRY_TYPE) == "gps":
-            param_list.insert(0, "mavros/global_position/global PX4 GPS 100")
+            self.param_list.insert(0, "mavros/global_position/global PX4 GPS 100")
         tmp_string = ""
-        for i in param_list:
+        for i in self.param_list:
             topic_list.append(i.rsplit()[0])
             tmp = i.rsplit(' ', 1)[0]
-            name_list.append(tmp.split(' ', 1)[1])
+            self.name_list.append(tmp.split(' ', 1)[1])
             tmp_string = i.rsplit()[-1]
             if tmp_string[-1] == "-" or tmp_string[-1] == "+":
-                hz_list_modifiers.append(tmp_string[-1])
+                self.hz_list_modifiers.append(tmp_string[-1])
                 tmp_string = tmp_string[:-1]
             else:
-                hz_list_modifiers.append("0")
-            hz_list.append(float(tmp_string))
+                self.hz_list_modifiers.append("0")
+            self.hz_list.append(float(tmp_string))
         profile_list = str(self.PROFILES_BOTH).split(' ')
         dark_mode = False
         if 'COLORSCHEME_DARK' in profile_list:
@@ -213,10 +213,10 @@ class Status:
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/mpc_tracker/diagnostics", MpcTrackerDiagnostics, self.MPCstatusCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/global_position/global", NavSatFix, self.GPSCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/bumper_status", BumperStatus, self.bumperCallback)
-        if 'uvdar' in sensor_list:
+        if 'uvdar' in self.sensor_list:
             rospy.Subscriber("/" + str(self.UAV_NAME) + "/uvdar/targetSeenCount", Int16, self.uvdarCallback)
     
-        for i in range(0, len(param_list)):
+        for i in range(0, len(self.param_list)):
             if(str(topic_list[i][0]) == "/"):
                 sub_list.append(rospy.Subscriber(str(topic_list[i]), rospy.AnyMsg, self.MultiCallback, callback_args = i))
             else:
@@ -227,38 +227,37 @@ class Status:
         time.sleep(1)
     
         # for topics from config list
-        max_length = 0
+        self.max_length = 0
     
         # disk space 
         last_remaining = 0;
-        for i in range(0, len(param_list)):
-            max_length = len(max(name_list, key=len))
-        spacer_string = "          "
-        for i in range(0, max_length):
-            spacer_string = spacer_string + " "
+        for i in range(0, len(self.param_list)):
+            self.max_length = len(max(self.name_list, key=len))
+        self.spacer_string = "          "
+        for i in range(0, self.max_length):
+            self.spacer_string = self.spacer_string + " "
     
         if(dark_mode):
             if(colorblind_mode):
-                green = curses.color_pair(34)
+                self.green = curses.color_pair(34)
             else:
-                green = curses.color_pair(47)
-            yellow = curses.color_pair(221)
-            red = curses.color_pair(197)
+                self.green = curses.color_pair(47)
+            self.yellow = curses.color_pair(221)
+            self.red = curses.color_pair(197)
         else:
             if(colorblind_mode):
-                green = curses.color_pair(20)
+                self.green = curses.color_pair(20)
             else:
-                green = curses.color_pair(29)
-            yellow = curses.color_pair(173)
-            red = curses.color_pair(125)
+                self.green = curses.color_pair(29)
+            self.yellow = curses.color_pair(173)
+            self.red = curses.color_pair(125)
         tmp_color = curses.color_pair(0)
         process.start()
-        cpu_load = 0
     # #} end of status
             
         loop_counter = 9
         refresh = 0
-        odom_color = red
+        odom_color = self.red
     
         while not rospy.is_shutdown():
             loop_counter = loop_counter + 1;
@@ -310,417 +309,470 @@ class Status:
 
                 # #{ Odom Hz
 
-                odom = ""
+                self.odom = ""
                 tmp = self.count_odom
                 self.count_odom = 0
-                odom_color = green
+                odom_color = self.green
                 if tmp == 0:
                     tmp = "NO_ODOM"
-                    odom_color = red
+                    odom_color = self.red
                 else:
-                    odom = self.odom_main.header.frame_id.split("/")[1]
+                    self.odom = self.odom_main.header.frame_id.split("/")[1]
                     if tmp < 0.9*100 or tmp > 1.1*100:
-                        odom_color = yellow
+                        odom_color = self.yellow
                 stdscr.attron(odom_color)
                 stdscr.addstr(5, 0, " Odom:     Hz ")
                 stdscr.addstr(5, 5 + (5 - len(str(tmp))),str(tmp) + " ")
-                stdscr.addstr(6, 0, " " + str(odom) + " ")
+                stdscr.addstr(6, 0, " " + str(self.odom) + " ")
 
                 # #} end of Odom
 
-# #{ CPU LOAD
-
-                tmp_color = green
-                if process.is_alive():
-                    queue_lock.acquire()
-                    if not cpu_load_queue.empty():
-                        cpu_load = cpu_load_queue.get_nowait()
-                        while not cpu_load_queue.empty():
-                            cpu_load_queue.get_nowait()
-                    queue_lock.release()
-                    if(int(cpu_load) > 89):
-                        tmp_color = red
-                    elif(int(cpu_load) > 74):
-                        tmp_color = yellow
-                else:
-                    tmp_color = red
-                    cpu_load = "x"
-                stdscr.attron(tmp_color)
-                stdscr.addstr(1, 26, " CPU load:   ")
-                stdscr.addstr(1, 35 + (4 - len(str(cpu_load))), str(cpu_load))
-                stdscr.addstr(1, 39, "% ")
-
-                # #} end of CPU LOAD
-
-                # #{ Mavros state
-
-                tmp = self.count_state
-                self.count_state = 0
-                tmp2 = "N/A"
-                if tmp == 0:
-                    tmp = "N/A"
-                else:
-                    tmp = self.mavros_state.armed
-                    tmp2 = self.mavros_state.mode
-                if(str(tmp) == "True"):
-                    tmp = "ARMED"
-                    tmp_color = green
-                else:
-                    tmp = "DISARMED"
-                    tmp_color = red
-                stdscr.attron(tmp_color)
-                stdscr.addstr(3, 26, " State: " + str(tmp) + " ")
-                if(str(tmp2) == "OFFBOARD"):
-                    tmp_color = green
-                elif(str(tmp2) == "POSITION" or str(tmp2) == "MANUAL" or str(tmp2) == "ALTITUDE" ):
-                    tmp_color = yellow
-                else:
-                    tmp_color = red
-                stdscr.attron(tmp_color)
-                stdscr.addstr(4, 26, " Mode:  " + str(tmp2) + " ")
-                # #} end of Mavros state
-
-                # #{ Active Tracker
-                tmp = self.count_tracker
-                self.count_tracker = 0
-                if tmp == 0:
-                    tracker = "NO TRACKER"
-                    tmp_color = red
-                else:
-                    tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
-
-                if tracker == "MpcTracker":
-                    tmp_color = green
-                elif tracker == "LineTracker" or tracker == "LandoffTracker" or tracker == "NullTracker":
-                    tmp_color = yellow
-                else:
-                    tmp_color = red
-
-                stdscr.attron(tmp_color)
-                stdscr.addstr(1, 0, " " + tracker + " ")
-                
-                tmp_offset = len(tracker) + 1
-
-                tmp = self.count_constraints
-                self.count_constraints = 0
-                if tmp == 0:
-                    cur_constraints= "N/A"
-                    tmp_color = red
-                else:
-                    cur_constraints = self.constraints.data
-
-                if cur_constraints == "medium":
-                    tmp_color = green
-                elif cur_constraints == "slow" or cur_constraints == "fast" or cur_constraints == "optflow":
-                    tmp_color = yellow
-                else:
-                    tmp_color = red
-
-                stdscr.attroff(tmp_color)
-                stdscr.addstr(1, tmp_offset, "/")
-                stdscr.attron(tmp_color)
-                stdscr.addstr(1, tmp_offset + 1, cur_constraints + " ")
-                # #} end of Active Tracker
-
-# #{ names
-
-                stdscr.attroff(tmp_color)
-                tmp_color = curses.color_pair(0)
-                stdscr.attron(tmp_color)
-                stdscr.addstr(0, 0," " + str(self.UAV_NAME) + " ")
-                stdscr.addstr(0, 6," " + str(self.UAV_TYPE) + " ")
-                stdscr.addstr(0, 12," " + str(self.NATO_NAME) + " ")
-                # #} end of names
-
-# #{ Mass
-                
-                stdscr.attroff(tmp_color)
-                tmp_color = curses.color_pair(0)
-                stdscr.attron(tmp_color)
-                set_mass = float(self.UAV_MASS.replace(",","."))
-                set_mass = round(set_mass, 2)
-                stdscr.addstr(6, 40,"0 kg ")
-                stdscr.addstr(6, 26," UAV_MASS: " + str(set_mass))
-                est_mass = round(self.attitude_cmd.total_mass, 2)
-                tmp_color = green
-                if abs(self.attitude_cmd.mass_difference) > 2.0:
-                    tmp_color = red
-                    stdscr.attron(curses.A_BLINK)
-                elif abs(self.attitude_cmd.mass_difference) > 1.0:
-                   tmp_color = yellow
-                
-                stdscr.attron(tmp_color)
-               
-                if self.count_attitude > 0:
-                    self.count_attitude = 0
-                    stdscr.addstr(7, 40,"0 kg ")
-                    stdscr.addstr(7, 26," Est mass: " + str(est_mass))
-                else:
-                    tmp_color = red
-                    stdscr.attron(tmp_color)
-                    stdscr.addstr(7, 26," Est mass: N/A ")
-                
-                stdscr.attroff(curses.A_BLINK)
-                
-                # #} end of Mass
-
-                # #{ Thrust
-                tmp = self.count_attitude_target
-                self.count_attitude_target = 0
-                if tmp == 0:
-                    thrust = "N/A"
-                    tmp_color = red
-                else:
-                    thrust = round(self.attitude_target.thrust, 3)
-                    tmp_color = green
-                    if thrust > 0.7 or thrust < 0.25:
-                        tmp_color = yellow
-                    if thrust > 0.79:
-                        tmp_color = red
-                stdscr.attron(tmp_color)
-                stdscr.addstr(4, 0, " Thrust: " + str(thrust) + " ")
-                # #} end of Thrust
-
-                # #{ Active Controller
-                tmp = self.count_controller
-                self.count_controller = 0
-                if tmp == 0:
-                    controller = "NO CONTROLLER"
-                    tmp_color = red
-                else:
-                    controller = self.controller_status.controller.rsplit('/', 1)[-1]
-
-                if controller == "So3Controller" or controller == "MpcController":
-                    tmp_color = green
-                else:
-                    tmp_color = red
-
-                stdscr.attron(tmp_color)
-                stdscr.addstr(3, 0, " " + controller + " ")
-
-                tmp_offset = len(controller) + 1
-
-                if controller == "So3Controller":
-                  tmp = self.count_gains
-                  self.count_gains = 0
-                  if tmp == 0:
-                      cur_gains = "N/A"
-                      tmp_color = red
-                  else:
-                      cur_gains = self.gains.data
-                  
-                  if cur_gains == "soft":
-                      tmp_color = green
-                  elif cur_gains == "supersoft" or cur_gains == "tight":
-                      tmp_color = yellow
-                  else:
-                      tmp_color = red
-                  
-                  stdscr.attroff(tmp_color)
-                  stdscr.addstr(3, tmp_offset, "/")
-                  stdscr.attron(tmp_color)
-                  stdscr.addstr(3, tmp_offset + 1, cur_gains + " ")
-                # #} end of Active Controller
-
-                # #{ Topics from config
-                for i in range(0, len(param_list)):
-                    if(self.count_list[i] > 0):
-                        tmp = self.count_list[i]
-                        self.count_list[i] = 0
-                    else:
-                        tmp = 0
-
-                    tmp_color = green
-                    if tmp == 0:
-                        tmp_color = red
-                    else:
-                        if tmp < 0.9*hz_list[i] or tmp > 1.1*hz_list[i]:
-                            tmp_color = yellow
-                        if tmp > 1.1*hz_list[i] and hz_list_modifiers[i] == "+":
-                            tmp_color = green
-                        if tmp < 0.9*hz_list[i] and hz_list_modifiers[i] == "-":
-                            tmp_color = green
-                    stdscr.attron(tmp_color)
-                    stdscr.addstr(1 + i, 46, spacer_string)
-                    stdscr.addstr(1 + i, 46, " " + str(name_list[i]) + ": ")
-                    stdscr.addstr(1 + i, 46 + max_length + 2 + (5 - len(str(tmp))), " " + str(tmp) + " Hz ")
-
-                # #} end of Topics from config
-
-                # #{ GPS
-
-                if "GPS" in str(odom) or  "Gps" in str(odom) or "gps" in str(odom) or self.has_gps:
-                    tmp = self.count_gpsdata
-                    self.count_gpsdata = 0
-                    if tmp == 0:
-                        gps = ""
-                    else:
-                        gps = (self.gpsdata.position_covariance[0] + self.gpsdata.position_covariance[4] + self.gpsdata.position_covariance[8])/3
-                        gps = round(gps,2)
-                        tmp_color = green
-                        if float(gps) < 10.0:
-                            tmp_color = green
-                        elif float(gps) < 20.0:
-                            tmp_color = yellow
-                        else:
-                            stdscr.attron(curses.A_BLINK)
-                            tmp_color = red
-                    stdscr.attron(tmp_color)
-                    stdscr.addstr(2, 60 + max_length, " GPS qual: " + str(gps) + " ")
-                    stdscr.attroff(curses.A_BLINK)
-                # #} end of GPS
-
-                # #{ RTK
-                tmp = self.count_bestpos
-                self.count_bestpos = 0
-                if tmp == 0:
-                    rtk = "no msgs"
-                    tmp_color = red
-                else:
-                    rtk = self.bestpos.position_type
-                    tmp_color = green
-                    if rtk == "L1_INT" or rtk == "WIDE_INT" or rtk == "NARROW_INT":
-                        tmp_color = green
-                    elif rtk == "L1_FLOAT" or rtk == "NARROW_FLOAT":
-                        tmp_color = yellow
-                    else:
-                        tmp_color = red
-                stdscr.attron(tmp_color)
-                stdscr.addstr(3, 60 + max_length, " RTK: " + str(rtk) + " ")
-                # #} end of RTK
-
-                # #{ Battery
-                tmp = self.count_battery
-                self.count_battery = 0
-                if tmp == 0 and self.last_battery == "N/A ":
-                    bat_out = "N/A "
-                    tmp_color = red
-                else:
-                    if tmp == 0:
-                        battery = self.last_battery
-                        self.last_battery = "N/A "
-                    else:
-                        battery = self.battery.voltage
-                        self.last_battery = self.battery.voltage
-                    if battery > 17.0:
-                        bat_out = battery/6
-                    else:
-                        bat_out = battery/4
-                    bat_out = round(bat_out, 2)
-                    tmp_color = green
-                    if (bat_out > 3.7):
-                        tmp_color = green
-                    elif (bat_out > 3.55):
-                        tmp_color = yellow
-                    else:
-                        stdscr.attron(curses.A_BLINK)
-                        tmp_color = red
-                stdscr.attron(tmp_color)
-                stdscr.addstr(5, 26, " Battery:  " + str(bat_out) + " ")
-                stdscr.addstr(5, 42, "V ")
-                stdscr.attroff(curses.A_BLINK)
-                # #} end of Battery
-
-                # #{ mpcstatus
-                if tracker == "MpcTracker":
-                    tmp = self.count_mpcstatus
-                    self.count_mpcstatus = 0
-                    if tmp == 0 :
-                        tmp_color = red
-                    elif str(self.mpcstatus.collision_avoidance_active) != "True":
-                        tmp_color = red
-                    else:
-                        tmp_color = green
-
-                    stdscr.attron(tmp_color)
-                    stdscr.addstr(5,  60 + max_length, " C.Avoid: " + str(self.mpcstatus.collision_avoidance_active))
-                    stdscr.addstr(6, 61 + max_length, str(self.mpcstatus.avoidance_active_uavs))
-                    tmp_color = red
-                    stdscr.attron(tmp_color)
-                    if str(self.mpcstatus.avoiding_collision) == "True" :
-                        stdscr.addstr(7, 61 + max_length, " ! AVOIDING COLLISION ! ")
-                # #} end of mpcstatus
-
-                # #{ uvdar_status
-                if 'uvdar' in sensor_list:
-                    tmp = self.count_uvdar
-                    self.count_uvdar = 0
-                    if tmp == 0:
-                        uvdar_text = "no msgs"
-                        tmp_color = red
-                    else:
-                        uvdar_text = str(self.uvdar.data)
-                        uvdar_text = uvdar_text + " targets"
-                        tmp_color = green
-                        if self.uvdar.data == 0:
-                            tmp_color = red
-                    stdscr.attron(tmp_color)
-                    stdscr.addstr(1, 78 + max_length, " UVDAR sees: ")
-                    stdscr.addstr(2, 79 + max_length, " " + uvdar_text + " ")
-                # #} end of uvdar_status
-
-                # #{ bumper_status
-                if self.bumper_status.repulsing or self.bumper_status.modifying_reference:
-                    tmp_color = red
-                else:
-                    tmp_color = green
-                stdscr.attron(tmp_color)
-                stdscr.addstr(4, 78 + max_length, " BUMPER: ")
-                if self.bumper_status.repulsing:
-                    stdscr.addstr(5, 79 + max_length, " REPULSING ")
-                elif self.bumper_status.modifying_reference:
-                    stdscr.addstr(5, 79 + max_length, " MODIFYING ")
-                else:
-                    stdscr.addstr(5, 79 + max_length, " no msgs ")
-                self.bumper_status.repulsing = False
-                self.bumper_status.modifying_reference = False
-
-                # #} end of bumper_status
-
-# #{ Misc
-                
-                stdscr.attroff(green)
-                try:
-                    stdscr.addstr(0, 46, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
-                except:
-                    stdscr.attron(red)
-                    stdscr.attron(curses.A_BLINK)
-                    stdscr.addstr(0, 46," NO ARENA DEFINED! ")
-                    stdscr.attroff(curses.A_BLINK)
-                    stdscr.attroff(red)
-                try:
-                    bashCommand = "df -h"
-                    p1 = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-                    output, error = p1.communicate()
-                    output = [line for line in output.split('\n') if line[-1:]=="/" in line]
-                    output = output[0].split()[3]
-
-                    remaining = float(output[:-1].replace(",",".")) 
-
-                    stdscr.attroff(tmp_color)
-                    if remaining > 25:
-                        if not remaining == last_remaining:
-                            tmp_color = yellow
-                        else:
-                            tmp_color = green
-                    elif remaining > 10:
-                        tmp_color = yellow
-                    else:
-                        tmp_color = red
-                        stdscr.attron(curses.A_BLINK)
-                    last_remaining = remaining 
-                    stdscr.attron(tmp_color)
-                    stdscr.addstr(1, 60 + max_length, " Disk space: " + str(output) + " ")
-                    stdscr.attroff(curses.A_BLINK)
-                except:
-                    stdscr.attron(red)
-                    stdscr.addstr(1, 60 + max_length, " Disk space: N/A ")
-
-                # #} end of Misc
+                self.cpuLoad(stdscr)
+                self.mavrosState(stdscr)
+                self.activeTracker(stdscr)
+                self.names(stdscr)
+                self.mass(stdscr)
+                self.thrust(stdscr)
+                self.activeController(stdscr)
+                self.confTopics(stdscr)
+                self.gps(stdscr)
+                self.rtk(stdscr)
+                self.batteryStatus(stdscr)
+                self.mpcStatus(stdscr)
+                self.uvdarStatus(stdscr)
+                self.bumperStatus(stdscr)
+                self.misc(stdscr)
 
             stdscr.refresh()
             rate.sleep()
             
+    # #{ misc()
+
+    def misc(self, stdscr):
+        stdscr.attroff(self.green)
+        try:
+            stdscr.addstr(0, 46, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
+        except:
+            stdscr.attron(self.red)
+            stdscr.attron(curses.A_BLINK)
+            stdscr.addstr(0, 46," NO ARENA DEFINED! ")
+            stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(self.red)
+        try:
+            bashCommand = "df -h"
+            p1 = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+            output, error = p1.communicate()
+            output = [line for line in output.split('\n') if line[-1:]=="/" in line]
+            output = output[0].split()[3]
+
+            remaining = float(output[:-1].replace(",",".")) 
+
+            stdscr.attroff(tmp_color)
+            if remaining > 25:
+                if not remaining == last_remaining:
+                    tmp_color = self.yellow
+                else:
+                    tmp_color = self.green
+            elif remaining > 10:
+                tmp_color = self.yellow
+            else:
+                tmp_color = self.red
+                stdscr.attron(curses.A_BLINK)
+            last_remaining = remaining 
+            stdscr.attron(tmp_color)
+            stdscr.addstr(1, 60 + self.max_length, " Disk space: " + str(output) + " ")
+            stdscr.attroff(curses.A_BLINK)
+        except:
+            stdscr.attron(self.red)
+            stdscr.addstr(1, 60 + self.max_length, " Disk space: N/A ")
+
+    # #} end of misc()
+            
+    # #{ bumperStatus()
+
+    def bumperStatus(self, stdscr):
+        if self.bumper_status.repulsing or self.bumper_status.modifying_reference:
+            tmp_color = self.red
+        else:
+            tmp_color = self.green
+        stdscr.attron(tmp_color)
+        stdscr.addstr(4, 78 + self.max_length, " BUMPER: ")
+        if self.bumper_status.repulsing:
+            stdscr.addstr(5, 79 + self.max_length, " REPULSING ")
+        elif self.bumper_status.modifying_reference:
+            stdscr.addstr(5, 79 + self.max_length, " MODIFYING ")
+        else:
+            stdscr.addstr(5, 79 + self.max_length, " no msgs ")
+        self.bumper_status.repulsing = False
+        self.bumper_status.modifying_reference = False
+
+    # #} end of bumperStatus()
+            
+    # #{ uvdarStatus()
+
+    def uvdarStatus(self, stdscr):
+        if 'uvdar' in self.sensor_list:
+            tmp = self.count_uvdar
+            self.count_uvdar = 0
+            if tmp == 0:
+                uvdar_text = "no msgs"
+                tmp_color = self.red
+            else:
+                uvdar_text = str(self.uvdar.data)
+                uvdar_text = uvdar_text + " targets"
+                tmp_color = self.green
+                if self.uvdar.data == 0:
+                    tmp_color = self.red
+            stdscr.attron(tmp_color)
+            stdscr.addstr(1, 78 + self.max_length, " UVDAR sees: ")
+            stdscr.addstr(2, 79 + self.max_length, " " + uvdar_text + " ")
+
+    # #} end of uvdarStatus()
+            
+    # #{ mpcStatus()
+
+    def mpcStatus(self, stdscr):
+        if self.tracker == "MpcTracker":
+            tmp = self.count_mpcstatus
+            self.count_mpcstatus = 0
+            if tmp == 0 :
+                tmp_color = self.red
+            elif str(self.mpcstatus.collision_avoidance_active) != "True":
+                tmp_color = self.red
+            else:
+                tmp_color = self.green
+
+            stdscr.attron(tmp_color)
+            stdscr.addstr(5,  60 + self.max_length, " C.Avoid: " + str(self.mpcstatus.collision_avoidance_active))
+            stdscr.addstr(6, 61 + self.max_length, str(self.mpcstatus.avoidance_active_uavs))
+            tmp_color = self.red
+            stdscr.attron(tmp_color)
+            if str(self.mpcstatus.avoiding_collision) == "True" :
+                stdscr.addstr(7, 61 + self.max_length, " ! AVOIDING COLLISION ! ")
+
+    # #} end of mpcStatus()
+            
+    # #{ batteryStatus()
+
+    def batteryStatus(self, stdscr):
+        tmp = self.count_battery
+        self.count_battery = 0
+        if tmp == 0 and self.last_battery == "N/A ":
+            bat_out = "N/A "
+            tmp_color = self.red
+        else:
+            if tmp == 0:
+                battery = self.last_battery
+                self.last_battery = "N/A "
+            else:
+                battery = self.battery.voltage
+                self.last_battery = self.battery.voltage
+            if battery > 17.0:
+                bat_out = battery/6
+            else:
+                bat_out = battery/4
+            bat_out = round(bat_out, 2)
+            tmp_color = self.green
+            if (bat_out > 3.7):
+                tmp_color = self.green
+            elif (bat_out > 3.55):
+                tmp_color = self.yellow
+            else:
+                stdscr.attron(curses.A_BLINK)
+                tmp_color = self.red
+        stdscr.attron(tmp_color)
+        stdscr.addstr(5, 26, " Battery:  " + str(bat_out) + " ")
+        stdscr.addstr(5, 42, "V ")
+        stdscr.attroff(curses.A_BLINK)
+
+    # #} end of batteryStatus()
+            
+    # #{ rtk()
+
+    def rtk(self, stdscr):
+        tmp = self.count_bestpos
+        self.count_bestpos = 0
+        if tmp == 0:
+            rtk = "no msgs"
+            tmp_color = self.red
+        else:
+            rtk = self.bestpos.position_type
+            tmp_color = self.green
+            if rtk == "L1_INT" or rtk == "WIDE_INT" or rtk == "NARROW_INT":
+                tmp_color = self.green
+            elif rtk == "L1_FLOAT" or rtk == "NARROW_FLOAT":
+                tmp_color = self.yellow
+            else:
+                tmp_color = self.red
+        stdscr.attron(tmp_color)
+        stdscr.addstr(3, 60 + self.max_length, " RTK: " + str(rtk) + " ")
+
+    # #} end of rtk()
+            
+    # #{ gps()
+
+    def gps(self, stdscr):
+        if "GPS" in str(self.odom) or  "Gps" in str(self.odom) or "gps" in str(self.odom) or self.has_gps:
+            tmp = self.count_gpsdata
+            self.count_gpsdata = 0
+            if tmp == 0:
+                gps = ""
+            else:
+                gps = (self.gpsdata.position_covariance[0] + self.gpsdata.position_covariance[4] + self.gpsdata.position_covariance[8])/3
+                gps = round(gps,2)
+                tmp_color = self.green
+                if float(gps) < 10.0:
+                    tmp_color = self.green
+                elif float(gps) < 20.0:
+                    tmp_color = self.yellow
+                else:
+                    stdscr.attron(curses.A_BLINK)
+                    tmp_color = self.red
+            stdscr.attron(tmp_color)
+            stdscr.addstr(2, 60 + self.max_length, " GPS qual: " + str(gps) + " ")
+            stdscr.attroff(curses.A_BLINK)
+
+    # #} end of  gps()
+
+    # #{ confTopics()
+
+    def confTopics(self, stdscr):
+        for i in range(0, len(self.param_list)):
+            if(self.count_list[i] > 0):
+                tmp = self.count_list[i]
+                self.count_list[i] = 0
+            else:
+                tmp = 0
+
+            tmp_color = self.green
+            if tmp == 0:
+                tmp_color = self.red
+            else:
+                if tmp < 0.9*self.hz_list[i] or tmp > 1.1*self.hz_list[i]:
+                    tmp_color = self.yellow
+                if tmp > 1.1*self.hz_list[i] and self.hz_list_modifiers[i] == "+":
+                    tmp_color = self.green
+                if tmp < 0.9*self.hz_list[i] and self.hz_list_modifiers[i] == "-":
+                    tmp_color = self.green
+            stdscr.attron(tmp_color)
+            stdscr.addstr(1 + i, 46, self.spacer_string)
+            stdscr.addstr(1 + i, 46, " " + str(self.name_list[i]) + ": ")
+            stdscr.addstr(1 + i, 46 + self.max_length + 2 + (5 - len(str(tmp))), " " + str(tmp) + " Hz ")
+
+    # #} confTopics()
+
+    # #{ activeController()
+
+    def activeController(self, stdscr):
+        tmp = self.count_controller
+        self.count_controller = 0
+        if tmp == 0:
+            controller = "NO CONTROLLER"
+            tmp_color = self.red
+        else:
+            controller = self.controller_status.controller.rsplit('/', 1)[-1]
+
+        if controller == "So3Controller" or controller == "MpcController":
+            tmp_color = self.green
+        else:
+            tmp_color = self.red
+
+        stdscr.attron(tmp_color)
+        stdscr.addstr(3, 0, " " + controller + " ")
+
+        tmp_offset = len(controller) + 1
+
+        if controller == "So3Controller":
+          tmp = self.count_gains
+          self.count_gains = 0
+          if tmp == 0:
+              cur_gains = "N/A"
+              tmp_color = self.red
+          else:
+              cur_gains = self.gains.data
+          
+          if cur_gains == "soft":
+              tmp_color = self.green
+          elif cur_gains == "supersoft" or cur_gains == "tight":
+              tmp_color = self.yellow
+          else:
+              tmp_color = self.red
+          
+          stdscr.attroff(tmp_color)
+          stdscr.addstr(3, tmp_offset, "/")
+          stdscr.attron(tmp_color)
+          stdscr.addstr(3, tmp_offset + 1, cur_gains + " ")
+
+    # #} end of activeController()
+
+    # #{ thrust()
+
+    def thrust(self, stdscr):
+        tmp = self.count_attitude_target
+        self.count_attitude_target = 0
+        if tmp == 0:
+            thrust = "N/A"
+            tmp_color = self.red
+        else:
+            thrust = round(self.attitude_target.thrust, 3)
+            tmp_color = self.green
+            if thrust > 0.7 or thrust < 0.25:
+                tmp_color = self.yellow
+            if thrust > 0.79:
+                tmp_color = self.red
+        stdscr.attron(tmp_color)
+        stdscr.addstr(4, 0, " Thrust: " + str(thrust) + " ")
+
+    # #} end of thrust()
+
+    # #{ mass()
+                
+    def mass(self, stdscr):
+        tmp_color = curses.color_pair(0)
+        stdscr.attron(tmp_color)
+        set_mass = float(self.UAV_MASS.replace(",","."))
+        set_mass = round(set_mass, 2)
+        stdscr.addstr(6, 40,"0 kg ")
+        stdscr.addstr(6, 26," UAV_MASS: " + str(set_mass))
+        est_mass = round(self.attitude_cmd.total_mass, 2)
+        tmp_color = self.green
+        if abs(self.attitude_cmd.mass_difference) > 2.0:
+            tmp_color = self.red
+            stdscr.attron(curses.A_BLINK)
+        elif abs(self.attitude_cmd.mass_difference) > 1.0:
+           tmp_color = self.yellow
+        
+        stdscr.attron(tmp_color)
+       
+        if self.count_attitude > 0:
+            self.count_attitude = 0
+            stdscr.addstr(7, 40,"0 kg ")
+            stdscr.addstr(7, 26," Est mass: " + str(est_mass))
+        else:
+            tmp_color = self.red
+            stdscr.attron(tmp_color)
+            stdscr.addstr(7, 26," Est mass: N/A ")
+        
+        stdscr.attroff(curses.A_BLINK)
+        stdscr.attroff(tmp_color)
+                
+    # #} end of mass()
+
+    # #{ names()
+
+    def names(self, stdscr):
+        tmp_color = curses.color_pair(0)
+        stdscr.attron(tmp_color)
+        stdscr.addstr(0, 0," " + str(self.UAV_NAME) + " ")
+        stdscr.addstr(0, 6," " + str(self.UAV_TYPE) + " ")
+        stdscr.addstr(0, 12," " + str(self.NATO_NAME) + " ")
+        stdscr.attroff(tmp_color)
+
+    # #} end of names()
+
+    # #{ activeTracker()
+
+    def activeTracker(self, stdscr):
+        tmp = self.count_tracker
+        self.count_tracker = 0
+        if tmp == 0:
+            self.tracker = "NO TRACKER"
+            tmp_color = self.red
+        else:
+            self.tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
+
+        if self.tracker == "MpcTracker":
+            tmp_color = self.green
+        elif self.tracker == "LineTracker" or self.tracker == "LandoffTracker" or self.tracker == "NullTracker":
+            tmp_color = self.yellow
+        else:
+            tmp_color = self.red
+
+        stdscr.attron(tmp_color)
+        stdscr.addstr(1, 0, " " + self.tracker + " ")
+        
+        tmp_offset = len(self.tracker) + 1
+
+        tmp = self.count_constraints
+        self.count_constraints = 0
+        if tmp == 0:
+            cur_constraints= "N/A"
+            tmp_color = self.red
+        else:
+            cur_constraints = self.constraints.data
+
+        if cur_constraints == "medium":
+            tmp_color = self.green
+        elif cur_constraints == "slow" or cur_constraints == "fast" or cur_constraints == "optflow":
+            tmp_color = self.yellow
+        else:
+            tmp_color = self.red
+
+        stdscr.attroff(tmp_color)
+        stdscr.addstr(1, tmp_offset, "/")
+        stdscr.attron(tmp_color)
+        stdscr.addstr(1, tmp_offset + 1, cur_constraints + " ")
+        stdscr.attroff(tmp_color)
+
+    # #} end of activeself.tracker()
+
+    # #{ mavrosState()
+
+    def mavrosState(self, stdscr):
+        tmp = self.count_state
+        self.count_state = 0
+        tmp2 = "N/A"
+        if tmp == 0:
+            tmp = "N/A"
+        else:
+            tmp = self.mavros_state.armed
+            tmp2 = self.mavros_state.mode
+        if(str(tmp) == "True"):
+            tmp = "ARMED"
+            tmp_color = self.green
+        else:
+            tmp = "DISARMED"
+            tmp_color = self.red
+        stdscr.attron(tmp_color)
+        stdscr.addstr(3, 26, " State: " + str(tmp) + " ")
+        if(str(tmp2) == "OFFBOARD"):
+            tmp_color = self.green
+        elif(str(tmp2) == "POSITION" or str(tmp2) == "MANUAL" or str(tmp2) == "ALTITUDE" ):
+            tmp_color = self.yellow
+        else:
+            tmp_color = self.red
+        stdscr.attron(tmp_color)
+        stdscr.addstr(4, 26, " Mode:  " + str(tmp2) + " ")
+        stdscr.attroff(tmp_color)
+        
+        # #} end of Mavros state
+
+    # #{ cpuLoad()
+    
+    def cpuLoad(self, stdscr):
+        cpu_load = 0
+        tmp_color = self.green
+        if process.is_alive():
+            queue_lock.acquire()
+            if not cpu_load_queue.empty():
+                cpu_load = cpu_load_queue.get_nowait()
+                while not cpu_load_queue.empty():
+                    cpu_load_queue.get_nowait()
+            queue_lock.release()
+            if(int(cpu_load) > 89):
+                tmp_color = self.red
+            elif(int(cpu_load) > 74):
+                tmp_color = self.yellow
+        else:
+            tmp_color = self.red
+            cpu_load = "x"
+        stdscr.attron(tmp_color)
+        stdscr.addstr(1, 26, " CPU load:   ")
+        stdscr.addstr(1, 35 + (4 - len(str(cpu_load))), str(cpu_load))
+        stdscr.addstr(1, 39, "% ")
+        stdscr.attroff(tmp_color)
+    
+    # #} end of cpuLoad
 
     def __init__(self):
 
