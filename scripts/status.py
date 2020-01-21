@@ -100,6 +100,9 @@ class Status:
         self.bumper_repulsing |= self.bumper_status.repulsing
         self.bumper_constraining |= self.bumper_status.modifying_reference
 
+    def currConstCallback(self, data):
+        self.curr_const = data
+        self.count_curr_const = self.count_curr_const +1
 
     # #} end of Callbacks
 
@@ -213,6 +216,8 @@ class Status:
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/mpc_tracker/diagnostics", MpcTrackerDiagnostics, self.MPCstatusCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/global_position/global", NavSatFix, self.GPSCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/bumper_status", BumperStatus, self.bumperCallback)
+        rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/current_constraints", TrackerConstraints, self.currConstCallback)
+
         if 'uvdar' in self.sensor_list:
             rospy.Subscriber("/" + str(self.UAV_NAME) + "/uvdar/targetSeenCount", Int16, self.uvdarCallback)
     
@@ -315,7 +320,7 @@ class Status:
                 self.batteryStatus(stdscr)
                 self.mpcStatus(stdscr)
                 self.uvdarStatus(stdscr)
-                self.bumperStatus(stdscr)
+                # self.bumperStatus(stdscr)
                 self.misc(stdscr)
 
             stdscr.refresh()
@@ -369,12 +374,22 @@ class Status:
     # #{ bar10()
 
     def bar10(self, win, c_odom):
-        vlim_x = 3
-        vlim_y = 3
-        vlim_z = 3
-        acclim_x = 2.0
-        acclim_y = 2.0
-        acclim_z = 2.0
+        if self.count_curr_const > 0:
+            self.count_curr_const = 0
+            vlim_x = self.curr_const.horizontal_speed
+            vlim_y = self.curr_const.horizontal_speed
+            vlim_z = self.curr_const.vertical_ascending_speed
+            acclim_x = 2.0
+            acclim_y = 2.0
+            acclim_z = 2.0
+        else:
+            vlim_x = 0.1
+            vlim_y = 0.1
+            vlim_z = 0.1
+            acclim_x = 0.1
+            acclim_y = 0.1
+            acclim_z = 0.1
+
         vlim_x = round(vlim_x,1)
         vlim_y = round(vlim_y,1)
         vlim_z = round(vlim_z,1)
@@ -973,6 +988,8 @@ class Status:
         self.battery = BatteryState()
         self.gpsdata = NavSatFix()
         self.bumper_status = BumperStatus()
+        self.curr_const = TrackerConstraints()
+
         self.uvdar = Int16()
         self.count_list = []
         self.count_uav_state = 0
@@ -989,6 +1006,7 @@ class Status:
         self.count_mpcstatus = 0
         self.count_gpsdata = 0
         self.count_uvdar = 0
+        self.count_curr_const = 0
         self.bumper_repulsing = 0
         self.bumper_constraining = 0
         self.has_gps = False
