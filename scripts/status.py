@@ -395,6 +395,7 @@ class Status:
         else:
             status = self.balloon.data
             win.attron(self.green)
+        self.count_balloon = 0
         win.addstr(0, 0, " State: " + str(status) + " ")
         win.attroff(self.red)
         win.attroff(self.green)
