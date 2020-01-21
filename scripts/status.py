@@ -62,9 +62,9 @@ class Status:
         self.attitude_cmd = data
         self.count_attitude = self.count_attitude + 1
 
-    def OdomMainCallback(self, data):
-        self.odom_main = data
-        self.count_odom = self.count_odom + 1
+    def UavStateCallback(self, data):
+        self.uav_state = data
+        self.count_uav_state = self.count_uav_state + 1
 
     def StateCallback(self, data):
         self.mavros_state = data
@@ -203,7 +203,7 @@ class Status:
         # Create ROSTopicHz and subscribers defined by the loaded config
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/diagnostics", ControlManagerDiagnostics, self.ControlManagerDiagnostics)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/attitude_cmd", AttitudeCommand, self.AttitudeCmdCallback)
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/odometry/odom_main", Odometry, self.OdomMainCallback)
+        rospy.Subscriber("/" + str(self.UAV_NAME) + "/odometry/uav_state", UavState, self.UavStateCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/state", State, self.StateCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/setpoint_raw/target_attitude", AttitudeTarget, self.AttitudeTargetCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/gain_manager/current_gains", String, self.GainsCallback)
@@ -251,6 +251,7 @@ class Status:
                 self.green = curses.color_pair(29)
             self.yellow = curses.color_pair(173)
             self.red = curses.color_pair(125)
+        self.white = curses.color_pair(0)
         tmp_color = curses.color_pair(0)
         process.start()
     # #} end of status
@@ -262,7 +263,10 @@ class Status:
 
         begin_x = 0; begin_y = 5
         height = 3; width = 26
-        win = curses.newwin(height, width, begin_y, begin_x)
+        uav_state_win = curses.newwin(height, width, begin_y, begin_x)
+        begin_x = 100; begin_y = 0
+        height = 5; width = 60
+        bar_win = curses.newwin(height, width, begin_y, begin_x)
 
         while not rospy.is_shutdown():
             loop_counter = loop_counter + 1;
@@ -276,13 +280,16 @@ class Status:
                 if(not dark_mode):
                     stdscr.attron(curses.A_REVERSE)
                 stdscr.attron(curses.A_BOLD)
-                win.attron(curses.A_BOLD)
+                uav_state_win.attron(curses.A_BOLD)
+                bar_win.attron(curses.A_BOLD)
 
-                c_odom = self.count_odom
-                self.count_odom = 0
+                c_odom = self.count_uav_state
+                self.count_uav_state = 0
 
-            win.clear()
-            self.odom10(win, c_odom)
+            uav_state_win.clear()
+            bar_win.clear()
+            self.odom10(uav_state_win, c_odom)
+            self.bar10(bar_win, c_odom)
 
             if refresh == 1:
                 refresh = 0;
@@ -309,7 +316,8 @@ class Status:
                 self.misc(stdscr)
 
             stdscr.refresh()
-            win.refresh()
+            uav_state_win.refresh()
+            bar_win.refresh()
             rate.sleep()
             
     # #{ misc()
@@ -355,6 +363,150 @@ class Status:
     # #} end of misc()
             
             
+    # #{ bar10()
+
+    def bar10(self, win, c_odom):
+        vlim_x = 11.3123
+        vlim_y = 1
+        vlim_z = 411.3123
+        acclim_x = 3.0
+        acclim_y = 3.0
+        acclim_z = 3.0
+        vlim_x = round(vlim_x,1)
+        vlim_y = round(vlim_y,1)
+        vlim_z = round(vlim_z,1)
+        acclim_x = round(acclim_x,1)
+        acclim_y = round(acclim_y,1)
+        acclim_z = round(acclim_z,1)
+
+        xv_bars = int(abs(10*self.uav_state.velocity.linear.x/vlim_x))
+        if xv_bars > 10:
+            xv_bars = 10
+
+        yv_bars = int(abs(10*self.uav_state.velocity.linear.y/vlim_y))
+        if yv_bars > 10:
+            yv_bars = 10
+
+        zv_bars = int(abs(10*self.uav_state.velocity.linear.z/vlim_z))
+        if zv_bars > 10:
+            zv_bars = 10
+
+        xa_bars = int(abs(10*self.uav_state.acceleration.linear.x/acclim_x))
+        if xa_bars > 10:
+            xa_bars = 10
+
+        ya_bars = int(abs(10*self.uav_state.acceleration.linear.y/acclim_y))
+        if ya_bars > 10:
+            ya_bars = 10
+
+        za_bars = int(abs(10*self.uav_state.acceleration.linear.z/acclim_z))
+        if za_bars > 10:
+            za_bars = 10
+
+        win.attron(self.white)
+        win.addstr(0, 15 - (len(str(vlim_x).split('.')[0])), str(vlim_x))
+        win.addstr(0, 31 - (len(str(vlim_y).split('.')[0])), str(vlim_y))
+        win.addstr(0, 47 - (len(str(vlim_z).split('.')[0])), str(vlim_z))
+        win.addstr(1, 0, "Vel X:[          ]  Y:[          ]  Z:[          ]")
+
+        win.addstr(3, 15 - (len(str(acclim_x).split('.')[0])), str(acclim_x))
+        win.addstr(3, 31 - (len(str(acclim_y).split('.')[0])), str(acclim_y))
+        win.addstr(3, 47 - (len(str(acclim_z).split('.')[0])), str(acclim_z))
+        win.addstr(4, 0, "Acc X:[          ]  Y:[          ]  Z:[          ]")
+
+        win.attron(self.green)
+        for i in range(0, xv_bars):
+            if i > 4 and i < 7:
+                win.attron(self.yellow)
+            if i > 7:
+                win.attron(self.red)
+            win.addstr(1, 7+i, "|")
+        
+        win.attron(self.green)
+        for i in range(0, yv_bars):
+            if i > 4 and i < 7:
+                win.attron(self.yellow)
+            if i > 7:
+                win.attron(self.red)
+            win.addstr(1, 23+i, "|")
+
+        win.attron(self.green)
+        for i in range(0, zv_bars):
+            if i > 4 and i < 7:
+                win.attron(self.yellow)
+            if i > 7:
+                win.attron(self.red)
+            win.addstr(1, 39+i, "|")
+
+        win.attron(self.green)
+        for i in range(0, xa_bars):
+            if i > 4 and i < 7:
+                win.attron(self.yellow)
+            if i > 7:
+                win.attron(self.red)
+            win.addstr(4, 7+i, "|")
+        
+        win.attron(self.green)
+        for i in range(0, ya_bars):
+            if i > 4 and i < 7:
+                win.attron(self.yellow)
+            if i > 7:
+                win.attron(self.red)
+            win.addstr(4, 23+i, "|")
+
+        win.attron(self.green)
+        for i in range(0, za_bars):
+            if i > 4 and i < 7:
+                win.attron(self.yellow)
+            if i > 7:
+                win.attron(self.red)
+            win.addstr(4, 39+i, "|")
+        win.attroff(self.green)
+        win.attroff(self.red)
+        win.attroff(self.yellow)
+
+        # win.attroff(self.green)
+        # self.odom = ""
+        # self.odom_color = self.green
+        # if c_odom == 0:
+        #     c_odom = "NO_ODOM"
+        #     self.odom_color = self.red
+        # else:
+        #     self.odom = self.uav_state.header.frame_id.split("/")[1]
+        #     if c_odom < 0.9*100 or c_odom > 1.1*100:
+        #         self.odom_color = self.yellow
+        # win.attron(self.odom_color)
+        # win.addstr(0, 0, " Odom:     Hz ")
+        # win.addstr(0, 5 + (5 - len(str(c_odom))),str(c_odom) + " ")
+        # win.addstr(1, 0, " " + str(self.odom) + " ")
+
+        # win.addstr(1, 0, " ")
+        # win.addstr(2, 0, " ")
+        # win.attron(self.odom_color)
+        # tmp = round(self.uav_state.pose.pose.position.x,2)
+        # win.addstr(0, 14, "       ")
+        # win.addstr(0, 21, " X ")
+        # win.addstr(0, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+
+        # if len(str(tmp).split('.')[1]) == 1:
+        #     win.addstr(0, 20, "0")
+        # tmp = round(self.uav_state.pose.pose.position.y,2)
+        # win.addstr(1, 14, "       ")
+        # win.addstr(1, 21, " Y ")
+        # win.addstr(1, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+        # if len(str(tmp).split('.')[1]) == 1:
+        #     win.addstr(1, 20, "0")
+
+        # tmp = round(self.uav_state.pose.pose.position.z,2)
+        # win.addstr(2, 14, "       ")
+        # win.addstr(2, 21, " Z ")
+        # win.addstr(2, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+        # if len(str(tmp).split('.')[1]) == 1:
+        #     win.addstr(2, 20, "0")
+
+
+    # #} end of bar10()
+            
     # #{ odom10()
 
     def odom10(self, win, c_odom):
@@ -365,7 +517,7 @@ class Status:
             c_odom = "NO_ODOM"
             self.odom_color = self.red
         else:
-            self.odom = self.odom_main.header.frame_id.split("/")[1]
+            self.odom = self.uav_state.header.frame_id.split("/")[1]
             if c_odom < 0.9*100 or c_odom > 1.1*100:
                 self.odom_color = self.yellow
         win.attron(self.odom_color)
@@ -376,21 +528,21 @@ class Status:
         win.addstr(1, 0, " ")
         win.addstr(2, 0, " ")
         win.attron(self.odom_color)
-        tmp = round(self.odom_main.pose.pose.position.x,2)
+        tmp = round(self.uav_state.pose.position.x,2)
         win.addstr(0, 14, "       ")
         win.addstr(0, 21, " X ")
         win.addstr(0, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
 
         if len(str(tmp).split('.')[1]) == 1:
             win.addstr(0, 20, "0")
-        tmp = round(self.odom_main.pose.pose.position.y,2)
+        tmp = round(self.uav_state.pose.position.y,2)
         win.addstr(1, 14, "       ")
         win.addstr(1, 21, " Y ")
         win.addstr(1, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
         if len(str(tmp).split('.')[1]) == 1:
             win.addstr(1, 20, "0")
 
-        tmp = round(self.odom_main.pose.pose.position.z,2)
+        tmp = round(self.uav_state.pose.position.z,2)
         win.addstr(2, 14, "       ")
         win.addstr(2, 21, " Z ")
         win.addstr(2, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
@@ -398,10 +550,10 @@ class Status:
             win.addstr(2, 20, "0")
 
         quaternion = (
-            self.odom_main.pose.pose.orientation.x,
-            self.odom_main.pose.pose.orientation.y,
-            self.odom_main.pose.pose.orientation.z,
-            self.odom_main.pose.pose.orientation.w)
+            self.uav_state.pose.orientation.x,
+            self.uav_state.pose.orientation.y,
+            self.uav_state.pose.orientation.z,
+            self.uav_state.pose.orientation.w)
         euler = tf.transformations.euler_from_quaternion(quaternion)
         tmp = round(euler[2], 2)
         win.addstr(2, 4, "       ")
@@ -802,7 +954,7 @@ class Status:
         
         self.tracker_status = TrackerStatus()
         self.controller_status = ControllerStatus()
-        self.odom_main = Odometry()
+        self.uav_state = UavState()
         self.mavros_state = State()
         self.attitude_target = AttitudeTarget()
         self.attitude_cmd = AttitudeCommand()
@@ -814,7 +966,7 @@ class Status:
         self.bumper_status = BumperStatus()
         self.uvdar = Int16()
         self.count_list = []
-        self.count_odom = 0
+        self.count_uav_state = 0
         self.count_state = 0
         self.count_attitude_target = 0
         self.count_attitude = 0
