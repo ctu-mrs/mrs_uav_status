@@ -104,6 +104,10 @@ class Status:
         self.curr_const = data
         self.count_curr_const = self.count_curr_const +1
 
+    def balloonCallback(self, data):
+        self.balloon = data
+        self.count_balloon = self.count_balloon +1
+
     # #} end of Callbacks
 
     # #{ ErrorShutdown
@@ -217,6 +221,7 @@ class Status:
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/global_position/global", NavSatFix, self.GPSCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/bumper_status", BumperStatus, self.bumperCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/current_constraints", TrackerConstraints, self.currConstCallback)
+        rospy.Subscriber("/" + str(self.UAV_NAME) + "/balloon_circle_destroy/status_out", String, self.balloonCallback)
 
         if 'uvdar' in self.sensor_list:
             rospy.Subscriber("/" + str(self.UAV_NAME) + "/uvdar/targetSeenCount", Int16, self.uvdarCallback)
@@ -272,6 +277,9 @@ class Status:
         begin_x = 97; begin_y = 1
         height = 5; width = 60
         bar_win = curses.newwin(height, width, begin_y, begin_x)
+        begin_x = 97; begin_y = 6
+        height = 5; width = 60
+        balloon_win = curses.newwin(height, width, begin_y, begin_x)
 
         while not rospy.is_shutdown():
             loop_counter = loop_counter + 1;
@@ -287,17 +295,22 @@ class Status:
                 stdscr.attron(curses.A_BOLD)
                 uav_state_win.attron(curses.A_BOLD)
                 bar_win.attron(curses.A_BOLD)
+                balloon_win.attron(curses.A_BOLD)
+
 
                 c_odom = self.count_uav_state
                 self.count_uav_state = 0
 
             uav_state_win.clear()
             bar_win.clear()
+            balloon_win.clear()
             if(not dark_mode):
                 uav_state_win.attron(curses.A_REVERSE)
                 bar_win.attron(curses.A_REVERSE)
+                balloon_win.attron(curses.A_REVERSE)
             self.odom10(uav_state_win, c_odom)
             self.bar10(bar_win, c_odom)
+            self.balloon10(balloon_win, c_odom)
 
             if refresh == 1:
                 refresh = 0;
@@ -326,6 +339,7 @@ class Status:
             stdscr.refresh()
             uav_state_win.refresh()
             bar_win.refresh()
+            balloon_win.refresh()
             rate.sleep()
             
     # #{ misc()
@@ -370,6 +384,22 @@ class Status:
 
     # #} end of misc()
             
+            
+    # #{ balloon10()
+
+    def balloon10(self, win, c_odom):
+
+        status = "NO_DATA"
+        if self.count_balloon == 0:
+            win.attron(self.red)
+        else:
+            status = self.balloon.data
+            win.attron(self.green)
+        win.addstr(0, 0, " State: " + str(status) + " ")
+        win.attroff(self.red)
+        win.attroff(self.green)
+
+    # #} end of balloon10()
             
     # #{ bar10()
 
@@ -989,6 +1019,7 @@ class Status:
         self.gpsdata = NavSatFix()
         self.bumper_status = BumperStatus()
         self.curr_const = TrackerConstraints()
+        self.balloon = String()
 
         self.uvdar = Int16()
         self.count_list = []
@@ -1007,6 +1038,7 @@ class Status:
         self.count_gpsdata = 0
         self.count_uvdar = 0
         self.count_curr_const = 0
+        self.count_balloon = 0
         self.bumper_repulsing = 0
         self.bumper_constraining = 0
         self.has_gps = False
