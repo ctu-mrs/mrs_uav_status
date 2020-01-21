@@ -85,7 +85,7 @@ class Status:
     def MPCstatusCallback(self, data):
         self.mpcstatus = data
         self.count_mpcstatus = self.count_mpcstatus + 1
-    
+
     def GPSCallback(self, data):
         self.gpsdata = data
         self.count_gpsdata = self.count_gpsdata + 1
@@ -94,12 +94,12 @@ class Status:
     def uvdarCallback(self, data):
         self.uvdar = data
         self.count_uvdar = self.count_uvdar + 1
-    
+
     def bumperCallback(self, data):
         self.bumper_status = data
         self.bumper_repulsing |= self.bumper_status.repulsing
         self.bumper_constraining |= self.bumper_status.modifying_reference
-    
+
 
     # #} end of Callbacks
 
@@ -118,13 +118,13 @@ class Status:
     # #} end of ErrorShutdown
 
     # #{ status
-    
+
     def status(self, stdscr):
-    
+
         rospy.init_node('status', anonymous=True)
-    
+
         self.UAV_MASS = "{}".format(float(rospy.get_param("~uav_mass")))
-    
+
         # Initialize some lists
         topic_list = []
         self.name_list = []
@@ -133,49 +133,49 @@ class Status:
         sub_list = []
         dark_mode = True
         colorblind_mode = True
-    
+
         # Initialize curses
         curses.initscr()
         curses.start_color()
         curses.use_default_colors()
-    
+
         for i in range(0, curses.COLORS):
             curses.init_pair(i + 1, i, -1)
-    
+
         # Get parameters from config file and put them in lists
-    
+
         self.param_list = rospy.get_param('~want_hz', "")
         self.SENSORS = str(self.SENSORS).replace(',', ' ') 
         self.sensor_list = str(self.SENSORS).split(' ')
         # needed_nodes = rospy.get_param('~needed_nodes', "")
         # for i in needed_nodes:
         #     i = str(self.UAV_NAME) + "/" + i
-    
+
         if str(self.PIXGARM) == "true":
             self.param_list.insert(0, "mavros/distance_sensor/garmin Garmin_pix 80+")
-    
+
         if str(self.PIXGARM) == "false" and 'garmin_down' in self.sensor_list:
             self.param_list.insert(0, "garmin/range Garmin_down 80+")
-    
+
         if 'realsense_brick' in self.sensor_list:
             self.param_list.insert(0, "rs_d435/color/image_raw Realsense_Brick 25+")
-    
+
         if 'bluefox_brick' in self.sensor_list:
             self.param_list.insert(0, "bluefox_brick/image_raw Bluefox_Brick 25+")
-    
+
         if 'bluefox_optflow' in self.sensor_list:
             self.param_list.insert(0, "bluefox_optflow/image_raw Bluefox_Optflow 60+")
             self.param_list.insert(0, "optic_flow/velocity Optic_flow 60+")
-    
+
         if 'rplidar' in self.sensor_list:
             self.param_list.insert(0, "rplidar/scan Rplidar 10+")
-    
+
         if str(self.BLUEFOX_UV_LEFT) != "":
             self.param_list.insert(0, "uvdar_bluefox/left/image_raw Bluefox_UV_left 70+")
-    
+
         if str(self.BLUEFOX_UV_RIGHT) != "":
             self.param_list.insert(0, "uvdar_bluefox/right/image_raw Bluefox_UV_right 70+")
-    
+
         if str(self.ODOMETRY_TYPE) == "gps":
             self.param_list.insert(0, "mavros/global_position/global PX4 GPS 100")
         tmp_string = ""
@@ -194,12 +194,12 @@ class Status:
         dark_mode = False
         if 'COLORSCHEME_DARK' in profile_list:
             dark_mode = True
-    
+
         # dark_mode = rospy.get_param('~dark_mode', True)
         colorblind_mode = rospy.get_param('~colorblind_mode', True)
-    
+
         stdscr.addstr(10, 40," " + str(tmp_string))
-    
+
         # Create ROSTopicHz and subscribers defined by the loaded config
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/diagnostics", ControlManagerDiagnostics, self.ControlManagerDiagnostics)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/attitude_cmd", AttitudeCommand, self.AttitudeCmdCallback)
@@ -257,8 +257,13 @@ class Status:
             
         loop_counter = 9
         refresh = 0
-        odom_color = self.red
-    
+        c_odom = 0
+        self.odom_color = self.red
+
+        begin_x = 0; begin_y = 5
+        height = 3; width = 26
+        win = curses.newwin(height, width, begin_y, begin_x)
+
         while not rospy.is_shutdown():
             loop_counter = loop_counter + 1;
             curses.resizeterm(30, 150)
@@ -271,61 +276,21 @@ class Status:
                 if(not dark_mode):
                     stdscr.attron(curses.A_REVERSE)
                 stdscr.attron(curses.A_BOLD)
-                stdscr.clear()
+                win.attron(curses.A_BOLD)
 
-            # #{ Odom
+                c_odom = self.count_odom
+                self.count_odom = 0
 
-            stdscr.addstr(6, 0, " ")
-            stdscr.addstr(7, 0, " ")
-            stdscr.attron(odom_color)
-            tmp = round(self.odom_main.pose.pose.position.x,2)
-            stdscr.addstr(5, 14, "       ")
-            stdscr.addstr(5, 21, " X ")
-            stdscr.addstr(5, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
-            tmp = round(self.odom_main.pose.pose.position.y,2)
-            stdscr.addstr(6, 14, "       ")
-            stdscr.addstr(6, 21, " Y ")
-            stdscr.addstr(6, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
-            tmp = round(self.odom_main.pose.pose.position.z,2)
-            stdscr.addstr(7, 14, "       ")
-            stdscr.addstr(7, 21, " Z ")
-            stdscr.addstr(7, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
-            
-            quaternion = (
-                self.odom_main.pose.pose.orientation.x,
-                self.odom_main.pose.pose.orientation.y,
-                self.odom_main.pose.pose.orientation.z,
-                self.odom_main.pose.pose.orientation.w)
-            euler = tf.transformations.euler_from_quaternion(quaternion)
-            tmp = round(euler[2], 2)
-            stdscr.addstr(7, 4, "       ")
-            stdscr.addstr(7, 9, " yaw ")
-            stdscr.addstr(7, 5 - (len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
-
-            # #} end of Odom
+            win.clear()
+            self.odom10(win, c_odom)
 
             if refresh == 1:
                 refresh = 0;
 
                 # #{ Odom Hz
-
-                self.odom = ""
-                tmp = self.count_odom
-                self.count_odom = 0
-                odom_color = self.green
-                if tmp == 0:
-                    tmp = "NO_ODOM"
-                    odom_color = self.red
-                else:
-                    self.odom = self.odom_main.header.frame_id.split("/")[1]
-                    if tmp < 0.9*100 or tmp > 1.1*100:
-                        odom_color = self.yellow
-                stdscr.attron(odom_color)
-                stdscr.addstr(5, 0, " Odom:     Hz ")
-                stdscr.addstr(5, 5 + (5 - len(str(tmp))),str(tmp) + " ")
-                stdscr.addstr(6, 0, " " + str(self.odom) + " ")
-
                 # #} end of Odom
+
+                stdscr.clear()
 
                 self.cpuLoad(stdscr)
                 self.mavrosState(stdscr)
@@ -344,6 +309,7 @@ class Status:
                 self.misc(stdscr)
 
             stdscr.refresh()
+            win.refresh()
             rate.sleep()
             
     # #{ misc()
@@ -387,6 +353,62 @@ class Status:
             stdscr.addstr(1, 60 + self.max_length, " Disk space: N/A ")
 
     # #} end of misc()
+            
+            
+    # #{ odom10()
+
+    def odom10(self, win, c_odom):
+
+        self.odom = ""
+        self.odom_color = self.green
+        if c_odom == 0:
+            c_odom = "NO_ODOM"
+            self.odom_color = self.red
+        else:
+            self.odom = self.odom_main.header.frame_id.split("/")[1]
+            if c_odom < 0.9*100 or c_odom > 1.1*100:
+                self.odom_color = self.yellow
+        win.attron(self.odom_color)
+        win.addstr(0, 0, " Odom:     Hz ")
+        win.addstr(0, 5 + (5 - len(str(c_odom))),str(c_odom) + " ")
+        win.addstr(1, 0, " " + str(self.odom) + " ")
+
+        win.addstr(1, 0, " ")
+        win.addstr(2, 0, " ")
+        win.attron(self.odom_color)
+        tmp = round(self.odom_main.pose.pose.position.x,2)
+        win.addstr(0, 14, "       ")
+        win.addstr(0, 21, " X ")
+        win.addstr(0, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+
+        if len(str(tmp).split('.')[1]) == 1:
+            win.addstr(0, 20, "0")
+        tmp = round(self.odom_main.pose.pose.position.y,2)
+        win.addstr(1, 14, "       ")
+        win.addstr(1, 21, " Y ")
+        win.addstr(1, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+        if len(str(tmp).split('.')[1]) == 1:
+            win.addstr(1, 20, "0")
+
+        tmp = round(self.odom_main.pose.pose.position.z,2)
+        win.addstr(2, 14, "       ")
+        win.addstr(2, 21, " Z ")
+        win.addstr(2, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+        if len(str(tmp).split('.')[1]) == 1:
+            win.addstr(2, 20, "0")
+
+        quaternion = (
+            self.odom_main.pose.pose.orientation.x,
+            self.odom_main.pose.pose.orientation.y,
+            self.odom_main.pose.pose.orientation.z,
+            self.odom_main.pose.pose.orientation.w)
+        euler = tf.transformations.euler_from_quaternion(quaternion)
+        tmp = round(euler[2], 2)
+        win.addstr(2, 4, "       ")
+        win.addstr(2, 9, " yaw ")
+        win.addstr(2, 5 - (len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+
+    # #} end of odom10()
             
     # #{ bumperStatus()
 
@@ -865,5 +887,4 @@ if __name__ == '__main__':
         status = Status()
     except rospy.ROSInterruptException:
         pass
-
-
+str
