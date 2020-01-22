@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*- 
+
+#TODO fix crashing when odom dies
+
 import rospkg
 import rospy
 import curses
@@ -242,13 +246,25 @@ class Status:
                 sub_list.append(rospy.Subscriber("/" + str(self.UAV_NAME) + "/" + str(topic_list[i]), rospy.AnyMsg, self.MultiCallback, callback_args = i))
             self.count_list.append(0)
 
+        # #{ Default Windows
+
+        #---------------ODOM WINDOW---------------#
 
         begin_x = 0; begin_y = 5
         height = 3; width = 26
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
-        tmp_tuple = (tmp_win, self.odom10, 5)
+        tmp_tuple = (tmp_win, self.odomWin, 5)
         window_list.append(tmp_tuple);
 
+        #---------------CONTROL WINDOW---------------#
+
+        begin_x = 0; begin_y = 0
+        height = 4; width = 26
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.controlWin, 1)
+        window_list.append(tmp_tuple);
+        
+        # #} end of Default Windows
 
         begin_x = 95; begin_y = 0
         width = 80
@@ -323,13 +339,33 @@ class Status:
         refresh = 0
         self.c_odom = 0
         self.odom_color = red
-
+        width = 180
+        ses_name = ""
 
         while not rospy.is_shutdown():
             loop_counter = loop_counter + 1;
-            curses.resizeterm(30, 180)
 
             if loop_counter == 5:
+                width
+                try:
+                    bashCommand = "tmux display-message -p #S"
+                    sprocess = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+                    output, error = sprocess.communicate()
+                    ses_name = output;
+                except:
+                    width = 180
+                    ses_name = ""
+                if(ses_name != ""):
+                    try:
+                        bashCommand = "tmux display -p -t " + str(ses_name) + " #{pane_width}"
+                        sprocess = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+                        output, error = sprocess.communicate()
+                        width = int(output)
+                    except:
+                        width = 180
+
+                curses.resizeterm(30, width)
+
                 loop_counter = 0;  
                 refresh = 1;
 
@@ -350,11 +386,11 @@ class Status:
 
                 self.cpuLoad(stdscr)
                 self.mavrosState(stdscr)
-                self.activeTracker(stdscr)
-                self.names(stdscr)
-                self.thrust(stdscr)
+                # self.activeTracker(stdscr)
+                # self.names(stdscr)
+                # self.thrust(stdscr)
                 self.mass(stdscr) # mass has to be called after thrust!
-                self.activeController(stdscr)
+                # self.activeController(stdscr)
                 self.confTopics(stdscr)
                 self.gps(stdscr)
                 self.rtk(stdscr)
@@ -396,14 +432,15 @@ class Status:
 
     def misc(self, stdscr):
         stdscr.attroff(green)
-        try:
-            stdscr.addstr(0, 46, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
-        except:
-            stdscr.attron(red)
-            stdscr.attron(curses.A_BLINK)
-            stdscr.addstr(0, 46," NO ARENA DEFINED! ")
-            stdscr.attroff(curses.A_BLINK)
-            stdscr.attroff(red)
+        # try:
+        #     stdscr.addstr(0, 46, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
+        # except:
+        #     stdscr.attron(red)
+        #     stdscr.attron(curses.A_BLINK)
+        #     stdscr.addstr(0, 46," NO ARENA DEFINED! ")
+        #     stdscr.attroff(curses.A_BLINK)
+        #     stdscr.attroff(red)
+
         try:
             bashCommand = "df -h"
             p1 = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
@@ -433,7 +470,6 @@ class Status:
             stdscr.addstr(1, 60 + self.max_length, " Disk space: N/A ")
 
     # #} end of misc()
-            
             
     # #{ balloon10()
 
@@ -573,51 +609,137 @@ class Status:
         win.attroff(red)
         win.attroff(yellow)
 
-        # win.attroff(green)
-        # self.odom = ""
-        # self.odom_color = green
-        # if self.c_odom == 0:
-        #     self.c_odom = "NO_ODOM"
-        #     self.odom_color = red
-        # else:
-        #     self.odom = self.uav_state.header.frame_id.split("/")[1]
-        #     if self.c_odom < 0.9*100 or self.c_odom > 1.1*100:
-        #         self.odom_color = yellow
-        # win.attron(self.odom_color)
-        # win.addstr(0, 0, " Odom:     Hz ")
-        # win.addstr(0, 5 + (5 - len(str(self.c_odom))),str(self.c_odom) + " ")
-        # win.addstr(1, 0, " " + str(self.odom) + " ")
-
-        # win.addstr(1, 0, " ")
-        # win.addstr(2, 0, " ")
-        # win.attron(self.odom_color)
-        # tmp = round(self.uav_state.pose.pose.position.x,2)
-        # win.addstr(0, 14, "       ")
-        # win.addstr(0, 21, " X ")
-        # win.addstr(0, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
-
-        # if len(str(tmp).split('.')[1]) == 1:
-        #     win.addstr(0, 20, "0")
-        # tmp = round(self.uav_state.pose.pose.position.y,2)
-        # win.addstr(1, 14, "       ")
-        # win.addstr(1, 21, " Y ")
-        # win.addstr(1, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
-        # if len(str(tmp).split('.')[1]) == 1:
-        #     win.addstr(1, 20, "0")
-
-        # tmp = round(self.uav_state.pose.pose.position.z,2)
-        # win.addstr(2, 14, "       ")
-        # win.addstr(2, 21, " Z ")
-        # win.addstr(2, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
-        # if len(str(tmp).split('.')[1]) == 1:
-        #     win.addstr(2, 20, "0")
-
-
     # #} end of bar10()
-            
-    # #{ odom10()
 
-    def odom10(self, win):
+    # #{ controlWin()
+    
+    def controlWin(self, win):
+    
+        # #{ UAV name, type
+    
+        win.attron(white)
+        win.addstr(0, 0," " + str(self.UAV_NAME) + " ")
+        win.addstr(0, 6," " + str(self.UAV_TYPE) + " ")
+        win.addstr(0, 12," " + str(self.NATO_NAME) + " ")
+        win.attroff(white)
+    
+        # #} end of  UAV name, type
+    
+        # #{ Controller
+    
+        tmp = self.count_controller
+        self.count_controller = 0
+        if tmp == 0:
+            controller = "NO CONTROLLER"
+            tmp_color = red
+        else:
+            controller = self.controller_status.controller.rsplit('/', 1)[-1]
+    
+        if controller == "So3Controller" or controller == "MpcController":
+            tmp_color = green
+        else:
+            tmp_color = red
+    
+        win.attron(tmp_color)
+        win.addstr(1, 0, " " + controller + " ")
+    
+        tmp_offset = len(controller) + 1
+    
+        if controller == "So3Controller":
+          tmp = self.count_gains
+          self.count_gains = 0
+          if tmp == 0:
+              cur_gains = "N/A"
+              tmp_color = red
+          else:
+              cur_gains = self.gains.data
+    
+          if cur_gains == "soft":
+              tmp_color = green
+          elif cur_gains == "supersoft" or cur_gains == "tight":
+              tmp_color = yellow
+          else:
+              tmp_color = red
+    
+          win.attroff(tmp_color)
+          win.addstr(1, tmp_offset, "/")
+          win.attron(tmp_color)
+          win.addstr(1, tmp_offset + 1, cur_gains + " ")
+    
+        # #} end of Controller
+    
+        # #{ Tracker
+    
+        tmp = self.count_tracker
+        self.count_tracker = 0
+        if tmp == 0:
+            self.tracker = "NO TRACKER"
+            tmp_color = red
+        else:
+            self.tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
+    
+        if self.tracker == "MpcTracker":
+            tmp_color = green
+        elif self.tracker == "LineTracker" or self.tracker == "LandoffTracker":
+            tmp_color = yellow
+        else:
+            tmp_color = red
+    
+        win.attron(tmp_color)
+        win.addstr(2, 0, " " + self.tracker + " ")
+    
+        tmp_offset = len(self.tracker) + 1
+    
+        tmp = self.count_constraints
+        self.count_constraints = 0
+        if tmp == 0:
+            cur_constraints= "N/A"
+            tmp_color = red
+        else:
+            cur_constraints = self.constraints.data
+    
+        if cur_constraints == "medium":
+            tmp_color = green
+        elif cur_constraints == "slow" or cur_constraints == "fast" or cur_constraints == "optflow":
+            tmp_color = yellow
+        else:
+            tmp_color = red
+    
+        win.attroff(tmp_color)
+        win.addstr(2, tmp_offset, "/")
+        win.attron(tmp_color)
+        win.addstr(2, tmp_offset + 1, cur_constraints + " ")
+        win.attroff(tmp_color)
+    
+        # #} end of Tracker
+    
+        # #{ Thrust
+    
+        tmp = self.count_attitude
+        if tmp == 0:
+            thrust = "N/A"
+            tmp_color = red
+        else:
+            thrust = round(self.attitude_cmd.thrust, 3)
+            tmp_color = green
+            if thrust > 0.7 or thrust < 0.25:
+                tmp_color = yellow
+            if thrust > 0.79:
+                tmp_color = red
+        win.attron(tmp_color)
+        win.addstr(3, 0, " Thrust: " + str(thrust) + " ")
+        win.attroff(white)
+        win.attroff(red)
+        win.attroff(green)
+        win.attroff(yellow)
+    
+        # #} end of Thrust
+    
+    # #} end of controlWin()
+            
+    # #{ odomWin()
+
+    def odomWin(self, win):
 
         self.odom = ""
         self.odom_color = green
@@ -628,34 +750,32 @@ class Status:
             self.odom = self.uav_state.header.frame_id.split("/")[1]
             if self.c_odom < 0.9*100 or self.c_odom > 1.1*100:
                 self.odom_color = yellow
-        win.attron(self.odom_color)
-        win.addstr(0, 0, " Odom:     Hz ")
-        win.addstr(0, 5 + (5 - len(str(self.c_odom))),str(self.c_odom) + " ")
-        win.addstr(1, 0, " " + str(self.odom) + " ")
+            win.attron(self.odom_color)
+            win.addstr(0, 11, " Odom     Hz ")
 
-        win.addstr(1, 0, " ")
-        win.addstr(2, 0, " ")
         win.attron(self.odom_color)
+        win.addstr(0, 15 + (5 - len(str(self.c_odom))),str(self.c_odom) + " ")
+        win.addstr(1, 11, " " + str(self.odom) + " ")
+
+        win.attron(self.odom_color)
+        
         tmp = round(self.uav_state.pose.position.x,2)
-        win.addstr(0, 14, "       ")
-        win.addstr(0, 21, " X ")
-        win.addstr(0, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+        if len(str(tmp).split('.')[1]) == 1:
+            tmp = str(tmp) + "0"
+        win.addstr(0, 0, unicode(" X "))
+        win.addstr(0, 6-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
 
-        if len(str(tmp).split('.')[1]) == 1:
-            win.addstr(0, 20, "0")
         tmp = round(self.uav_state.pose.position.y,2)
-        win.addstr(1, 14, "       ")
-        win.addstr(1, 21, " Y ")
-        win.addstr(1, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
         if len(str(tmp).split('.')[1]) == 1:
-            win.addstr(1, 20, "0")
+            tmp = str(tmp) + "0"
+        win.addstr(1, 0, " Y ")
+        win.addstr(1, 6-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
 
         tmp = round(self.uav_state.pose.position.z,2)
-        win.addstr(2, 14, "       ")
-        win.addstr(2, 21, " Z ")
-        win.addstr(2, 17-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
         if len(str(tmp).split('.')[1]) == 1:
-            win.addstr(2, 20, "0")
+            tmp = str(tmp) + "0"
+        win.addstr(2, 0, " Z ")
+        win.addstr(2, 6-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
 
         quaternion = (
             self.uav_state.pose.orientation.x,
@@ -664,11 +784,10 @@ class Status:
             self.uav_state.pose.orientation.w)
         euler = tf.transformations.euler_from_quaternion(quaternion)
         tmp = round(euler[2], 2)
-        win.addstr(2, 4, "       ")
-        win.addstr(2, 9, " yaw ")
-        win.addstr(2, 5 - (len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+        win.addstr(2, 11, " yaw     ")
+        win.addstr(2, 17 - (len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
 
-    # #} end of odom10()
+    # #} end of odomWin()
             
     # #{ bumperStatus()
 
@@ -850,70 +969,6 @@ class Status:
 
     # #} confTopics()
 
-    # #{ activeController()
-
-    def activeController(self, stdscr):
-        tmp = self.count_controller
-        self.count_controller = 0
-        if tmp == 0:
-            controller = "NO CONTROLLER"
-            tmp_color = red
-        else:
-            controller = self.controller_status.controller.rsplit('/', 1)[-1]
-
-        if controller == "So3Controller" or controller == "MpcController":
-            tmp_color = green
-        else:
-            tmp_color = red
-
-        stdscr.attron(tmp_color)
-        stdscr.addstr(3, 0, " " + controller + " ")
-
-        tmp_offset = len(controller) + 1
-
-        if controller == "So3Controller":
-          tmp = self.count_gains
-          self.count_gains = 0
-          if tmp == 0:
-              cur_gains = "N/A"
-              tmp_color = red
-          else:
-              cur_gains = self.gains.data
-          
-          if cur_gains == "soft":
-              tmp_color = green
-          elif cur_gains == "supersoft" or cur_gains == "tight":
-              tmp_color = yellow
-          else:
-              tmp_color = red
-          
-          stdscr.attroff(tmp_color)
-          stdscr.addstr(3, tmp_offset, "/")
-          stdscr.attron(tmp_color)
-          stdscr.addstr(3, tmp_offset + 1, cur_gains + " ")
-
-    # #} end of activeController()
-
-    # #{ thrust()
-
-    def thrust(self, stdscr):
-        tmp = self.count_attitude
-        if tmp == 0:
-            thrust = "N/A"
-            tmp_color = red
-        else:
-            thrust = round(self.attitude_cmd.thrust, 3)
-            tmp_color = green
-            if thrust > 0.7 or thrust < 0.25:
-                tmp_color = yellow
-            if thrust > 0.79:
-                tmp_color = red
-        stdscr.attron(tmp_color)
-        stdscr.addstr(4, 0, " Thrust: " + str(thrust) + " ")
-        stdscr.attroff(tmp_color)
-
-    # #} end of thrust()
-
     # #{ mass()
                 
     def mass(self, stdscr):
@@ -946,64 +1001,6 @@ class Status:
         stdscr.attroff(tmp_color)
                 
     # #} end of mass()
-
-    # #{ names()
-
-    def names(self, stdscr):
-        tmp_color = white
-        stdscr.attron(tmp_color)
-        stdscr.addstr(0, 0," " + str(self.UAV_NAME) + " ")
-        stdscr.addstr(0, 6," " + str(self.UAV_TYPE) + " ")
-        stdscr.addstr(0, 12," " + str(self.NATO_NAME) + " ")
-        stdscr.attroff(tmp_color)
-
-    # #} end of names()
-
-    # #{ activeTracker()
-
-    def activeTracker(self, stdscr):
-        tmp = self.count_tracker
-        self.count_tracker = 0
-        if tmp == 0:
-            self.tracker = "NO TRACKER"
-            tmp_color = red
-        else:
-            self.tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
-
-        if self.tracker == "MpcTracker":
-            tmp_color = green
-        elif self.tracker == "LineTracker" or self.tracker == "LandoffTracker" or self.tracker == "NullTracker":
-            tmp_color = yellow
-        else:
-            tmp_color = red
-
-        stdscr.attron(tmp_color)
-        stdscr.addstr(1, 0, " " + self.tracker + " ")
-        
-        tmp_offset = len(self.tracker) + 1
-
-        tmp = self.count_constraints
-        self.count_constraints = 0
-        if tmp == 0:
-            cur_constraints= "N/A"
-            tmp_color = red
-        else:
-            cur_constraints = self.constraints.data
-
-        if cur_constraints == "medium":
-            tmp_color = green
-        elif cur_constraints == "slow" or cur_constraints == "fast" or cur_constraints == "optflow":
-            tmp_color = yellow
-        else:
-            tmp_color = red
-
-        stdscr.attroff(tmp_color)
-        stdscr.addstr(1, tmp_offset, "/")
-        stdscr.attron(tmp_color)
-        stdscr.addstr(1, tmp_offset + 1, cur_constraints + " ")
-        stdscr.attroff(tmp_color)
-
-    # #} end of activeself.tracker()
 
     # #{ mavrosState()
 
