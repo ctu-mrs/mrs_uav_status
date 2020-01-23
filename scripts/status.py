@@ -792,19 +792,19 @@ class Status:
         tmp = round(self.uav_state.pose.position.x,2)
         if len(str(tmp).split('.')[1]) == 1:
             tmp = str(tmp) + "0"
-        win.addstr(0, 0, unicode(" X "))
+        win.addstr(0, 0, unicode(" X    "))
         win.addstr(0, 6-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
 
         tmp = round(self.uav_state.pose.position.y,2)
         if len(str(tmp).split('.')[1]) == 1:
             tmp = str(tmp) + "0"
-        win.addstr(1, 0, " Y ")
+        win.addstr(1, 0, " Y    ")
         win.addstr(1, 6-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
 
         tmp = round(self.uav_state.pose.position.z,2)
         if len(str(tmp).split('.')[1]) == 1:
             tmp = str(tmp) + "0"
-        win.addstr(2, 0, " Z ")
+        win.addstr(2, 0, " Z    ")
         win.addstr(2, 6-(len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
 
         quaternion = (
@@ -1108,7 +1108,7 @@ class Status:
         win.attron(tmp_color)
         win.addstr(0, 0, " CPU load:   ")
         win.addstr(0, 9 + (4 - len(str(cpu_load))), str(cpu_load))
-        win.addstr(0, 14, "% ")
+        win.addstr(0, 13, " % ")
         win.attroff(tmp_color)
     
     # #} end of cpuLoadWin
