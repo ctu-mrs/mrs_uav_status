@@ -1001,7 +1001,7 @@ class Status:
         else:
             tmp_color = red
             win.attron(tmp_color)
-            win.addstr(0, 3 + len(str(set_mass))," N/A kg")
+            win.addstr(0, 3 + len(str(set_mass))," N/A kg ")
         
         win.attroff(curses.A_BLINK)
         win.attroff(tmp_color)
