@@ -135,8 +135,6 @@ class Status:
 
         rospy.init_node('status', anonymous=True)
 
-        self.UAV_MASS = "{}".format(float(rospy.get_param("~uav_mass")))
-
         # Initialize some lists
         topic_list = []
         self.name_list = []
@@ -258,10 +256,42 @@ class Status:
 
         #---------------CONTROL WINDOW---------------#
 
-        begin_x = 0; begin_y = 0
-        height = 4; width = 26
+        begin_x = 0; begin_y = 1
+        height = 3; width = 26
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.controlWin, 1)
+        window_list.append(tmp_tuple);
+
+        ##---------------NAMES WINDOW---------------#
+
+        begin_x = 0; begin_y = 0
+        height = 1; width = 70
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.namesWin, 1)
+        window_list.append(tmp_tuple);
+        
+        ##---------------CPU LOAD WINDOW---------------#
+
+        begin_x = 26; begin_y = 1
+        height = 1; width = 20
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.cpuLoadWin, 1)
+        window_list.append(tmp_tuple);
+        
+        ##---------------PIXHAWK WINDOW---------------#
+
+        begin_x = 26; begin_y = 3
+        height = 3; width = 20
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.pixhawkWin, 1)
+        window_list.append(tmp_tuple);
+        
+        ##---------------MASS WINDOW---------------#
+
+        begin_x = 26; begin_y = 7
+        height = 1; width = 20
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.massWin, 1)
         window_list.append(tmp_tuple);
         
         # #} end of Default Windows
@@ -384,18 +414,12 @@ class Status:
 
                 stdscr.clear()
 
-                self.cpuLoad(stdscr)
-                self.mavrosState(stdscr)
-                # self.activeTracker(stdscr)
-                # self.names(stdscr)
-                # self.thrust(stdscr)
-                self.mass(stdscr) # mass has to be called after thrust!
-                # self.activeController(stdscr)
+                # self.cpuLoad(stdscr)
+                # self.mavrosState(stdscr)
                 self.confTopics(stdscr)
                 self.gps(stdscr)
                 self.rtk(stdscr)
-                self.batteryStatus(stdscr)
-                # self.mpcStatus(stdscr)
+                # self.batteryStatus(stdscr)
                 self.uvdarStatus(stdscr)
                 # self.bumperStatus(stdscr)
                 self.misc(stdscr)
@@ -419,27 +443,20 @@ class Status:
                 if item[2] == 5:
                     item[0].refresh()
 
-            # window_list[0][1](window_list[0][0], self.c_odom)
-            # for index, item in enumerate(window_list):
-            #     if index > 0:
-            #         item[1](item[0])
-
-            # for item in window_list:
-
             rate.sleep()
             
     # #{ misc()
 
     def misc(self, stdscr):
         stdscr.attroff(green)
-        # try:
-        #     stdscr.addstr(0, 46, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
-        # except:
-        #     stdscr.attron(red)
-        #     stdscr.attron(curses.A_BLINK)
-        #     stdscr.addstr(0, 46," NO ARENA DEFINED! ")
-        #     stdscr.attroff(curses.A_BLINK)
-        #     stdscr.attroff(red)
+        try:
+            stdscr.addstr(0, 46, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
+        except:
+            stdscr.attron(red)
+            stdscr.attron(curses.A_BLINK)
+            stdscr.addstr(0, 46," NO ARENA DEFINED! ")
+            stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(red)
 
         try:
             bashCommand = "df -h"
@@ -611,19 +628,20 @@ class Status:
 
     # #} end of bar10()
 
-    # #{ controlWin()
+    # #{ namesWin()
     
-    def controlWin(self, win):
-    
-        # #{ UAV name, type
-    
+    def namesWin(self, win):
         win.attron(white)
         win.addstr(0, 0," " + str(self.UAV_NAME) + " ")
         win.addstr(0, 6," " + str(self.UAV_TYPE) + " ")
         win.addstr(0, 12," " + str(self.NATO_NAME) + " ")
         win.attroff(white)
     
-        # #} end of  UAV name, type
+    # #} end of namesWin()
+
+    # #{ controlWin()
+    
+    def controlWin(self, win):
     
         # #{ Controller
     
@@ -641,7 +659,7 @@ class Status:
             tmp_color = red
     
         win.attron(tmp_color)
-        win.addstr(1, 0, " " + controller + " ")
+        win.addstr(0, 0, " " + controller + " ")
     
         tmp_offset = len(controller) + 1
     
@@ -662,9 +680,9 @@ class Status:
               tmp_color = red
     
           win.attroff(tmp_color)
-          win.addstr(1, tmp_offset, "/")
+          win.addstr(0, tmp_offset, "/")
           win.attron(tmp_color)
-          win.addstr(1, tmp_offset + 1, cur_gains + " ")
+          win.addstr(0, tmp_offset + 1, cur_gains + " ")
     
         # #} end of Controller
     
@@ -686,7 +704,7 @@ class Status:
             tmp_color = red
     
         win.attron(tmp_color)
-        win.addstr(2, 0, " " + self.tracker + " ")
+        win.addstr(1, 0, " " + self.tracker + " ")
     
         tmp_offset = len(self.tracker) + 1
     
@@ -706,9 +724,9 @@ class Status:
             tmp_color = red
     
         win.attroff(tmp_color)
-        win.addstr(2, tmp_offset, "/")
+        win.addstr(1, tmp_offset, "/")
         win.attron(tmp_color)
-        win.addstr(2, tmp_offset + 1, cur_constraints + " ")
+        win.addstr(1, tmp_offset + 1, cur_constraints + " ")
         win.attroff(tmp_color)
     
         # #} end of Tracker
@@ -727,7 +745,7 @@ class Status:
             if thrust > 0.79:
                 tmp_color = red
         win.attron(tmp_color)
-        win.addstr(3, 0, " Thrust: " + str(thrust) + " ")
+        win.addstr(2, 0, " Thrust: " + str(thrust) + " ")
         win.attroff(white)
         win.attroff(red)
         win.attroff(green)
@@ -743,8 +761,9 @@ class Status:
 
         self.odom = ""
         self.odom_color = green
+        count = self.c_odom;
         if self.c_odom == 0:
-            self.c_odom = "NO_ODOM"
+            count = "NO_ODOM"
             self.odom_color = red
         else:
             self.odom = self.uav_state.header.frame_id.split("/")[1]
@@ -754,7 +773,7 @@ class Status:
             win.addstr(0, 11, " Odom     Hz ")
 
         win.attron(self.odom_color)
-        win.addstr(0, 15 + (5 - len(str(self.c_odom))),str(self.c_odom) + " ")
+        win.addstr(0, 15 + (5 - len(str(count))),str(count) + " ")
         win.addstr(1, 11, " " + str(self.odom) + " ")
 
         win.attron(self.odom_color)
@@ -786,6 +805,10 @@ class Status:
         tmp = round(euler[2], 2)
         win.addstr(2, 11, " yaw     ")
         win.addstr(2, 17 - (len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+        win.attroff(white)
+        win.attroff(red)
+        win.attroff(green)
+        win.attroff(yellow)
 
     # #} end of odomWin()
             
@@ -841,14 +864,20 @@ class Status:
             tmp_color = red
         else:
             tmp_color = green
-        if self.mpcstatus.tracker_active == True:
-            win.attron(tmp_color)
+        win.attron(tmp_color)
+        if self.count_mpcstatus > 0 and self.mpcstatus.tracker_active == True:
             win.addstr(0, 0 , " C.Avoid: " + str(self.mpcstatus.collision_avoidance_active))
             win.addstr(1, 1 , str(self.mpcstatus.avoidance_active_uavs))
             tmp_color = red
             win.attron(tmp_color)
             if str(self.mpcstatus.avoiding_collision) == "True" :
                 win.addstr(2, 1, " ! AVOIDING COLLISION ! ")
+        else:
+            tmp_color = red
+            win.attron(tmp_color)
+            win.addstr(0, 0, " C.Avoid: NO DATA ")
+            win.attroff(tmp_color)
+
 
     # #} end of mpcStatus()
             
@@ -969,42 +998,50 @@ class Status:
 
     # #} confTopics()
 
-    # #{ mass()
+    # #{ massWin()
                 
-    def mass(self, stdscr):
+    def massWin(self, win):
         tmp_color = white
-        stdscr.attron(tmp_color)
+        win.attron(tmp_color)
         set_mass = float(self.UAV_MASS.replace(",","."))
         set_mass = round(set_mass, 2)
-        stdscr.addstr(6, 40,"0 kg ")
-        stdscr.addstr(6, 26," UAV_MASS: " + str(set_mass))
+        if (len(str(set_mass).split('.')[1]) == 1):
+            set_mass = str(set_mass) + "0"
+        win.addstr(0, 1," " + str(set_mass) + "/")
+
         est_mass = round(self.attitude_cmd.total_mass, 2)
         tmp_color = green
         if abs(self.attitude_cmd.mass_difference) > 2.0:
             tmp_color = red
-            stdscr.attron(curses.A_BLINK)
+            win.attron(curses.A_BLINK)
         elif abs(self.attitude_cmd.mass_difference) > 1.0:
            tmp_color = yellow
         
-        stdscr.attron(tmp_color)
+        win.attron(tmp_color)
        
         if self.count_attitude > 0:
             self.count_attitude = 0
-            stdscr.addstr(7, 40,"0 kg ")
-            stdscr.addstr(7, 26," Est mass: " + str(est_mass))
+            if (len(str(est_mass).split('.')[1]) == 1):
+                est_mass = str(est_mass) + "0"
+            win.addstr(0, 3 + len(str(set_mass)), str(est_mass))
+            win.attroff(tmp_color)
+            win.addstr(0, 3 + len(str(set_mass)) + len(str(est_mass)), " kg ")
         else:
             tmp_color = red
-            stdscr.attron(tmp_color)
-            stdscr.addstr(7, 26," Est mass: N/A ")
+            win.attron(tmp_color)
+            win.addstr(0, 3 + len(str(set_mass))," N/A kg")
         
-        stdscr.attroff(curses.A_BLINK)
-        stdscr.attroff(tmp_color)
+        win.attroff(curses.A_BLINK)
+        win.attroff(tmp_color)
                 
-    # #} end of mass()
+    # #} end of massWin()
 
-    # #{ mavrosState()
+    # #{ pixhawkWin()
 
-    def mavrosState(self, stdscr):
+    def pixhawkWin(self, win):
+
+        # #{ Armed, Offboard
+        
         tmp = self.count_state
         self.count_state = 0
         tmp2 = "N/A"
@@ -1019,23 +1056,67 @@ class Status:
         else:
             tmp = "DISARMED"
             tmp_color = red
-        stdscr.attron(tmp_color)
-        stdscr.addstr(3, 26, " State: " + str(tmp) + " ")
+        win.attron(tmp_color)
+        win.addstr(0, 0, " State: " + str(tmp) + " ")
         if(str(tmp2) == "OFFBOARD"):
             tmp_color = green
         elif(str(tmp2) == "POSITION" or str(tmp2) == "MANUAL" or str(tmp2) == "ALTITUDE" ):
             tmp_color = yellow
         else:
             tmp_color = red
-        stdscr.attron(tmp_color)
-        stdscr.addstr(4, 26, " Mode:  " + str(tmp2) + " ")
-        stdscr.attroff(tmp_color)
+        win.attron(tmp_color)
+        win.addstr(1, 0, " Mode:  " + str(tmp2) + " ")
+        win.attroff(tmp_color)
         
-        # #} end of Mavros state
+        # #} end of Armed, Offboard
 
-    # #{ cpuLoad()
+        # #{ Battery
+        
+        tmp = self.count_battery
+        self.count_battery = 0
+        if tmp == 0 and self.last_battery == "N/A ":
+            bat_v_out = "N/A "
+            bat_a_out = "N/A "
+            tmp_color = red
+        else:
+            if tmp == 0:
+                battery = self.last_battery
+                current = self.last_current
+                self.last_battery = "N/A "
+                self.last_current = "N/A "
+            else:
+                battery = self.battery.voltage
+                current = self.battery.current
+                self.last_battery = self.battery.voltage
+                self.last_current = self.battery.current
+            if battery > 17.0:
+                bat_v_out = battery/6
+            else:
+                bat_v_out = battery/4
+            bat_v_out = round(bat_v_out, 2)
+            bat_a_out = round(current, 1)
+            tmp_color = green
+            if (bat_v_out > 3.7):
+                tmp_color = green
+            elif (bat_v_out > 3.55):
+                tmp_color = yellow
+            else:
+                win.attron(curses.A_BLINK)
+                tmp_color = red
+        win.attron(tmp_color)
+        win.addstr(2, 0, " " + str(bat_v_out) + " ")
+        win.addstr(2, 6, "V ")
+        win.addstr(2, 10 - (len(str(bat_a_out).split('.')[0])), " " + str(bat_a_out) + " ")
+        win.addstr(2, 14, "A ")
+        win.attroff(curses.A_BLINK)
+        
+        # #} end of Battery
+        
+        # #} end of pixhawkWin()
+
+    # #{ cpuLoadWin()
     
-    def cpuLoad(self, stdscr):
+    def cpuLoadWin(self, win):
         cpu_load = 0
         tmp_color = green
         if process.is_alive():
@@ -1052,13 +1133,13 @@ class Status:
         else:
             tmp_color = red
             cpu_load = "x"
-        stdscr.attron(tmp_color)
-        stdscr.addstr(1, 26, " CPU load:   ")
-        stdscr.addstr(1, 35 + (4 - len(str(cpu_load))), str(cpu_load))
-        stdscr.addstr(1, 39, "% ")
-        stdscr.attroff(tmp_color)
+        win.attron(tmp_color)
+        win.addstr(0, 0, " CPU load:   ")
+        win.addstr(0, 9 + (4 - len(str(cpu_load))), str(cpu_load))
+        win.addstr(0, 14, "% ")
+        win.attroff(tmp_color)
     
-    # #} end of cpuLoad
+    # #} end of cpuLoadWin
 
     def __init__(self):
 
@@ -1105,6 +1186,11 @@ class Status:
             self.UAV_NAME =str(os.environ["UAV_NAME"])
         except:
             self.ErrorShutdown(" UAV_NAME variable is not set!!! Terminating... ", stdscr, red)
+        
+        try:
+            self.UAV_MASS =str(os.environ["UAV_MASS"])
+        except:
+            self.ErrorShutdown(" UAV_MASS variable is not set!!! Terminating... ", stdscr, red)
         
         try:
             self.UAV_TYPE =str(os.environ["UAV_TYPE"])
