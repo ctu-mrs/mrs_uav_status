@@ -219,7 +219,7 @@ class Status:
         # dark_mode = rospy.get_param('~dark_mode', True)
         colorblind_mode = rospy.get_param('~colorblind_mode', True)
 
-        stdscr.addstr(10, 40," " + str(tmp_string))
+        # stdscr.addstr(10, 40," " + str(tmp_string))
 
         # Create ROSTopicHz and subscribers defined by the loaded config
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/diagnostics", ControlManagerDiagnostics, self.ControlManagerDiagnostics)
@@ -251,7 +251,7 @@ class Status:
         begin_x = 0; begin_y = 5
         height = 3; width = 26
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
-        tmp_tuple = (tmp_win, self.odomWin, 5)
+        tmp_tuple = (tmp_win, self.odomWin, 5, begin_x + width + 1)
         window_list.append(tmp_tuple);
 
         #---------------CONTROL WINDOW---------------#
@@ -259,41 +259,64 @@ class Status:
         begin_x = 0; begin_y = 1
         height = 3; width = 26
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
-        tmp_tuple = (tmp_win, self.controlWin, 1)
+        tmp_tuple = (tmp_win, self.controlWin, 1, begin_x + width + 1)
         window_list.append(tmp_tuple);
 
         ##---------------NAMES WINDOW---------------#
 
         begin_x = 0; begin_y = 0
         height = 1; width = 70
-        tmp_win = curses.newwin(height, width, begin_y, begin_x)
-        tmp_tuple = (tmp_win, self.namesWin, 1)
+        tmp_win = curses.newwin(height, width, begin_y, begin_x + width + 1)
+        tmp_tuple = (tmp_win, self.namesWin, 1, begin_x)
         window_list.append(tmp_tuple);
         
         ##---------------CPU LOAD WINDOW---------------#
 
         begin_x = 26; begin_y = 1
-        height = 1; width = 20
+        height = 1; width = 18
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
-        tmp_tuple = (tmp_win, self.cpuLoadWin, 1)
+        tmp_tuple = (tmp_win, self.cpuLoadWin, 1, begin_x)
         window_list.append(tmp_tuple);
         
         ##---------------PIXHAWK WINDOW---------------#
 
         begin_x = 26; begin_y = 3
-        height = 3; width = 20
+        height = 3; width = 18
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
-        tmp_tuple = (tmp_win, self.pixhawkWin, 1)
+        tmp_tuple = (tmp_win, self.pixhawkWin, 1, begin_x)
         window_list.append(tmp_tuple);
         
         ##---------------MASS WINDOW---------------#
 
         begin_x = 26; begin_y = 7
-        height = 1; width = 20
+        height = 1; width = 18
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
-        tmp_tuple = (tmp_win, self.massWin, 1)
+        tmp_tuple = (tmp_win, self.massWin, 1, begin_x)
         window_list.append(tmp_tuple);
         
+        ##---------------SENSOR WINDOW---------------#
+
+        begin_x = 44; begin_y = 1
+        height = 7; width = 26
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.winConfTopics, 1, begin_x)
+        window_list.append(tmp_tuple);
+
+        ##---------------DISK WINDOW---------------#
+
+        begin_x = 71; begin_y = 1
+        height = 1; width = 20
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.winDisk, 1, begin_x)
+        window_list.append(tmp_tuple);
+
+        ##---------------GPS WINDOW---------------#
+
+        begin_x = 71; begin_y = 3
+        height = 2; width = 20
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.winGps, 1, begin_x)
+        window_list.append(tmp_tuple);
         # #} end of Default Windows
 
         begin_x = 95; begin_y = 0
@@ -302,7 +325,7 @@ class Status:
         if 'balloon' in status_list:
             height = 1
             tmp_win = curses.newwin(height, width, begin_y, begin_x)
-            tmp_tuple = (tmp_win, self.balloon10, 5)
+            tmp_tuple = (tmp_win, self.balloon10, 5, begin_x)
             begin_y = begin_y + height
             window_list.append(tmp_tuple);
             rospy.Subscriber("/" + str(self.UAV_NAME) + "/balloon_circle_destroy/status_out", String, self.balloonCallback)
@@ -310,25 +333,20 @@ class Status:
         if 'dynamics' in status_list:
             height = 3
             tmp_win = curses.newwin(height, width, begin_y, begin_x)
-            tmp_tuple = (tmp_win, self.bar10, 5)
+            tmp_tuple = (tmp_win, self.bar10, 5, begin_x)
             begin_y = begin_y + height
             window_list.append(tmp_tuple);
 
         if 'avoidance' in status_list:
             height = 3
             tmp_win = curses.newwin(height, width, begin_y, begin_x)
-            tmp_tuple = (tmp_win, self.mpcStatus, 1)
+            tmp_tuple = (tmp_win, self.mpcStatus, 1, begin_x)
             begin_y = begin_y + height
             window_list.append(tmp_tuple);
             rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/mpc_tracker/diagnostics", MpcTrackerDiagnostics, self.MPCstatusCallback)
-
-
-
-
-
     
         rate = rospy.Rate(5.1)
-        time.sleep(1)
+        # time.sleep(1)
     
         # for topics from config list
         self.max_length = 0
@@ -365,46 +383,44 @@ class Status:
         process.start()
     # #} end of status
             
-        loop_counter = 0
+        loop_counter = 4
         refresh = 0
         self.c_odom = 0
         self.odom_color = red
         width = 180
         ses_name = ""
 
+        for item in window_list:
+            if(not dark_mode):
+                item[0].attron(curses.A_REVERSE)
+            item[0].attron(curses.A_BOLD)
+
         while not rospy.is_shutdown():
             loop_counter = loop_counter + 1;
 
-            if loop_counter == 5:
-                width
+            try:
+                bashCommand = "tmux display-message -p #S"
+                sprocess = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+                output, error = sprocess.communicate()
+                ses_name = output;
+            except:
+                width = 180
+                ses_name = ""
+            if(ses_name != ""):
                 try:
-                    bashCommand = "tmux display-message -p #S"
+                    bashCommand = "tmux display -p -t " + str(ses_name) + " #{pane_width}"
                     sprocess = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
                     output, error = sprocess.communicate()
-                    ses_name = output;
+                    width = int(output)
                 except:
                     width = 180
-                    ses_name = ""
-                if(ses_name != ""):
-                    try:
-                        bashCommand = "tmux display -p -t " + str(ses_name) + " #{pane_width}"
-                        sprocess = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-                        output, error = sprocess.communicate()
-                        width = int(output)
-                    except:
-                        width = 180
 
-                curses.resizeterm(30, width)
+            if loop_counter == 5:
 
                 loop_counter = 0;  
                 refresh = 1;
 
-                stdscr.attroff(tmp_color)
-                if(not dark_mode):
-                    stdscr.attron(curses.A_REVERSE)
                 stdscr.attron(curses.A_BOLD)
-                for item in window_list:
-                    item[0].attron(curses.A_BOLD)
 
                 self.c_odom = self.count_uav_state
                 self.count_uav_state = 0
@@ -412,51 +428,46 @@ class Status:
             if refresh == 1:
                 refresh = 0;
 
-                stdscr.clear()
 
-                # self.cpuLoad(stdscr)
-                # self.mavrosState(stdscr)
-                self.confTopics(stdscr)
-                self.gps(stdscr)
-                self.rtk(stdscr)
-                # self.batteryStatus(stdscr)
-                self.uvdarStatus(stdscr)
-                # self.bumperStatus(stdscr)
-                self.misc(stdscr)
+                # self.uvdarStatus(stdscr)
 
-                stdscr.refresh()
 
                 for item in window_list:
-                    if item[2] == 1:
-                        item[0].clear()
+                    # if item[2] == 1:
+                    item[0].clear()
+                    if not item[3] > width:
                         item[1](item[0])
                 for item in window_list:
-                    if item[2] == 1:
-                        item[0].refresh()
-
-
-            for item in window_list:
-                if item[2] == 5:
-                    item[0].clear()
-                    item[1](item[0])
-            for item in window_list:
-                if item[2] == 5:
+                    # if item[2] == 1:
                     item[0].refresh()
+
+                curses.resizeterm(30, width)
+
+            else:
+
+                for item in window_list:
+                    if item[2] == 5:
+                        item[0].clear()
+                        if not item[3] > width:
+                            item[1](item[0])
+                for item in window_list:
+                    if item[2] == 5:
+                        item[0].refresh()
 
             rate.sleep()
             
-    # #{ misc()
+    # #{ winDisk()
 
-    def misc(self, stdscr):
-        stdscr.attroff(green)
-        try:
-            stdscr.addstr(0, 46, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
-        except:
-            stdscr.attron(red)
-            stdscr.attron(curses.A_BLINK)
-            stdscr.addstr(0, 46," NO ARENA DEFINED! ")
-            stdscr.attroff(curses.A_BLINK)
-            stdscr.attroff(red)
+    def winDisk(self, win):
+        # win.attroff(green)
+        # try:
+        #     win.addstr(0, 46, " " + str(os.readlink(str(self.rospack.get_path('mrs_general')) +"/config/world_current.yaml")) + " ")
+        # except:
+        #     win.attron(red)
+        #     win.attron(curses.A_BLINK)
+        #     win.addstr(0, 46," NO ARENA DEFINED! ")
+        #     win.attroff(curses.A_BLINK)
+        #     win.attroff(red)
 
         try:
             bashCommand = "df -h"
@@ -467,7 +478,7 @@ class Status:
 
             remaining = float(output[:-1].replace(",",".")) 
 
-            stdscr.attroff(tmp_color)
+            win.attroff(tmp_color)
             if remaining > 25:
                 if not remaining == last_remaining:
                     tmp_color = yellow
@@ -477,16 +488,16 @@ class Status:
                 tmp_color = yellow
             else:
                 tmp_color = red
-                stdscr.attron(curses.A_BLINK)
+                win.attron(curses.A_BLINK)
             last_remaining = remaining 
-            stdscr.attron(tmp_color)
-            stdscr.addstr(1, 60 + self.max_length, " Disk space: " + str(output) + " ")
-            stdscr.attroff(curses.A_BLINK)
+            win.attron(tmp_color)
+            win.addstr(0, 0, " Disk space: " + str(output) + " ")
+            win.attroff(curses.A_BLINK)
         except:
-            stdscr.attron(red)
-            stdscr.addstr(1, 60 + self.max_length, " Disk space: N/A ")
+            win.attron(red)
+            win.addstr(0, 0, " Disk space: N/A ")
 
-    # #} end of misc()
+    # #} end of winDisk()
             
     # #{ balloon10()
 
@@ -881,74 +892,12 @@ class Status:
 
     # #} end of mpcStatus()
             
-    # #{ batteryStatus()
+    # #{ winGps()
 
-    def batteryStatus(self, stdscr):
-        tmp = self.count_battery
-        self.count_battery = 0
-        if tmp == 0 and self.last_battery == "N/A ":
-            bat_v_out = "N/A "
-            bat_a_out = "N/A "
-            tmp_color = red
-        else:
-            if tmp == 0:
-                battery = self.last_battery
-                current = self.last_current
-                self.last_battery = "N/A "
-                self.last_current = "N/A "
-            else:
-                battery = self.battery.voltage
-                current = self.battery.current
-                self.last_battery = self.battery.voltage
-                self.last_current = self.battery.current
-            if battery > 17.0:
-                bat_v_out = battery/6
-            else:
-                bat_v_out = battery/4
-            bat_v_out = round(bat_v_out, 2)
-            bat_a_out = round(current, 1)
-            tmp_color = green
-            if (bat_v_out > 3.7):
-                tmp_color = green
-            elif (bat_v_out > 3.55):
-                tmp_color = yellow
-            else:
-                stdscr.attron(curses.A_BLINK)
-                tmp_color = red
-        stdscr.attron(tmp_color)
-        stdscr.addstr(5, 27, " " + str(bat_v_out) + " ")
-        stdscr.addstr(5, 33, "V ")
-        stdscr.addstr(5, 38 - (len(str(bat_a_out).split('.')[0])), " " + str(bat_a_out) + " ")
-        stdscr.addstr(5, 42, "A ")
-        stdscr.attroff(curses.A_BLINK)
+    def winGps(self, win):
 
-    # #} end of batteryStatus()
-            
-    # #{ rtk()
-
-    def rtk(self, stdscr):
-        tmp = self.count_bestpos
-        self.count_bestpos = 0
-        if tmp == 0:
-            rtk = "no msgs"
-            tmp_color = red
-        else:
-            rtk = self.bestpos.position_type
-            tmp_color = green
-            if rtk == "L1_INT" or rtk == "WIDE_INT" or rtk == "NARROW_INT":
-                tmp_color = green
-            elif rtk == "L1_FLOAT" or rtk == "NARROW_FLOAT":
-                tmp_color = yellow
-            else:
-                tmp_color = red
-        stdscr.attron(tmp_color)
-        stdscr.addstr(3, 60 + self.max_length, " RTK: " + str(rtk) + " ")
-
-    # #} end of rtk()
-            
-    # #{ gps()
-
-    def gps(self, stdscr):
+        # #{ GPS
+        
         if "GPS" in str(self.odom) or  "Gps" in str(self.odom) or "gps" in str(self.odom) or self.has_gps:
             tmp = self.count_gpsdata
             self.count_gpsdata = 0
@@ -963,17 +912,40 @@ class Status:
                 elif float(gps) < 20.0:
                     tmp_color = yellow
                 else:
-                    stdscr.attron(curses.A_BLINK)
+                    win.attron(curses.A_BLINK)
                     tmp_color = red
-            stdscr.attron(tmp_color)
-            stdscr.addstr(2, 60 + self.max_length, " GPS qual: " + str(gps) + " ")
-            stdscr.attroff(curses.A_BLINK)
+            win.attron(tmp_color)
+            win.addstr(0, 0, " GPS qual: " + str(gps) + " ")
+            win.attroff(curses.A_BLINK)
+        
+        # #} end of GPS
 
-    # #} end of  gps()
+        # #{ RTK
+        
+        tmp = self.count_bestpos
+        self.count_bestpos = 0
+        if tmp == 0:
+            rtk = "no msgs"
+            tmp_color = red
+        else:
+            rtk = self.bestpos.position_type
+            tmp_color = green
+            if rtk == "L1_INT" or rtk == "WIDE_INT" or rtk == "NARROW_INT":
+                tmp_color = green
+            elif rtk == "L1_FLOAT" or rtk == "NARROW_FLOAT":
+                tmp_color = yellow
+            else:
+                tmp_color = red
+        win.attron(tmp_color)
+        win.addstr(1, 0, " RTK: " + str(rtk) + " ")
+        
+        # #} end of RTK
 
-    # #{ confTopics()
+    # #} end of  winGps()
 
-    def confTopics(self, stdscr):
+    # #{ winConfTopics()
+
+    def winConfTopics(self, win):
         for i in range(0, len(self.param_list)):
             if(self.count_list[i] > 0):
                 tmp = self.count_list[i]
@@ -991,12 +963,12 @@ class Status:
                     tmp_color = green
                 if tmp < 0.9*self.hz_list[i] and self.hz_list_modifiers[i] == "-":
                     tmp_color = green
-            stdscr.attron(tmp_color)
-            stdscr.addstr(1 + i, 46, self.spacer_string)
-            stdscr.addstr(1 + i, 46, " " + str(self.name_list[i]) + ": ")
-            stdscr.addstr(1 + i, 46 + self.max_length + 2 + (5 - len(str(tmp))), " " + str(tmp) + " Hz ")
+            win.attron(tmp_color)
+            win.addstr(0 + i, 0, self.spacer_string)
+            win.addstr(0 + i, 0, " " + str(self.name_list[i]) + ": ")
+            win.addstr(0 + i, 0 + self.max_length + 2 + (5 - len(str(tmp))), " " + str(tmp) + " Hz ")
 
-    # #} confTopics()
+    # #} winConfTopics()
 
     # #{ massWin()
                 
@@ -1172,6 +1144,7 @@ class Status:
         self.count_bestpos = 0
         self.count_battery = 0
         self.last_battery = 0
+        self.last_current = 0
         self.count_mpcstatus = 0
         self.count_gpsdata = 0
         self.count_uvdar = 0
