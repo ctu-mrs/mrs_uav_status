@@ -352,7 +352,7 @@ class Status:
         self.max_length = 0
     
         # disk space 
-        last_remaining = 0;
+        self.last_remaining = 0;
         for i in range(0, len(self.param_list)):
             self.max_length = len(max(self.name_list, key=len))
         self.spacer_string = "          "
@@ -469,33 +469,33 @@ class Status:
         #     win.attroff(curses.A_BLINK)
         #     win.attroff(red)
 
-        try:
-            bashCommand = "df -h"
-            p1 = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-            output, error = p1.communicate()
-            output = [line for line in output.split('\n') if line[-1:]=="/" in line]
-            output = output[0].split()[3]
+        # try:
+        bashCommand = "df -h"
+        p1 = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+        output, error = p1.communicate()
+        output = [line for line in output.split('\n') if line[-1:]=="/" in line]
+        output = output[0].split()[3]
 
-            remaining = float(output[:-1].replace(",",".")) 
+        remaining = float(output[:-1].replace(",",".")) 
 
-            win.attroff(tmp_color)
-            if remaining > 25:
-                if not remaining == last_remaining:
-                    tmp_color = yellow
-                else:
-                    tmp_color = green
-            elif remaining > 10:
+        tmp_color = green
+        if remaining > 25:
+            if not remaining == self.last_remaining:
                 tmp_color = yellow
             else:
-                tmp_color = red
-                win.attron(curses.A_BLINK)
-            last_remaining = remaining 
-            win.attron(tmp_color)
-            win.addstr(0, 0, " Disk space: " + str(output) + " ")
-            win.attroff(curses.A_BLINK)
-        except:
-            win.attron(red)
-            win.addstr(0, 0, " Disk space: N/A ")
+                tmp_color = green
+        elif remaining > 10:
+            tmp_color = yellow
+        else:
+            tmp_color = red
+            win.attron(curses.A_BLINK)
+        self.last_remaining = remaining 
+        win.attron(tmp_color)
+        win.addstr(0, 0, " Disk space: " + str(output) + " ")
+        win.attroff(curses.A_BLINK)
+        # except:
+        #     win.attron(red)
+        #     win.addstr(0, 0, " Disk space: N/A ")
 
     # #} end of winDisk()
             
