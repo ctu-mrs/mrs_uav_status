@@ -326,6 +326,13 @@ class Status:
         begin_x = 95; begin_y = 0
         width = 80
 
+        if 'readme' in status_list:
+            height = 4
+            tmp_win = curses.newwin(height, width, begin_y, begin_x)
+            tmp_tuple = (tmp_win, self.readme, 1, begin_x)
+            begin_y = begin_y + height
+            window_list.append(tmp_tuple);
+
         if 'balloon' in status_list:
             height = 1
             tmp_win = curses.newwin(height, width, begin_y, begin_x)
@@ -510,6 +517,16 @@ class Status:
         #     win.addstr(0, 0, " Disk space: N/A ")
 
     # #} end of winDisk()
+            
+    # #{ readme()
+
+    def readme(self, win):
+
+        win.addstr(1, 0, " Mrs status can display a lot more cool stuff. ")
+        win.addstr(2, 0, " Just check the MRS_STATUS variable in .bashrc/.zshrc. ")
+        win.addstr(3, 0, " Remove the readme entry there to remove this message. ")
+
+    # #} end of readme()
             
     # #{ balloon10()
 
