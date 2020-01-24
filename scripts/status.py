@@ -107,11 +107,15 @@ class Status:
 
     def currConstCallback(self, data):
         self.curr_const = data
-        self.count_curr_const = self.count_curr_const +1
+        self.count_curr_const = self.count_curr_const + 1
 
     def balloonCallback(self, data):
         self.balloon = data
-        self.count_balloon = self.count_balloon +1
+        self.count_balloon = self.count_balloon + 1
+
+    def controlErrorCallback(self, data):
+        self.control_error = data
+        self.count_control_error = self.count_control_error + 1
 
     # #} end of Callbacks
 
@@ -337,6 +341,14 @@ class Status:
             begin_y = begin_y + height
             window_list.append(tmp_tuple);
 
+        if 'control_error' in status_list:
+            height = 2
+            tmp_win = curses.newwin(height, width, begin_y, begin_x)
+            tmp_tuple = (tmp_win, self.controlError, 5, begin_x)
+            begin_y = begin_y + height
+            window_list.append(tmp_tuple);
+            rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/control_error", ControlError, self.controlErrorCallback)
+
         if 'avoidance' in status_list:
             height = 3
             tmp_win = curses.newwin(height, width, begin_y, begin_x)
@@ -515,6 +527,46 @@ class Status:
         win.attroff(green)
 
     # #} end of balloon10()
+            
+    # #{ controlError()
+
+    def controlError(self, win):
+
+        status = " NO_DATA "
+        c_err = 0
+        if self.count_control_error == 0:
+            win.attron(red)
+        else:
+            status = " "
+            win.attron(white)
+            c_err = (self.control_error.total_position_error/self.control_error.position_eland_threshold)
+            
+        self.count_control_error = 0
+
+        c_bars = int((c_err)*50)
+
+        win.addstr(0, 23, " Control Error:" + str(status))
+        win.addstr(1, 0," " +  str(round((self.control_error.total_position_error),1)))
+        win.addstr(1, 4, " [")
+        win.addstr(1, 56, "] ")
+        win.addstr(1, 57, " " + str(round(self.control_error.position_eland_threshold,1)) + " ")
+
+        if c_bars > 50:
+            c_bars = 50
+
+        win.attron(green)
+        for i in range(0, int(c_bars)):
+            if i > 25 and i < 40:
+                win.attron(yellow)
+            if i > 40:
+                win.attron(red)
+            win.addstr(1, 6+i, "|")
+
+        win.attroff(red)
+        win.attroff(yellow)
+        win.attroff(green)
+
+    # #} end of controlError()
             
     # #{ bar10()
 
@@ -1130,6 +1182,7 @@ class Status:
         self.bumper_status = BumperStatus()
         self.curr_const = TrackerConstraints()
         self.balloon = String()
+        self.control_error = ControlError()
 
         self.uvdar = Int16()
         self.count_list = []
@@ -1150,6 +1203,7 @@ class Status:
         self.count_uvdar = 0
         self.count_curr_const = 0
         self.count_balloon = 0
+        self.count_control_error = 0
         self.bumper_repulsing = 0
         self.bumper_constraining = 0
         self.has_gps = False
