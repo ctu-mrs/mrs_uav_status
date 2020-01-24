@@ -920,17 +920,16 @@ class Status:
 
     def mpcStatus(self, win):
         tmp = self.count_mpcstatus
-        self.count_mpcstatus = 0
         if tmp == 0 :
             tmp_color = red
-        elif str(self.mpcstatus.collision_avoidance_active) != "True":
+        elif self.mpcstatus.collision_avoidance_active != True:
             tmp_color = red
         else:
             tmp_color = green
         win.attron(tmp_color)
-        if self.count_mpcstatus > 0 and self.mpcstatus.tracker_active == True:
+        if self.count_mpcstatus > 0:
             win.addstr(0, 0 , " C.Avoid: " + str(self.mpcstatus.collision_avoidance_active))
-            win.addstr(1, 1 , str(self.mpcstatus.avoidance_active_uavs))
+            win.addstr(1, 0 , " I see: " + str(self.mpcstatus.avoidance_active_uavs))
             tmp_color = red
             win.attron(tmp_color)
             if str(self.mpcstatus.avoiding_collision) == "True" :
@@ -941,6 +940,7 @@ class Status:
             win.addstr(0, 0, " C.Avoid: NO DATA ")
             win.attroff(tmp_color)
 
+        self.count_mpcstatus = 0
 
     # #} end of mpcStatus()
             
@@ -1183,6 +1183,7 @@ class Status:
         self.curr_const = TrackerConstraints()
         self.balloon = String()
         self.control_error = ControlError()
+        self.mpcstatus = MpcTrackerDiagnostics()
 
         self.uvdar = Int16()
         self.count_list = []
