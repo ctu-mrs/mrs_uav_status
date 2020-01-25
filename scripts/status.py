@@ -27,6 +27,8 @@ red = 0
 green = 0
 yellow = 0
 
+# #{ get_cpu_load()
+
 def get_cpu_load(cpu_load_queue, queue_lock):
     run = True
     while run:
@@ -44,6 +46,8 @@ def get_cpu_load(cpu_load_queue, queue_lock):
 cpu_load_queue = mp.Queue()
 queue_lock = mp.Lock()
 process = mp.Process(target=get_cpu_load, args=(cpu_load_queue, queue_lock))
+
+# #} end of get_cpu_load()
 
 class Status:
 
@@ -253,7 +257,7 @@ class Status:
         #---------------ODOM WINDOW---------------#
 
         begin_x = 0; begin_y = 5
-        height = 3; width = 26
+        height = 3; width = 44
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.odomWin, 5, begin_x + width + 1)
         window_list.append(tmp_tuple);
@@ -274,28 +278,12 @@ class Status:
         tmp_tuple = (tmp_win, self.namesWin, 1, begin_x)
         window_list.append(tmp_tuple);
         
-        ##---------------CPU LOAD WINDOW---------------#
-
-        begin_x = 26; begin_y = 1
-        height = 1; width = 18
-        tmp_win = curses.newwin(height, width, begin_y, begin_x)
-        tmp_tuple = (tmp_win, self.cpuLoadWin, 1, begin_x)
-        window_list.append(tmp_tuple);
-        
         ##---------------PIXHAWK WINDOW---------------#
 
-        begin_x = 26; begin_y = 3
+        begin_x = 26; begin_y = 1
         height = 3; width = 18
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.pixhawkWin, 1, begin_x)
-        window_list.append(tmp_tuple);
-        
-        ##---------------MASS WINDOW---------------#
-
-        begin_x = 26; begin_y = 7
-        height = 1; width = 18
-        tmp_win = curses.newwin(height, width, begin_y, begin_x)
-        tmp_tuple = (tmp_win, self.massWin, 1, begin_x)
         window_list.append(tmp_tuple);
         
         ##---------------SENSOR WINDOW---------------#
@@ -305,10 +293,19 @@ class Status:
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.winConfTopics, 1, begin_x)
         window_list.append(tmp_tuple);
+        
+        ##---------------CPU LOAD WINDOW---------------#
+
+        begin_x = 71; begin_y = 1
+        height = 1; width = 20
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.cpuLoadWin, 1, begin_x)
+        window_list.append(tmp_tuple);
+        
 
         ##---------------DISK WINDOW---------------#
 
-        begin_x = 71; begin_y = 1
+        begin_x = 71; begin_y = 2
         height = 1; width = 20
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.winDisk, 1, begin_x)
@@ -316,11 +313,20 @@ class Status:
 
         ##---------------GPS WINDOW---------------#
 
-        begin_x = 71; begin_y = 3
+        begin_x = 71; begin_y = 4
         height = 2; width = 20
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.winGps, 1, begin_x)
         window_list.append(tmp_tuple);
+
+        #---------------MASS WINDOW---------------#
+
+        begin_x = 71; begin_y = 7
+        height = 1; width = 20
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.massWin, 1, begin_x)
+        window_list.append(tmp_tuple);
+        
         # #} end of Default Windows
 
         begin_x = 95; begin_y = 0
@@ -885,6 +891,11 @@ class Status:
         tmp = round(euler[2], 2)
         win.addstr(2, 11, " yaw     ")
         win.addstr(2, 17 - (len(str(tmp).split('.')[0])), " " + str(tmp) + " ")
+
+        win.addstr(0, 26, " Hori: " + str(self.uav_state.estimator_horizontal.name) + " ")
+        win.addstr(1, 26, " Vert: " + str(self.uav_state.estimator_vertical.name) + " ")
+        win.addstr(2, 26, " Head: " + str(self.uav_state.estimator_heading.name) + " ")
+
         win.attroff(white)
         win.attroff(red)
         win.attroff(green)
@@ -949,7 +960,7 @@ class Status:
             win.addstr(1, 0 , " I see: " + str(self.mpcstatus.avoidance_active_uavs))
             tmp_color = red
             win.attron(tmp_color)
-            if str(self.mpcstatus.avoiding_collision) == "True" :
+            if self.mpcstatus.avoiding_collision == True:
                 win.addstr(2, 1, " ! AVOIDING COLLISION ! ")
         else:
             tmp_color = red
@@ -1091,7 +1102,7 @@ class Status:
         else:
             tmp = self.mavros_state.armed
             tmp2 = self.mavros_state.mode
-        if(str(tmp) == "True"):
+        if tmp == True:
             tmp = "ARMED"
             tmp_color = green
         else:
@@ -1291,4 +1302,3 @@ if __name__ == '__main__':
         status = Status()
     except rospy.ROSInterruptException:
         pass
-str
