@@ -91,6 +91,10 @@ class Status:
         self.mpcstatus = data
         self.count_mpcstatus = self.count_mpcstatus + 1
 
+    def gripperCallback(self, data):
+        self.gripper = data
+        self.count_gripper = self.count_gripper + 1
+
     def GPSCallback(self, data):
         self.gpsdata = data
         self.count_gpsdata = self.count_gpsdata + 1
@@ -364,6 +368,15 @@ class Status:
             window_list.append(tmp_tuple);
             rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/mpc_tracker/diagnostics", MpcTrackerDiagnostics, self.MPCstatusCallback)
     
+
+        if 'gripper' in status_list:
+            height = 1
+            tmp_win = curses.newwin(height, width, begin_y, begin_x)
+            tmp_tuple = (tmp_win, self.gripperWin, 1, begin_x)
+            begin_y = begin_y + height
+            window_list.append(tmp_tuple);
+            rospy.Subscriber("/" + str(self.UAV_NAME) + "/gripper/gripper_diagnostics", GripperDiagnostics, self.gripperCallback)
+
         rate = rospy.Rate(5.1)
         # time.sleep(1)
     
@@ -933,7 +946,39 @@ class Status:
 
     # #} end of uvdarStatus()
             
-    # #{ mpcStatus()
+    # #{ gripperWin()
+
+    def gripperWin(self, win):
+        tmp = self.count_gripper
+        status = ""
+        if tmp == 0 :
+            tmp_color = red
+            status = "NO_DATA"
+        else:
+            tmp_color = green
+        win.attron(tmp_color)
+
+        win.addstr(0, 0 , " Gripper: " + str(status))
+
+        if(self.count_gripper > 0):
+            win.attron(red)
+            if str(self.gripper.gripper_on) == "True":
+                win.attron(green)
+            win.addstr(0, 15 , " On: " + str(self.gripper.gripper_on) + " ")
+            win.attron(red)
+            if str(self.gripper.gripping_object) == "True":
+                win.attron(green)
+            win.addstr(0, 30 , " Has Object: " + str(self.gripper.gripping_object) + " ")
+
+        win.attroff(red)
+        win.attroff(green)
+        
+
+        self.count_gripper = 0
+
+    # #} end of gripperWin()
+
+# #{ mpcStatus()
 
     def mpcStatus(self, win):
         tmp = self.count_mpcstatus
@@ -1201,6 +1246,7 @@ class Status:
         self.balloon = String()
         self.control_error = ControlError()
         self.mpcstatus = MpcTrackerDiagnostics()
+        self.gripper = GripperDiagnostics()
 
         self.uvdar = Int16()
         self.count_list = []
@@ -1214,14 +1260,17 @@ class Status:
         self.count_constraints = 0
         self.count_bestpos = 0
         self.count_battery = 0
-        self.last_battery = 0
-        self.last_current = 0
         self.count_mpcstatus = 0
         self.count_gpsdata = 0
         self.count_uvdar = 0
         self.count_curr_const = 0
         self.count_balloon = 0
         self.count_control_error = 0
+        self.count_gripper = 0
+
+        self.last_battery = 0
+        self.last_current = 0
+
         self.bumper_repulsing = 0
         self.bumper_constraining = 0
         self.has_gps = False
