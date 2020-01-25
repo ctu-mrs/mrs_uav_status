@@ -1158,6 +1158,11 @@ class Status:
         win.attron(tmp_color)
         win.addstr(2, 0, " " + str(bat_v_out) + " ")
         win.addstr(2, 6, "V ")
+        bat_a_out = abs(bat_a_out)
+        if bat_a_out >= 30 and bat_a_out < 50:
+            win.attron(yellow)
+        if bat_a_out >= 50:
+            win.attron(red)
         win.addstr(2, 10 - (len(str(bat_a_out).split('.')[0])), " " + str(bat_a_out) + " ")
         win.addstr(2, 14, "A ")
         win.attroff(curses.A_BLINK)
