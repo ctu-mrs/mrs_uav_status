@@ -249,8 +249,8 @@ class Status:
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/control_manager/attitude_cmd", AttitudeCommand, self.AttitudeCmdCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/odometry/uav_state", UavState, self.UavStateCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/state", State, self.StateCallback)
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/gain_manager/current_gains", String, self.GainsCallback)
-        rospy.Subscriber("/" + str(self.UAV_NAME) + "/constraint_manager/current_constraints", String, self.ConstraintsCallback)
+        rospy.Subscriber("/" + str(self.UAV_NAME) + "/gain_manager/diagnostics", GainManagerDiagnostics, self.GainsCallback)
+        rospy.Subscriber("/" + str(self.UAV_NAME) + "/constraint_manager/diagnostics", ConstraintManagerDiagnostics, self.ConstraintsCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/tersus/bestpos", Bestpos, self.BestposCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/battery", BatteryState, self.BatteryCallback)
         rospy.Subscriber("/" + str(self.UAV_NAME) + "/mavros/global_position/global", NavSatFix, self.GPSCallback)
@@ -780,7 +780,7 @@ class Status:
               cur_gains = "N/A"
               tmp_color = red
           else:
-              cur_gains = self.gains.data
+              cur_gains = self.gains.current_name
     
           if cur_gains == "soft":
               tmp_color = green
@@ -824,7 +824,7 @@ class Status:
             cur_constraints= "N/A"
             tmp_color = red
         else:
-            cur_constraints = self.constraints.data
+            cur_constraints = self.constraints.current_name
     
         if cur_constraints == "medium":
             tmp_color = green
@@ -1263,8 +1263,8 @@ class Status:
         self.uav_state = UavState()
         self.mavros_state = State()
         self.attitude_cmd = AttitudeCommand()
-        self.gains = String()
-        self.constraints = String()
+        self.gains = GainManagerDiagnostics()
+        self.constraints = ConstraintManagerDiagnostics()
         self.bestpos = Bestpos()
         self.battery = BatteryState()
         self.gpsdata = NavSatFix()
