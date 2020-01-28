@@ -145,7 +145,6 @@ class Status:
 
     def status(self, stdscr):
 
-        rospy.init_node('status', anonymous=True)
 
         # Initialize some lists
         topic_list = []
@@ -288,9 +287,9 @@ class Status:
         ##---------------NAMES WINDOW---------------#
 
         begin_x = 0; begin_y = 0
-        height = 1; width = 70
-        tmp_win = curses.newwin(height, width, begin_y, begin_x + width + 1)
-        tmp_tuple = (tmp_win, self.namesWin, 1, begin_x)
+        height = 1; width = 40
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.namesWin, 1, begin_x + width + 1)
         window_list.append(tmp_tuple);
         
         ##---------------PIXHAWK WINDOW---------------#
@@ -341,6 +340,15 @@ class Status:
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.massWin, 1, begin_x)
         window_list.append(tmp_tuple);
+
+        ##---------------TIME WINDOW---------------#
+
+        begin_x = 40; begin_y = 0
+        height = 1; width = 40
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.timeWin, 1, begin_x + width + 1)
+        window_list.append(tmp_tuple);
+        
         
         # #} end of Default Windows
 
@@ -393,6 +401,21 @@ class Status:
             begin_y = begin_y + height
             window_list.append(tmp_tuple);
             rospy.Subscriber("/" + str(self.UAV_NAME) + "/gripper/gripper_diagnostics", GripperDiagnostics, self.gripperCallback)
+
+
+        self.path = "/tmp/mrs_status_time.txt";
+
+        if os.path.isfile(self.path):
+            try:
+                self.time_file = open(self.path,"r+") 
+                self.f_time = int(self.time_file.read())
+                self.time_file.close()
+            except:
+                self.f_time = 0
+            os.remove(self.path)
+
+        self.time_file = open(self.path,"w+") 
+
 
         rate = rospy.Rate(5.1)
         # time.sleep(1)
@@ -748,6 +771,21 @@ class Status:
         win.attroff(white)
     
     # #} end of namesWin()
+
+    # #{ timeWin()
+    
+    def timeWin(self, win):
+        print_time = ""
+        current_time = (rospy.get_rostime().secs - self.start_time.secs) + int(self.f_time)
+        
+        win.addstr(0, 0," " + str(current_time) + " ")
+
+        os.remove(self.path)
+        self.time_file = open(self.path,"w+") 
+        self.time_file.write(str(current_time)) 
+        self.time_file.close() 
+    
+    # #} end of timeWin()
 
     # #{ controlWin()
     
@@ -1303,6 +1341,9 @@ class Status:
         self.has_gps = False
         self.rospack = rospkg.RosPack()
 
+        self.f_time = 0; 
+        self.start_time = rospy.get_rostime(); 
+
         try:
             self.UAV_NAME =str(os.environ["UAV_NAME"])
         except:
@@ -1359,10 +1400,10 @@ class Status:
             self.PROFILES_BOTH =""
 
         # #} end of Var definitions
-
         curses.wrapper(self.status)
 
 if __name__ == '__main__':
+    rospy.init_node('status', anonymous=True)
     try:
         status = Status()
     except rospy.ROSInterruptException:
