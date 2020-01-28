@@ -181,10 +181,16 @@ class Status:
             self.param_list.insert(0, "mavros/distance_sensor/garmin Garmin_pix 80+")
 
         if str(self.PIXGARM) == "false" and 'garmin_down' in self.sensor_list:
-            self.param_list.insert(0, "garmin/range Garmin_down 80+")
+            self.param_list.insert(0, "garmin/range Garmin_Down 80+")
+        
+        if 'garmin_up' in self.sensor_list:
+            self.param_list.insert(0, "garmin/range_up Garmin_Up 80+")
 
         if 'realsense_brick' in self.sensor_list:
             self.param_list.insert(0, "rs_d435/color/image_raw Realsense_Brick 25+")
+        
+        if 'realsense_front' in self.sensor_list:
+            self.param_list.insert(0, "rs_d435/color/image_raw Realsense_Front 25+")
         
         if 'bluefox_brick' in self.sensor_list:
             self.param_list.insert(0, "bluefox_brick/image_raw Bluefox_Brick 25+")
@@ -192,6 +198,11 @@ class Status:
         if 'bluefox_optflow' in self.sensor_list:
             self.param_list.insert(0, "bluefox_optflow/image_raw Bluefox_Optflow 60+")
             self.param_list.insert(0, "optic_flow/velocity Optic_flow 60+")
+        
+        if 'trinocular_thermal' in self.sensor_list:
+            self.param_list.insert(0, "thermal/top/rgb_image Thermal_Top 15+")
+            self.param_list.insert(0, "thermal/middle/rgb_image Thermal_Middle 15+")
+            self.param_list.insert(0, "thermal/bottom/rgb_image Thermal_Bottom 15+")
         
         if 'rplidar' in self.sensor_list:
             self.param_list.insert(0, "rplidar/scan Rplidar 10+")
@@ -293,7 +304,7 @@ class Status:
         ##---------------SENSOR WINDOW---------------#
 
         begin_x = 44; begin_y = 1
-        height = 7; width = 26
+        height = 12; width = 26
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.winConfTopics, 1, begin_x)
         window_list.append(tmp_tuple);
