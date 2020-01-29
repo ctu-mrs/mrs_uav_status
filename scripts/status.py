@@ -287,7 +287,7 @@ class Status:
         ##---------------NAMES WINDOW---------------#
 
         begin_x = 0; begin_y = 0
-        height = 1; width = 40
+        height = 1; width = 20
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.namesWin, 1, begin_x + width + 1)
         window_list.append(tmp_tuple);
@@ -310,11 +310,11 @@ class Status:
         
         ##---------------CPU LOAD WINDOW---------------#
 
-        begin_x = 71; begin_y = 1
-        height = 1; width = 20
-        tmp_win = curses.newwin(height, width, begin_y, begin_x)
-        tmp_tuple = (tmp_win, self.cpuLoadWin, 1, begin_x)
-        window_list.append(tmp_tuple);
+        # begin_x = 71; begin_y = 1
+        # height = 1; width = 20
+        # tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        # tmp_tuple = (tmp_win, self.cpuLoadWin, 1, begin_x)
+        # window_list.append(tmp_tuple);
         
 
         ##---------------DISK WINDOW---------------#
@@ -343,7 +343,7 @@ class Status:
 
         ##---------------TIME WINDOW---------------#
 
-        begin_x = 40; begin_y = 0
+        begin_x = 26; begin_y = 0
         height = 1; width = 40
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.timeWin, 1, begin_x + width + 1)
@@ -401,7 +401,6 @@ class Status:
             begin_y = begin_y + height
             window_list.append(tmp_tuple);
             rospy.Subscriber("/" + str(self.UAV_NAME) + "/gripper/gripper_diagnostics", GripperDiagnostics, self.gripperCallback)
-
 
         self.path = "/tmp/mrs_status_time.txt";
 
@@ -776,15 +775,25 @@ class Status:
     
     def timeWin(self, win):
         print_time = ""
-        current_time = (rospy.get_rostime().secs - self.start_time.secs) + int(self.f_time)
-        
-        win.addstr(0, 0," " + str(current_time) + " ")
+        current_time = int(self.f_time)
+        if self.first_run and self.tracker_flag:
+            self.start_time = rospy.Time.now(); 
+            self.first_run = False
 
-        os.remove(self.path)
-        self.time_file = open(self.path,"w+") 
-        self.time_file.write(str(current_time)) 
-        self.time_file.close() 
-    
+        if self.tracker_flag:
+            current_time = current_time + (rospy.Time.now().secs - self.start_time.secs)
+            os.remove(self.path)
+            self.time_file = open(self.path,"w+") 
+            self.time_file.write(str(current_time)) 
+            self.time_file.close() 
+        mins = int(current_time/60)
+        secs = int(current_time%60)
+        if secs < 10:
+            space = "0"
+        else:
+            space = ""
+        win.addstr(0, 0," Flight time: " + str(mins) + ":" + space + str(secs) + " ")
+
     # #} end of timeWin()
 
     # #{ controlWin()
@@ -841,8 +850,13 @@ class Status:
         if tmp == 0:
             self.tracker = "NO TRACKER"
             tmp_color = red
+            self.tracker_flag = False
         else:
             self.tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
+            if self.tracker == "NullTracker":
+                self.tracker_flag = False
+            else:
+                self.tracker_flag = True
     
         if self.tracker == "MpcTracker":
             tmp_color = green
@@ -850,7 +864,7 @@ class Status:
             tmp_color = yellow
         else:
             tmp_color = red
-    
+
         win.attron(tmp_color)
         win.addstr(1, 0, " " + self.tracker + " ")
     
@@ -1342,7 +1356,10 @@ class Status:
         self.rospack = rospkg.RosPack()
 
         self.f_time = 0; 
-        self.start_time = rospy.get_rostime(); 
+        self.start_time = 0;
+
+        self.first_run = True
+        self.tracker_flag = False
 
         try:
             self.UAV_NAME =str(os.environ["UAV_NAME"])
