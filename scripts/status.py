@@ -226,6 +226,11 @@ class Status:
             else:
                 self.hz_list_modifiers.append("0")
             self.hz_list.append(float(tmp_string))
+        if len(self.name_list) > 7:
+            self.many_param_flag = True
+            for i in range(0, len(self.name_list)):
+                self.name_list[i] = self.name_list[i].translate(None, 'aeiouAEIOU_- ')
+                self.name_list[i] = self.name_list[i][0:6]
         
         # #} end of Sensor list
 
@@ -302,24 +307,24 @@ class Status:
         
         ##---------------SENSOR WINDOW---------------#
 
-        begin_x = 44; begin_y = 1
-        height = 12; width = 26
+        begin_x = 43; begin_y = 1
+        height = 12; width = 34
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.winConfTopics, 1, begin_x)
         window_list.append(tmp_tuple);
         
         ##---------------CPU LOAD WINDOW---------------#
 
-        # begin_x = 71; begin_y = 1
-        # height = 1; width = 20
-        # tmp_win = curses.newwin(height, width, begin_y, begin_x)
-        # tmp_tuple = (tmp_win, self.cpuLoadWin, 1, begin_x)
-        # window_list.append(tmp_tuple);
+        begin_x = 76; begin_y = 1
+        height = 1; width = 20
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.cpuLoadWin, 1, begin_x)
+        window_list.append(tmp_tuple);
         
 
         ##---------------DISK WINDOW---------------#
 
-        begin_x = 71; begin_y = 2
+        begin_x = 76; begin_y = 2
         height = 1; width = 20
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.winDisk, 1, begin_x)
@@ -327,7 +332,7 @@ class Status:
 
         ##---------------GPS WINDOW---------------#
 
-        begin_x = 71; begin_y = 4
+        begin_x = 76; begin_y = 4
         height = 2; width = 20
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.winGps, 1, begin_x)
@@ -335,7 +340,7 @@ class Status:
 
         #---------------MASS WINDOW---------------#
 
-        begin_x = 71; begin_y = 7
+        begin_x = 76; begin_y = 7
         height = 1; width = 20
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.massWin, 1, begin_x)
@@ -1152,9 +1157,21 @@ class Status:
                 if tmp < 0.9*self.hz_list[i] and self.hz_list_modifiers[i] == "-":
                     tmp_color = green
             win.attron(tmp_color)
-            win.addstr(0 + i, 0, self.spacer_string)
-            win.addstr(0 + i, 0, " " + str(self.name_list[i]) + ": ")
-            win.addstr(0 + i, 0 + self.max_length + 2 + (5 - len(str(tmp))), " " + str(tmp) + " Hz ")
+
+            if self.many_param_flag:
+                if i < 7:
+                    win.addstr(0 + i, 0, self.spacer_string)
+                    win.addstr(0 + i, 0, " " + str(self.name_list[i]) + ": ")
+                    win.addstr(0 + i, 0 + self.max_length + (5 - len(str(tmp))), " " + str(tmp) + " Hz ")
+                else:
+                    win.addstr(0 + i - 7, 17, self.spacer_string)
+                    win.addstr(0 + i - 7, 17, " " + str(self.name_list[i]) + ": ")
+                    win.addstr(0 + i - 7, 17 + self.max_length + (5 - len(str(tmp))), " " + str(tmp) + " Hz ")
+
+            else:
+                win.addstr(0 + i, 0, self.spacer_string)
+                win.addstr(0 + i, 0, " " + str(self.name_list[i]) + ": ")
+                win.addstr(0 + i, 0 + self.max_length + 2 + (5 - len(str(tmp))), " " + str(tmp) + " Hz ")
 
     # #} winConfTopics()
 
@@ -1360,6 +1377,7 @@ class Status:
 
         self.first_run = True
         self.tracker_flag = False
+        self.many_param_flag = False
 
         try:
             self.UAV_NAME =str(os.environ["UAV_NAME"])
