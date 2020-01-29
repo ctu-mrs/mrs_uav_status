@@ -780,19 +780,20 @@ class Status:
     
     def timeWin(self, win):
         print_time = ""
-        current_time = int(self.f_time)
-        if self.first_run and self.tracker_flag:
-            self.start_time = rospy.Time.now(); 
+        if self.first_run:
+            self.current_time = int(self.f_time)
             self.first_run = False
-
+        if  self.first_tracker_flag and self.tracker_flag:
+            self.start_time = rospy.Time.now(); 
+            self.first_tracker_flag = False
         if self.tracker_flag:
-            current_time = current_time + (rospy.Time.now().secs - self.start_time.secs)
+            self.current_time = (rospy.Time.now().secs - self.start_time.secs) + int(self.f_time)
             os.remove(self.path)
             self.time_file = open(self.path,"w+") 
-            self.time_file.write(str(current_time)) 
+            self.time_file.write(str(self.current_time)) 
             self.time_file.close() 
-        mins = int(current_time/60)
-        secs = int(current_time%60)
+        mins = int(self.current_time/60)
+        secs = int(self.current_time%60)
         if secs < 10:
             space = "0"
         else:
@@ -1374,8 +1375,10 @@ class Status:
 
         self.f_time = 0; 
         self.start_time = 0;
+        self.current_time = 0;
 
         self.first_run = True
+        self.first_tracker_flag = True
         self.tracker_flag = False
         self.many_param_flag = False
 
