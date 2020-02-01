@@ -292,7 +292,7 @@ class Status:
         ##---------------NAMES WINDOW---------------#
 
         begin_x = 0; begin_y = 0
-        height = 1; width = 20
+        height = 1; width = 30
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.namesWin, 1, begin_x + width + 1)
         window_list.append(tmp_tuple);
