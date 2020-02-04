@@ -276,7 +276,7 @@ class Status:
         #---------------ODOM WINDOW---------------#
 
         begin_x = 0; begin_y = 5
-        height = 3; width = 44
+        height = 3; width = 43
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.odomWin, 5, begin_x + width + 1)
         window_list.append(tmp_tuple);
