@@ -276,7 +276,7 @@ class Status:
         #---------------ODOM WINDOW---------------#
 
         begin_x = 0; begin_y = 5
-        height = 3; width = 43
+        height = 3; width = 42
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.odomWin, 5, begin_x + width + 1)
         window_list.append(tmp_tuple);
@@ -407,7 +407,7 @@ class Status:
             window_list.append(tmp_tuple);
             rospy.Subscriber("/" + str(self.UAV_NAME) + "/gripper/gripper_diagnostics", GripperDiagnostics, self.gripperCallback)
 
-        self.path = "/tmp/mrs_status_time.txt";
+        self.path = "/tmp/mrs_status_time_ " + str(self.UAV_NAME) + ".txt";
 
         if os.path.isfile(self.path):
             try:
