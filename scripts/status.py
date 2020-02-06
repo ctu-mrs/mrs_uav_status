@@ -78,6 +78,11 @@ class Status:
     def UavStateCallback(self, data):
         self.uav_state = data
         self.count_uav_state = self.count_uav_state + 1
+        time_passed = rospy.Time.now().nsecs -self.uav_state_last_time.nsecs;
+        if time_passed > 12000000 or time_passed < 8000000: 
+            self.count_bad_samples = self.count_bad_samples + 1; 
+
+        self.uav_state_last_time = rospy.Time.now()
 
     def StateCallback(self, data):
         self.mavros_state = data
@@ -214,6 +219,7 @@ class Status:
         
         if str(self.ODOMETRY_TYPE) == "gps":
             self.param_list.insert(0, "mavros/global_position/global PX4 GPS 100")
+
         tmp_string = ""
         for i in self.param_list:
             topic_list.append(i.rsplit()[0])
@@ -349,11 +355,18 @@ class Status:
         ##---------------TIME WINDOW---------------#
 
         begin_x = 26; begin_y = 0
-        height = 1; width = 40
+        height = 1; width = 20
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.timeWin, 1, begin_x + width + 1)
         window_list.append(tmp_tuple);
         
+        ##---------------OVERLOAD WINDOW---------------#
+
+        begin_x = 50; begin_y = 0
+        height = 1; width = 28
+        tmp_win = curses.newwin(height, width, begin_y, begin_x)
+        tmp_tuple = (tmp_win, self.overloadWin, 1, begin_x + width + 1)
+        window_list.append(tmp_tuple);
         
         # #} end of Default Windows
 
@@ -801,6 +814,21 @@ class Status:
         win.addstr(0, 0," Flight time: " + str(mins) + ":" + space + str(secs) + " ")
 
     # #} end of timeWin()
+
+    # #{ overloadWin()
+    
+    def overloadWin(self, win):
+        if self.count_bad_samples > 20:
+            win.attron(red)
+            win.addstr(0, 0," !DATA OVERLOAD! " + str(self.count_bad_samples) + " ")
+            win.attroff(red)
+        elif self.count_bad_samples > 10:
+            win.attron(yellow)
+            win.addstr(0, 0," !DATA OVERLOAD! " + str(self.count_bad_samples) + " ")
+            win.attroff(yellow)
+        self.count_bad_samples = 0
+    
+    # #} end of namesWin()
 
     # #{ controlWin()
     
@@ -1376,6 +1404,12 @@ class Status:
         self.f_time = 0; 
         self.start_time = 0;
         self.current_time = 0;
+
+
+        self.uav_state_last_time = rospy.Time.now(); 
+        self.count_bad_samples = 0; 
+        self.deletethis = 0; 
+
 
         self.first_run = True
         self.first_tracker_flag = True
