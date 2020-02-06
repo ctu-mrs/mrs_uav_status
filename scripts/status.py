@@ -186,16 +186,16 @@ class Status:
             self.param_list.insert(0, "garmin/range_up Garmin_Up 80+")
 
         if 'realsense_brick' in self.sensor_list:
-            self.param_list.insert(0, "rs_d435/color/image_raw Realsense_Brick 25+")
+            self.param_list.insert(0, "rs_d435/color/camera_info Realsense_Brick 25+")
         
         if 'realsense_front' in self.sensor_list:
-            self.param_list.insert(0, "rs_d435/color/image_raw Realsense_Front 25+")
+            self.param_list.insert(0, "rs_d435/color/camera_info Realsense_Front 25+")
         
         if 'bluefox_brick' in self.sensor_list:
-            self.param_list.insert(0, "bluefox_brick/image_raw Bluefox_Brick 25+")
+            self.param_list.insert(0, "bluefox_brick/camera_info Bluefox_Brick 25+")
         
         if 'bluefox_optflow' in self.sensor_list:
-            self.param_list.insert(0, "bluefox_optflow/image_raw Bluefox_Optflow 60+")
+            self.param_list.insert(0, "bluefox_optflow/camera_info Bluefox_Optflow 60+")
             self.param_list.insert(0, "optic_flow/velocity Optic_flow 60+")
         
         if 'trinocular_thermal' in self.sensor_list:
@@ -207,10 +207,10 @@ class Status:
             self.param_list.insert(0, "rplidar/scan Rplidar 10+")
         
         if str(self.BLUEFOX_UV_LEFT) != "":
-            self.param_list.insert(0, "uvdar_bluefox/left/image_raw Bluefox_UV_left 70+")
+            self.param_list.insert(0, "uvdar_bluefox/left/camera_info Bluefox_UV_left 70+")
         
         if str(self.BLUEFOX_UV_RIGHT) != "":
-            self.param_list.insert(0, "uvdar_bluefox/right/image_raw Bluefox_UV_right 70+")
+            self.param_list.insert(0, "uvdar_bluefox/right/camera_info Bluefox_UV_right 70+")
         
         if str(self.ODOMETRY_TYPE) == "gps":
             self.param_list.insert(0, "mavros/global_position/global PX4 GPS 100")
