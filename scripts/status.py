@@ -434,7 +434,7 @@ class Status:
         self.time_file = open(self.path,"w+") 
 
 
-        rate = rospy.Rate(5.1)
+        rate = rospy.Rate(1.0)
         # time.sleep(1)
     
         # for topics from config list
@@ -504,44 +504,42 @@ class Status:
                 except:
                     width = 180
 
-            if loop_counter == 5:
+            # if loop_counter == 5:
 
-                loop_counter = 0;  
-                refresh = 1;
+            #     loop_counter = 0;  
+            #     refresh = 1;
 
-                stdscr.attron(curses.A_BOLD)
+            stdscr.attron(curses.A_BOLD)
 
-                self.c_odom = self.count_uav_state
-                self.count_uav_state = 0
+            self.c_odom = self.count_uav_state
+            self.count_uav_state = 0
 
-            if refresh == 1:
-                refresh = 0;
+            # if refresh == 1:
+            #     refresh = 0;
 
 
                 # self.uvdarStatus(stdscr)
 
 
-                for item in window_list:
-                    # if item[2] == 1:
-                    item[0].clear()
-                    if not item[3] > width:
-                        item[1](item[0])
-                for item in window_list:
-                    # if item[2] == 1:
-                    item[0].refresh()
+            for item in window_list:
+                item[0].clear()
+                if not item[3] > width:
+                    item[1](item[0])
+            for item in window_list:
+                item[0].refresh()
 
-                curses.resizeterm(30, width)
+            curses.resizeterm(30, width)
 
-            else:
+            # else:
 
-                for item in window_list:
-                    if item[2] == 5:
-                        item[0].clear()
-                        if not item[3] > width:
-                            item[1](item[0])
-                for item in window_list:
-                    if item[2] == 5:
-                        item[0].refresh()
+            #     for item in window_list:
+            #         if item[2] == 5:
+            #             item[0].clear()
+            #             if not item[3] > width:
+            #                 item[1](item[0])
+            #     for item in window_list:
+            #         if item[2] == 5:
+            #             item[0].refresh()
 
             rate.sleep()
             
