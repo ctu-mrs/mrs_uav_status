@@ -185,37 +185,37 @@ class Status:
 
         if str(self.PIXGARM) == "false" and 'garmin_down' in self.sensor_list:
             self.param_list.insert(0, "garmin/range Garmin_Down 80+")
-        
+
         if 'garmin_up' in self.sensor_list:
             self.param_list.insert(0, "garmin/range_up Garmin_Up 80+")
 
         if 'realsense_brick' in self.sensor_list:
             self.param_list.insert(0, "rs_d435/depth/camera_info Realsense_Brick 25+")
-        
+
         if 'realsense_front' in self.sensor_list:
             self.param_list.insert(0, "rs_d435/depth/camera_info Realsense_Front 25+")
-        
+
         if 'bluefox_brick' in self.sensor_list:
             self.param_list.insert(0, "bluefox_brick/camera_info Bluefox_Brick 25+")
-        
+
         if 'bluefox_optflow' in self.sensor_list:
             self.param_list.insert(0, "bluefox_optflow/camera_info Bluefox_Optflow 60+")
             self.param_list.insert(0, "optic_flow/velocity Optic_flow 60+")
-        
+
         if 'trinocular_thermal' in self.sensor_list:
             self.param_list.insert(0, "thermal/top/rgb_image Thermal_Top 15+")
             self.param_list.insert(0, "thermal/middle/rgb_image Thermal_Middle 15+")
             self.param_list.insert(0, "thermal/bottom/rgb_image Thermal_Bottom 15+")
-        
+
         if 'rplidar' in self.sensor_list:
             self.param_list.insert(0, "rplidar/scan Rplidar 10+")
-        
+
         if str(self.BLUEFOX_UV_LEFT) != "":
             self.param_list.insert(0, "uvdar_bluefox/left/camera_info Bluefox_UV_left 70+")
-        
+
         if str(self.BLUEFOX_UV_RIGHT) != "":
             self.param_list.insert(0, "uvdar_bluefox/right/camera_info Bluefox_UV_right 70+")
-        
+
         if str(self.ODOMETRY_TYPE) == "gps":
             self.param_list.insert(0, "mavros/global_position/global PX4 GPS 100")
         tmp_string = ""
@@ -235,16 +235,16 @@ class Status:
             for i in range(0, len(self.name_list)):
                 self.name_list[i] = self.name_list[i].translate(None, 'aeiouAEIOU_- ')
                 self.name_list[i] = self.name_list[i][0:6]
-        
+
         # #} end of Sensor list
 
         # #{ Colorscheme
-        
+
         profile_list = str(self.PROFILES_BOTH).split(' ')
         dark_mode = False
         if 'COLORSCHEME_DARK' in profile_list:
             dark_mode = True
-        
+
         # #} end of Colorscheme
 
         # dark_mode = rospy.get_param('~dark_mode', True)
@@ -463,7 +463,6 @@ class Status:
         tmp_color = white
         process.start()
     # #} end of status
-            
         loop_counter = 4
         refresh = 0
         self.c_odom = 0
@@ -497,6 +496,10 @@ class Status:
                     width = 180
 
             if loop_counter == 5:
+                self.five_sec_timer = self.five_sec_timer + 1
+
+                if self.five_sec_timer == 5:
+                    self.five_sec_timer = 0
 
                 loop_counter = 0;  
                 refresh = 1;
@@ -1090,8 +1093,11 @@ class Status:
             win.attron(tmp_color)
             win.addstr(0, 0, " C.Avoid: NO DATA ")
             win.attroff(tmp_color)
-
-        self.count_mpcstatus = 0
+        if self.five_sec_timer == 0:
+            if self.count_mpcstatus == 1:
+                self.count_mpcstatus = 0
+            else:
+                self.count_mpcstatus = 1
 
     # #} end of mpcStatus()
             
@@ -1260,22 +1266,13 @@ class Status:
         # #{ Battery
         
         tmp = self.count_battery
-        self.count_battery = 0
-        if tmp == 0 and self.last_battery == "N/A ":
+        if tmp == 0:
             bat_v_out = "N/A "
             bat_a_out = "N/A "
             tmp_color = red
         else:
-            if tmp == 0:
-                battery = self.last_battery
-                current = self.last_current
-                self.last_battery = "N/A "
-                self.last_current = "N/A "
-            else:
-                battery = self.battery.voltage
-                current = self.battery.current
-                self.last_battery = self.battery.voltage
-                self.last_current = self.battery.current
+            battery = self.battery.voltage
+            current = self.battery.current
             if battery > 17.0:
                 bat_v_out = battery/6
             else:
@@ -1293,7 +1290,7 @@ class Status:
         win.attron(tmp_color)
         win.addstr(2, 0, " " + str(bat_v_out) + " ")
         win.addstr(2, 6, "V ")
-        # bat_a_out = abs(bat_a_out)
+
         if bat_a_out >= 30 and bat_a_out < 50:
             win.attron(yellow)
         if bat_a_out >= 50:
@@ -1301,6 +1298,12 @@ class Status:
         win.addstr(2, 10 - (len(str(bat_a_out).split('.')[0])), " " + str(bat_a_out) + " ")
         win.addstr(2, 14, "A ")
         win.attroff(curses.A_BLINK)
+
+        if self.five_sec_timer == 0:
+            if self.count_battery == 1:
+                self.count_battery = 0
+            else:
+                self.count_battery = 1
         
         # #} end of Battery
         
@@ -1376,8 +1379,7 @@ class Status:
         self.count_gripper = 0
         self.count_ref_brick = 0
 
-        self.last_battery = 0
-        self.last_current = 0
+        self.five_sec_timer = 0
 
         self.bumper_repulsing = 0
         self.bumper_constraining = 0
