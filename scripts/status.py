@@ -78,11 +78,6 @@ class Status:
     def UavStateCallback(self, data):
         self.uav_state = data
         self.count_uav_state = self.count_uav_state + 1
-        time_passed = rospy.Time.now().nsecs -self.uav_state_last_time.nsecs;
-        if time_passed > 12000000 or time_passed < 8000000: 
-            self.count_bad_samples = self.count_bad_samples + 1; 
-
-        self.uav_state_last_time = rospy.Time.now()
 
     def StateCallback(self, data):
         self.mavros_state = data
@@ -129,6 +124,10 @@ class Status:
     def controlErrorCallback(self, data):
         self.control_error = data
         self.count_control_error = self.count_control_error + 1
+
+    def refBrickCallback(self, data):
+        self.ref_brick = data
+        self.count_ref_brick = self.count_ref_brick + 1
 
     # #} end of Callbacks
 
@@ -219,7 +218,6 @@ class Status:
         
         if str(self.ODOMETRY_TYPE) == "gps":
             self.param_list.insert(0, "mavros/global_position/global PX4 GPS 100")
-
         tmp_string = ""
         for i in self.param_list:
             topic_list.append(i.rsplit()[0])
@@ -355,18 +353,11 @@ class Status:
         ##---------------TIME WINDOW---------------#
 
         begin_x = 26; begin_y = 0
-        height = 1; width = 20
+        height = 1; width = 40
         tmp_win = curses.newwin(height, width, begin_y, begin_x)
         tmp_tuple = (tmp_win, self.timeWin, 1, begin_x + width + 1)
         window_list.append(tmp_tuple);
         
-        ##---------------OVERLOAD WINDOW---------------#
-
-        begin_x = 50; begin_y = 0
-        height = 1; width = 28
-        tmp_win = curses.newwin(height, width, begin_y, begin_x)
-        tmp_tuple = (tmp_win, self.overloadWin, 1, begin_x + width + 1)
-        window_list.append(tmp_tuple);
         
         # #} end of Default Windows
 
@@ -413,12 +404,13 @@ class Status:
     
 
         if 'gripper' in status_list:
-            height = 1
+            height = 2
             tmp_win = curses.newwin(height, width, begin_y, begin_x)
             tmp_tuple = (tmp_win, self.gripperWin, 1, begin_x)
             begin_y = begin_y + height
             window_list.append(tmp_tuple);
             rospy.Subscriber("/" + str(self.UAV_NAME) + "/gripper/gripper_diagnostics", GripperDiagnostics, self.gripperCallback)
+            rospy.Subscriber("/" + str(self.UAV_NAME) + "/odometry/brick_diag", ReferenceStamped, self.refBrickCallback)
 
         self.path = "/tmp/mrs_status_time_ " + str(self.UAV_NAME) + ".txt";
 
@@ -434,7 +426,7 @@ class Status:
         self.time_file = open(self.path,"w+") 
 
 
-        rate = rospy.Rate(1.0)
+        rate = rospy.Rate(5.1)
         # time.sleep(1)
     
         # for topics from config list
@@ -504,42 +496,44 @@ class Status:
                 except:
                     width = 180
 
-            # if loop_counter == 5:
+            if loop_counter == 5:
 
-            #     loop_counter = 0;  
-            #     refresh = 1;
+                loop_counter = 0;  
+                refresh = 1;
 
-            stdscr.attron(curses.A_BOLD)
+                stdscr.attron(curses.A_BOLD)
 
-            self.c_odom = self.count_uav_state
-            self.count_uav_state = 0
+                self.c_odom = self.count_uav_state
+                self.count_uav_state = 0
 
-            # if refresh == 1:
-            #     refresh = 0;
+            if refresh == 1:
+                refresh = 0;
 
 
                 # self.uvdarStatus(stdscr)
 
 
-            for item in window_list:
-                item[0].clear()
-                if not item[3] > width:
-                    item[1](item[0])
-            for item in window_list:
-                item[0].refresh()
+                for item in window_list:
+                    # if item[2] == 1:
+                    item[0].clear()
+                    if not item[3] > width:
+                        item[1](item[0])
+                for item in window_list:
+                    # if item[2] == 1:
+                    item[0].refresh()
 
-            curses.resizeterm(30, width)
+                curses.resizeterm(30, width)
 
-            # else:
+            else:
 
-            #     for item in window_list:
-            #         if item[2] == 5:
-            #             item[0].clear()
-            #             if not item[3] > width:
-            #                 item[1](item[0])
-            #     for item in window_list:
-            #         if item[2] == 5:
-            #             item[0].refresh()
+                for item in window_list:
+                    if item[2] == 5:
+                        item[0].clear()
+                        if not item[3] > width:
+                            item[1](item[0])
+                for item in window_list:
+                    if item[2] == 5:
+                        item[0].refresh()
 
             rate.sleep()
             
@@ -813,21 +807,6 @@ class Status:
 
     # #} end of timeWin()
 
-    # #{ overloadWin()
-    
-    def overloadWin(self, win):
-        if self.count_bad_samples > 20:
-            win.attron(red)
-            win.addstr(0, 0," !DATA OVERLOAD! " + str(self.count_bad_samples) + " ")
-            win.attroff(red)
-        elif self.count_bad_samples > 10:
-            win.attron(yellow)
-            win.addstr(0, 0," !DATA OVERLOAD! " + str(self.count_bad_samples) + " ")
-            win.attroff(yellow)
-        self.count_bad_samples = 0
-    
-    # #} end of namesWin()
-
     # #{ controlWin()
     
     def controlWin(self, win):
@@ -1075,6 +1054,10 @@ class Status:
             if str(self.gripper.gripping_object) == "True":
                 win.attron(green)
             win.addstr(0, 30 , " Has Object: " + str(self.gripper.gripping_object) + " ")
+
+        if(self.count_ref_brick > 0):
+            win.attron(green)
+            win.addstr(1, 0 , " X: " + str(self.ref_brick.reference.position.x) + "   Y: " + str(self.ref_brick.reference.position.y) + "   Z: " + str(self.ref_brick.reference.position.z) + "   Yaw: " + str(self.ref_brick.reference.yaw) + " ")
 
         win.attroff(red)
         win.attroff(green)
@@ -1370,6 +1353,7 @@ class Status:
         self.control_error = ControlError()
         self.mpcstatus = MpcTrackerDiagnostics()
         self.gripper = GripperDiagnostics()
+        self.ref_brick = ReferenceStamped()
 
         self.uvdar = Int16()
         self.count_list = []
@@ -1390,6 +1374,7 @@ class Status:
         self.count_balloon = 0
         self.count_control_error = 0
         self.count_gripper = 0
+        self.count_ref_brick = 0
 
         self.last_battery = 0
         self.last_current = 0
@@ -1402,12 +1387,6 @@ class Status:
         self.f_time = 0; 
         self.start_time = 0;
         self.current_time = 0;
-
-
-        self.uav_state_last_time = rospy.Time.now(); 
-        self.count_bad_samples = 0; 
-        self.deletethis = 0; 
-
 
         self.first_run = True
         self.first_tracker_flag = True
