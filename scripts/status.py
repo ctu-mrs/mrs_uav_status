@@ -191,10 +191,10 @@ class Status:
             self.param_list.insert(0, "garmin/range_up Garmin_Up 80+")
 
         if 'realsense_brick' in self.sensor_list:
-            self.param_list.insert(0, "rs_d435/color/camera_info Realsense_Brick 25+")
+            self.param_list.insert(0, "rs_d435/depth/camera_info Realsense_Brick 25+")
         
         if 'realsense_front' in self.sensor_list:
-            self.param_list.insert(0, "rs_d435/color/camera_info Realsense_Front 25+")
+            self.param_list.insert(0, "rs_d435/depth/camera_info Realsense_Front 25+")
         
         if 'bluefox_brick' in self.sensor_list:
             self.param_list.insert(0, "bluefox_brick/camera_info Bluefox_Brick 25+")
