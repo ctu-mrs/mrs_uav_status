@@ -2,6 +2,27 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* added five sec timer
+* 1hz
+* Added data overload display
+* flight timer fix
+* fixed flight timer
+* Added param window shortening
+* Flight timer working
+* updated gain and constraint info
+* config param in launch as absolute path
+* added thermals
+* added odometry estimators
+* added gripper
+* add config_file parameter to launch file
+* fixed disk space
+* added vel and acc bars
+* new frame_id in odometry
+* updated uav mass readout
+* Contributors: Dan Hert, Pavel Petracek, Tomas Baca, delta, uav64, uav66
+
 0.0.3 (2019-10-25)
 ------------------
 * added bumper stuff
