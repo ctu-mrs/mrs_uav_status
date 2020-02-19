@@ -525,7 +525,6 @@ class Status:
                     # if item[2] == 1:
                     item[0].refresh()
 
-                curses.resizeterm(30, width)
 
             else:
 
@@ -538,6 +537,7 @@ class Status:
                     if item[2] == 5:
                         item[0].refresh()
 
+            curses.resizeterm(30, width)
             rate.sleep()
             
     # #{ winDisk()
@@ -1041,18 +1041,22 @@ class Status:
         status = ""
         if tmp == 0 :
             tmp_color = red
+            win.attron(curses.A_BLINK)
             status = "NO_DATA"
+        elif tmp < 90:
+            tmp_color = red
+            win.attron(curses.A_BLINK)
         else:
             tmp_color = green
         win.attron(tmp_color)
 
-        win.addstr(0, 0 , " Gripper: " + str(status))
+        win.addstr(0, 0 , " " +  str(self.count_gripper) + " Hz Gripper: " + str(status))
 
         if(self.count_gripper > 0):
             win.attron(red)
             if str(self.gripper.gripper_on) == "True":
                 win.attron(green)
-            win.addstr(0, 15 , " On: " + str(self.gripper.gripper_on) + " ")
+            win.addstr(0, 17 , " On: " + str(self.gripper.gripper_on) + " ")
             win.attron(red)
             if str(self.gripper.gripping_object) == "True":
                 win.attron(green)
@@ -1064,6 +1068,7 @@ class Status:
 
         win.attroff(red)
         win.attroff(green)
+        win.attroff(curses.A_BLINK)
         
 
         self.count_gripper = 0
