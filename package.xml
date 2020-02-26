@@ -2,7 +2,7 @@
 <package format="2">
 
   <name>mrs_status</name>
-  <version>0.0.4</version>
+  <version>0.0.5</version>
   <description>The mrs_status package</description>
 
   <author email="hertdani@fel.cvut.cz">Dan Hert</author>
