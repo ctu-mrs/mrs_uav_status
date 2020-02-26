@@ -2,6 +2,11 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Blinkengripper
+* Contributors: Dan Hert
+
 0.0.4 (2020-02-18)
 ------------------
 * added five sec timer
