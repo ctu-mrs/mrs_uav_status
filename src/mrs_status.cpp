@@ -11,13 +11,17 @@
 
 #include <ncurses.h>
 
+#include <topic_tools/shape_shifter.h>  // for generic topic subscribers
+
 #include <mrs_msgs/TrackerPoint.h>
+#include <mrs_msgs/UavState.h>
 #include <std_srvs/Trigger.h>
 #include <mrs_lib/transformer.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Pose.h>
 
 using namespace std;
+using topic_tools::ShapeShifter;
 
 //}
 
@@ -33,20 +37,30 @@ public:
 private:
   ros::NodeHandle nh_;
 
-  ros::Timer blanket_timer_;
+  ros::Timer status_timer_;
 
-  void cmdOdomCallback(const nav_msgs::OdometryConstPtr& msg);
-  void OdomCallback(const nav_msgs::OdometryConstPtr& msg);
+  void UavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
+  void GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name);
 
-  void blanketTimer(const ros::TimerEvent& event);
+  void statusTimer(const ros::TimerEvent& event);
+  void PrintLimitedFloat(WINDOW* win, int y, int x, const char* fmt, ...);
 
-  ros::Subscriber cmd_odom_subscriber_;
-  ros::Subscriber odom_subscriber_;
+  ros::Subscriber state_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
 
+  ros::Subscriber generic_subscriber;
+
   std::string _uav_name_;
+  int         counter = 0;
 
   bool initialized_ = false;
+
+
+  WINDOW* uav_state_win = newwin(10, 30, 10, 10);
+
+  mrs_msgs::UavState uav_state_;
+
+  int uav_state_counter_ = 0;
 };
 
 //}
@@ -70,39 +84,79 @@ MrsStatus::MrsStatus() {
 
 
   // TIMERS
-  blanket_timer_ = nh_.createTimer(ros::Rate(10), &MrsStatus::blanketTimer, this);
+  status_timer_ = nh_.createTimer(ros::Rate(10), &MrsStatus::statusTimer, this);
 
   // SUBSCRIBERS
-  cmd_odom_subscriber_ = nh_.subscribe("cmd_odom_in", 1, &MrsStatus::cmdOdomCallback, this, ros::TransportHints().tcpNoDelay());
-  odom_subscriber_     = nh_.subscribe("odom_in", 1, &MrsStatus::OdomCallback, this, ros::TransportHints().tcpNoDelay());
+  state_subscriber_ = nh_.subscribe("state_in", 1, &MrsStatus::UavStateCallback, this, ros::TransportHints().tcpNoDelay());
+
+
+  string                                                            topic_name = "/uav1/odometry/odom_main";
+  boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;
+  callback           = [this, topic_name](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name); };
+  generic_subscriber = nh_.subscribe(topic_name, 10, callback);
 
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
+
+  refresh();
 }
 
 //}
 
-/* cmdOdomCallback() //{ */
+/* statusTimer //{ */
 
-void MrsStatus::cmdOdomCallback(const nav_msgs::OdometryConstPtr& msg) {
+void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
+
+  /* box(uav_state_win, '|', '-'); */
+
+  /* mvwaddstr(uav_state_win, 2, 2, "hello"); */
+  /* mvwaddstr(stdscr, 3, 3, to_string(counter).c_str()); */
+  /* mvwaddstr(uav_state_win, 3, 3, to_string(counter).c_str()); */
+
+  box(uav_state_win, '|', '-');
+  uav_state_.pose.position.x = (rand() % 20000) + 0.23;
+  /* if (fabs(uav_state_.pose.position.x) < 1000) { */
+  /*   mvwprintw(uav_state_win, 1, 1, "X %6.2f", uav_state_.pose.position.x); */
+  /* } else { */
+  /*   mvwprintw(uav_state_win, 1, 1, "X %6.0e", uav_state_.pose.position.x); */
+  /* } */
+
+  PrintLimitedFloat(uav_state_win, 1, 1, "X %6.2f", uav_state_.pose.position.x);
+  mvwprintw(uav_state_win, 2, 1, "Y %6.2f", uav_state_.pose.position.y);
+  mvwprintw(uav_state_win, 3, 1, "Z %6.2f", uav_state_.pose.position.z);
+
+  wrefresh(uav_state_win);
+  refresh();
 }
 
 //}
 
-/* OdomCallback() //{ */
 
-void MrsStatus::OdomCallback(const nav_msgs::OdometryConstPtr& msg) {
+/* PrintLimitedFloat() //{ */
+
+void MrsStatus::PrintLimitedFloat(WINDOW* win, int y, int x, const char* format, ...) {
+  va_list arg;
+  mvwprintw(win, y, x, format, arg);
 }
 
 //}
 
-/* blanketTimer //{ */
+/* UavStateCallback() //{ */
 
-void MrsStatus::blanketTimer([[maybe_unused]] const ros::TimerEvent& event) {
+void MrsStatus::UavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
+  uav_state_counter_++;
+  uav_state_ = *msg;
 }
 
 //}
 
+/* GenericCallback() //{ */
+
+void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name) {
+  counter++;
+}
+
+//}
 //}
 
 /* MENU CLASS //{ */
@@ -204,21 +258,20 @@ void Menu::Activate() {
 int main(int argc, char** argv) {
   ros::init(argc, argv, "mrs_status");
 
-  std::vector<string> items;
-  items.push_back("1");
-  items.push_back("2");
-  items.push_back("3");
-  items.push_back("4");
-
-  MrsStatus status;
+  /* std::vector<string> items; */
+  /* items.push_back("1"); */
+  /* items.push_back("2"); */
+  /* items.push_back("3"); */
+  /* items.push_back("4"); */
 
   initscr();
   cbreak();
   noecho();
   clear();
 
-  std::shared_ptr<WINDOW> menu_win(newwin(10, 12, 1, 1));
+  MrsStatus status;
 
+  /* std::shared_ptr<WINDOW> menu_win(newwin(10, 12, 1, 1)); */
   /* Menu menu(menu_win, items); */
   /* menu.Activate(); */
   /* endwin(); */

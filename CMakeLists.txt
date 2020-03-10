@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   mrs_msgs
   mrs_lib
+  topic_tools
 )
 
 find_package(Curses REQUIRED)

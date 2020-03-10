@@ -18,6 +18,9 @@
 
       <param name="uav_mass" value="$(arg UAV_MASS)" />
 
+        <!-- Subscribers -->
+      <remap from="~state_in" to="odometry/uav_state" />
+
     </node>
 
   </group>
