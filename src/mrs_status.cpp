@@ -1,4 +1,4 @@
-//* INCLUDES //{ */
+/* INCLUDES //{ */
 
 // some ros includes
 #include <ros/ros.h>
@@ -43,7 +43,9 @@ private:
   void GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name);
 
   void statusTimer(const ros::TimerEvent& event);
-  void PrintLimitedFloat(WINDOW* win, int y, int x, const char* fmt, ...);
+
+  void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
+void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
 
   ros::Subscriber state_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
@@ -56,7 +58,7 @@ private:
   bool initialized_ = false;
 
 
-  WINDOW* uav_state_win = newwin(10, 30, 10, 10);
+  WINDOW* uav_state_win = newwin(6, 40, 10, 10);
 
   mrs_msgs::UavState uav_state_;
 
@@ -107,23 +109,24 @@ MrsStatus::MrsStatus() {
 
 void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
-  /* box(uav_state_win, '|', '-'); */
-
-  /* mvwaddstr(uav_state_win, 2, 2, "hello"); */
-  /* mvwaddstr(stdscr, 3, 3, to_string(counter).c_str()); */
-  /* mvwaddstr(uav_state_win, 3, 3, to_string(counter).c_str()); */
+  double roll, pitch, yaw;
+  tf::Quaternion quaternion_odometry;
+  quaternionMsgToTF(uav_state_.pose.orientation, quaternion_odometry);
+  tf::Matrix3x3 m(quaternion_odometry);
+  m.getRPY(roll, pitch, yaw);
 
   box(uav_state_win, '|', '-');
-  uav_state_.pose.position.x = (rand() % 20000) + 0.23;
-  /* if (fabs(uav_state_.pose.position.x) < 1000) { */
-  /*   mvwprintw(uav_state_win, 1, 1, "X %6.2f", uav_state_.pose.position.x); */
-  /* } else { */
-  /*   mvwprintw(uav_state_win, 1, 1, "X %6.0e", uav_state_.pose.position.x); */
-  /* } */
+  
+  PrintLimitedDouble(uav_state_win, 0, 2, "Odom %5.1f Hz", 100.1, 1000);
 
-  PrintLimitedFloat(uav_state_win, 1, 1, "X %6.2f", uav_state_.pose.position.x);
-  mvwprintw(uav_state_win, 2, 1, "Y %6.2f", uav_state_.pose.position.y);
-  mvwprintw(uav_state_win, 3, 1, "Z %6.2f", uav_state_.pose.position.z);
+  PrintLimitedDouble(uav_state_win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
+  PrintLimitedDouble(uav_state_win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
+  PrintLimitedDouble(uav_state_win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000);
+  PrintLimitedDouble(uav_state_win, 4, 2, "Yaw %5.2f", yaw, 1000);
+
+  PrintLimitedString(uav_state_win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 14);
+  PrintLimitedString(uav_state_win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 14);
+  PrintLimitedString(uav_state_win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 14);
 
   wrefresh(uav_state_win);
   refresh();
@@ -131,12 +134,42 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 //}
 
+/* PrintLimitedDouble() //{ */
 
-/* PrintLimitedFloat() //{ */
+void MrsStatus::PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit) {
 
-void MrsStatus::PrintLimitedFloat(WINDOW* win, int y, int x, const char* format, ...) {
-  va_list arg;
-  mvwprintw(win, y, x, format, arg);
+  if (fabs(num) > limit) {
+    
+    // if the number is larger than limit, replace it with scientific notation - 1e+01 to fit the screen
+    for (unsigned long i = 0; i < str_in.length() - 2; i++) {
+      if (str_in[i] == '.' && str_in[i + 2] == 'f') {
+        str_in[i + 1] = '0';
+        str_in[i + 2] = 'e';
+        break;
+      }
+    }
+  }
+
+  const char* format = str_in.c_str();
+
+  mvwprintw(win, y, x, format, num);
+
+}
+
+//}
+
+/* PrintLimitedString() //{ */
+
+void MrsStatus::PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit) {
+
+  if (str_in.length() > limit) {
+    str_in.resize (limit);
+  }
+
+  const char* format = str_in.c_str();
+
+  mvwprintw(win, y, x, format);
+
 }
 
 //}
@@ -256,6 +289,7 @@ void Menu::Activate() {
 /* main() //{ */
 
 int main(int argc, char** argv) {
+
   ros::init(argc, argv, "mrs_status");
 
   /* std::vector<string> items; */

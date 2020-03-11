@@ -12,7 +12,7 @@
 
   <group ns="$(arg UAV_NAME)">
 
-    <node name="mrs_status" pkg="mrs_status" type="mrs_status" output="screen" respawn="true">
+    <node name="mrs_status_c" pkg="mrs_status" type="mrs_status" output="screen" respawn="true">
 
       <rosparam file="$(arg config_file)" />
 
