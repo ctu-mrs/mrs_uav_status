@@ -25,6 +25,12 @@ using topic_tools::ShapeShifter;
 
 //}
 
+#define GRASS_PAIR 1
+#define EMPTY_PAIR 1
+#define WATER_PAIR 2
+#define MOUNTAIN_PAIR 3
+#define PLAYER_PAIR 4
+
 /* MRS_STATUS CLASS //{ */
 
 /* class MrsStatus //{ */
@@ -45,7 +51,9 @@ private:
   void statusTimer(const ros::TimerEvent& event);
 
   void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
-void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
+  void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
+
+  void UavStateHandler(WINDOW* win);
 
   ros::Subscriber state_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
@@ -109,27 +117,41 @@ MrsStatus::MrsStatus() {
 
 void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
-  double roll, pitch, yaw;
+  UavStateHandler(uav_state_win);
+
+  refresh();
+}
+
+//}
+
+
+/* UavStateHandler() //{ */
+
+void MrsStatus::UavStateHandler(WINDOW* win) {
+
+  start_color();
+
+  double         roll, pitch, yaw;
   tf::Quaternion quaternion_odometry;
   quaternionMsgToTF(uav_state_.pose.orientation, quaternion_odometry);
   tf::Matrix3x3 m(quaternion_odometry);
   m.getRPY(roll, pitch, yaw);
 
-  box(uav_state_win, '|', '-');
-  
-  PrintLimitedDouble(uav_state_win, 0, 2, "Odom %5.1f Hz", 100.1, 1000);
+  box(win, '|', '-');
 
-  PrintLimitedDouble(uav_state_win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
-  PrintLimitedDouble(uav_state_win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
-  PrintLimitedDouble(uav_state_win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000);
-  PrintLimitedDouble(uav_state_win, 4, 2, "Yaw %5.2f", yaw, 1000);
 
-  PrintLimitedString(uav_state_win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 14);
-  PrintLimitedString(uav_state_win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 14);
-  PrintLimitedString(uav_state_win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 14);
+  PrintLimitedDouble(win, 0, 2, "Odom %5.1f Hz", 100.1, 1000);
 
-  wrefresh(uav_state_win);
-  refresh();
+  PrintLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
+  PrintLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
+  PrintLimitedDouble(win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000);
+  PrintLimitedDouble(win, 4, 2, "Yaw %5.2f", yaw, 1000);
+
+  PrintLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 14);
+  PrintLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 14);
+  PrintLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 14);
+
+  wrefresh(win);
 }
 
 //}
@@ -139,7 +161,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 void MrsStatus::PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit) {
 
   if (fabs(num) > limit) {
-    
+
     // if the number is larger than limit, replace it with scientific notation - 1e+01 to fit the screen
     for (unsigned long i = 0; i < str_in.length() - 2; i++) {
       if (str_in[i] == '.' && str_in[i + 2] == 'f') {
@@ -153,7 +175,6 @@ void MrsStatus::PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, dou
   const char* format = str_in.c_str();
 
   mvwprintw(win, y, x, format, num);
-
 }
 
 //}
@@ -163,13 +184,12 @@ void MrsStatus::PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, dou
 void MrsStatus::PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit) {
 
   if (str_in.length() > limit) {
-    str_in.resize (limit);
+    str_in.resize(limit);
   }
 
   const char* format = str_in.c_str();
 
   mvwprintw(win, y, x, format);
-
 }
 
 //}
@@ -298,11 +318,20 @@ int main(int argc, char** argv) {
   /* items.push_back("3"); */
   /* items.push_back("4"); */
 
+  init_pair(GRASS_PAIR, COLOR_YELLOW, COLOR_GREEN);
+  init_pair(WATER_PAIR, COLOR_CYAN, COLOR_BLUE);
+  init_pair(MOUNTAIN_PAIR, COLOR_BLACK, COLOR_WHITE);
+  init_pair(PLAYER_PAIR, COLOR_RED, COLOR_MAGENTA);
+
   initscr();
   cbreak();
   noecho();
   clear();
 
+  /* attron(COLOR_PAIR(GRASS_PAIR)); */
+  attron(COLOR_PAIR(WATER_PAIR));
+
+  mvwprintw(stdscr, 0, 0, "%s", "uaaaaaa");
   MrsStatus status;
 
   /* std::shared_ptr<WINDOW> menu_win(newwin(10, 12, 1, 1)); */
