@@ -39,207 +39,75 @@ using topic_tools::ShapeShifter;
 #define COLOR_NICE_BLUE 33
 #define COLOR_NICE_YELLOW 220
 
-/* MRS_STATUS CLASS //{ */
+/* STATUS WINDOW CLASS //{ */
 
-/* class MrsStatus //{ */
+/* ------------------- STATUS WINDOW CLASS ------------------- */
 
-class MrsStatus {
+/* class StatusWindow //{ */
+
+class StatusWindow {
 
 public:
-  MrsStatus();
+  StatusWindow(int lines, int cols, int begin_y, int begin_x, double rate_filter_coef, double desired_rate);
+  void Redraw(int counter);
 
 private:
-  ros::NodeHandle nh_;
+  WINDOW* win_;
 
-  ros::Timer status_timer_;
-
-  void UavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
-  void GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name);
-
-  void statusTimer(const ros::TimerEvent& event);
-
-  void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
-  void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
-
-  void UavStateHandler(WINDOW* win);
-
-  ros::Subscriber state_subscriber_;
-  ros::Subscriber mpc_diag_subscriber_;
-
-  ros::Subscriber generic_subscriber;
-
-  std::string _uav_name_;
-  int         counter = 0;
-
-  bool initialized_ = false;
-
-
-  WINDOW* uav_state_win = newwin(6, 40, 10, 10);
-
-  mrs_msgs::UavState uav_state_;
-
-  int       uav_state_counter_   = 0;
-  double    uav_state_rate_      = 0.0;
-  ros::Time uav_state_last_time_ = ros::Time::now();
+  double    rate_;
+  double    rate_filter_coef_;
+  double    desired_rate_;
+  ros::Time last_time_ = ros::Time::now();
 };
 
 //}
 
-/* MrsStatus() //{ */
+/* StatusWindow() //{ */
 
-MrsStatus::MrsStatus() {
+StatusWindow::StatusWindow(int lines, int cols, int begin_y, int begin_x, double rate_filter_coef, double desired_rate, &MrsStatus::UavStateCallback) {
 
-  // initialize node and create no handle
-  nh_ = ros::NodeHandle("~");
-
-  // PARAMS
-  /* mrs_lib::ParamLoader param_loader(nh_, "MrsStatus"); */
-
-  /* if (!param_loader.loaded_successfully()) { */
-  /*   ROS_ERROR("[MrsStatus]: Could not load all parameters!"); */
-  /*   ros::shutdown(); */
-  /* } else { */
-  /*   ROS_INFO("[MrsStatus]: All params loaded!"); */
-  /* } */
-
-
-  // TIMERS
-  status_timer_ = nh_.createTimer(ros::Rate(10), &MrsStatus::statusTimer, this);
-
-  // SUBSCRIBERS
-  state_subscriber_ = nh_.subscribe("state_in", 1, &MrsStatus::UavStateCallback, this, ros::TransportHints().tcpNoDelay());
-
-
-  string                                                            topic_name = "/uav1/odometry/odom_main";
-  boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;
-  callback           = [this, topic_name](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name); };
-  generic_subscriber = nh_.subscribe(topic_name, 10, callback);
-
-  initialized_ = true;
-  ROS_INFO("[Mrs Status]: Node initialized!");
-
-  refresh();
+  win_              = newwin(lines, cols, begin_y, begin_x);
+  rate_filter_coef_ = rate_filter_coef;
+  desired_rate_     = desired_rate;
 }
 
 //}
 
-/* statusTimer //{ */
+/* Redraw() //{ */
 
-void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
+void StatusWindow::Redraw(int counter) {
 
-  wattron(stdscr, COLOR_PAIR(NORMAL));
-  UavStateHandler(uav_state_win);
+  rate_ -= rate_ / rate_filter_coef_;
+  rate_ += (counter / ((ros::Time::now() - last_time_).toSec())) / rate_filter_coef_;
 
-  refresh();
-}
-
-//}
-
-/* UavStateHandler() //{ */
-
-void MrsStatus::UavStateHandler(WINDOW* win) {
-
-  uav_state_rate_ -= uav_state_rate_ / 2;
-  uav_state_rate_ += (uav_state_counter_ / ((ros::Time::now() - uav_state_last_time_).toSec())) / 2;
-
-  if (!isfinite(uav_state_rate_)) {
-    uav_state_rate_ = 0;
+  if (!isfinite(rate_)) {
+    rate_ = 0;
   }
 
-  uav_state_last_time_ = ros::Time::now();
-  uav_state_counter_   = 0;
+  last_time_ = ros::Time::now();
+  /* counter   = 0; TODO - fix this, needs reference outside of this class! */
 
-  wattron(win, A_BOLD);
+  wattron(win_, A_BOLD);
 
-  double         roll, pitch, yaw;
-  tf::Quaternion quaternion_odometry;
-  quaternionMsgToTF(uav_state_.pose.orientation, quaternion_odometry);
-  tf::Matrix3x3 m(quaternion_odometry);
-  m.getRPY(roll, pitch, yaw);
-
-  box(win, '|', '-');
+  box(win_, '|', '-');
 
   int tmp_color = RED;
-  if (uav_state_rate_ > 95) {
+  if (rate_ > 0.95 * desired_rate_) {
     tmp_color = GREEN;
-  } else if (uav_state_rate_ > 40) {
+  } else if (rate_ > 0.5 * desired_rate_) {
     tmp_color = YELLOW;
   }
 
-  wattron(win, COLOR_PAIR(tmp_color));
+  wattron(win_, COLOR_PAIR(tmp_color));
 
-  PrintLimitedDouble(win, 0, 2, "Odom %5.1f Hz", uav_state_rate_, 1000);
-
-  PrintLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
-  PrintLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
-  PrintLimitedDouble(win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000);
-  PrintLimitedDouble(win, 4, 2, "Yaw %5.2f", yaw, 1000);
-
-  PrintLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 14);
-  PrintLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 14);
-  PrintLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 14);
-
-  wattroff(win, COLOR_PAIR(tmp_color));
-
-  wrefresh(win);
+  wattroff(win_, COLOR_PAIR(tmp_color));
+  wattroff(win_, A_BOLD);
+  wrefresh(win_);
 }
 
 //}
 
-/* PrintLimitedDouble() //{ */
-
-void MrsStatus::PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit) {
-
-  if (fabs(num) > limit) {
-
-    // if the number is larger than limit, replace it with scientific notation - 1e+01 to fit the screen
-    for (unsigned long i = 0; i < str_in.length() - 2; i++) {
-      if (str_in[i] == '.' && str_in[i + 2] == 'f') {
-        str_in[i + 1] = '0';
-        str_in[i + 2] = 'e';
-        break;
-      }
-    }
-  }
-
-  const char* format = str_in.c_str();
-
-  mvwprintw(win, y, x, format, num);
-}
-
-//}
-
-/* PrintLimitedString() //{ */
-
-void MrsStatus::PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit) {
-
-  if (str_in.length() > limit) {
-    str_in.resize(limit);
-  }
-
-  const char* format = str_in.c_str();
-
-  mvwprintw(win, y, x, format);
-}
-
-//}
-
-/* UavStateCallback() //{ */
-
-void MrsStatus::UavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
-  uav_state_counter_++;
-  uav_state_ = *msg;
-}
-
-//}
-
-/* GenericCallback() //{ */
-
-void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name) {
-  counter++;
-}
-
-//}
+/* ----------------- //STATUS WINDOW CLASS ------------------- */
 
 //}
 
@@ -334,6 +202,208 @@ void Menu::Activate() {
 //}
 
 /* ----------------- //MENU CLASS ------------------- */
+
+//}
+
+/* MRS_STATUS CLASS //{ */
+
+/* class MrsStatus //{ */
+
+class MrsStatus {
+
+public:
+  MrsStatus();
+
+private:
+  ros::NodeHandle nh_;
+
+  ros::Timer status_timer_;
+
+  void UavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
+  void GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name);
+
+  void statusTimer(const ros::TimerEvent& event);
+
+  void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
+  void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
+
+  void UavStateHandler(WINDOW* win);
+
+  ros::Subscriber state_subscriber_;
+  ros::Subscriber mpc_diag_subscriber_;
+
+  ros::Subscriber generic_subscriber;
+
+  std::string _uav_name_;
+  int         counter = 0;
+
+  bool initialized_ = false;
+
+
+  mrs_msgs::UavState uav_state_;
+
+  /* int       uav_state_counter_   = 0; */
+  /* double    uav_state_rate_      = 0.0; */
+  /* ros::Time uav_state_last_time_ = ros::Time::now(); */
+
+  StatusWindow uav_state_window{20, 20, 1, 1, 2.0, 100.0};
+};
+
+//}
+
+/* MrsStatus() //{ */
+
+MrsStatus::MrsStatus() {
+
+  // initialize node and create no handle
+  nh_ = ros::NodeHandle("~");
+
+  // PARAMS
+  /* mrs_lib::ParamLoader param_loader(nh_, "MrsStatus"); */
+
+  /* if (!param_loader.loaded_successfully()) { */
+  /*   ROS_ERROR("[MrsStatus]: Could not load all parameters!"); */
+  /*   ros::shutdown(); */
+  /* } else { */
+  /*   ROS_INFO("[MrsStatus]: All params loaded!"); */
+  /* } */
+
+  // TIMERS
+  status_timer_ = nh_.createTimer(ros::Rate(10), &MrsStatus::statusTimer, this);
+
+  // SUBSCRIBERS
+  state_subscriber_ = nh_.subscribe("state_in", 1, &MrsStatus::UavStateCallback, this, ros::TransportHints().tcpNoDelay());
+
+  string                                                            topic_name = "/uav1/odometry/odom_main";
+  boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;
+  callback           = [this, topic_name](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name); };
+  generic_subscriber = nh_.subscribe(topic_name, 10, callback);
+
+  initialized_ = true;
+  ROS_INFO("[Mrs Status]: Node initialized!");
+
+  refresh();
+}
+
+//}
+
+/* statusTimer //{ */
+
+void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
+
+  wattron(stdscr, COLOR_PAIR(NORMAL));
+  uav_state_window.Redraw(10);
+
+  refresh();
+}
+
+//}
+
+/* UavStateHandler() //{ */
+
+void MrsStatus::UavStateHandler(WINDOW* win) {
+
+  /* uav_state_rate_ -= uav_state_rate_ / 2; */
+  /* uav_state_rate_ += (uav_state_counter_ / ((ros::Time::now() - uav_state_last_time_).toSec())) / 2; */
+
+  /* if (!isfinite(uav_state_rate_)) { */
+  /*   uav_state_rate_ = 0; */
+  /* } */
+
+  /* uav_state_last_time_ = ros::Time::now(); */
+  /* uav_state_counter_   = 0; */
+
+  /* wattron(win, A_BOLD); */
+
+  double         roll, pitch, yaw;
+  tf::Quaternion quaternion_odometry;
+  quaternionMsgToTF(uav_state_.pose.orientation, quaternion_odometry);
+  tf::Matrix3x3 m(quaternion_odometry);
+  m.getRPY(roll, pitch, yaw);
+
+  /* box(win, '|', '-'); */
+
+  /* int tmp_color = RED; */
+  /* if (uav_state_rate_ > 95) { */
+  /*   tmp_color = GREEN; */
+  /* } else if (uav_state_rate_ > 40) { */
+  /*   tmp_color = YELLOW; */
+  /* } */
+
+  /* wattron(win, COLOR_PAIR(tmp_color)); */
+
+  PrintLimitedDouble(win, 0, 2, "Odom %5.1f Hz", uav_state_rate_, 1000);
+
+  PrintLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
+  PrintLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
+  PrintLimitedDouble(win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000);
+  PrintLimitedDouble(win, 4, 2, "Yaw %5.2f", yaw, 1000);
+
+  PrintLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 14);
+  PrintLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 14);
+  PrintLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 14);
+
+  /* wattroff(win, COLOR_PAIR(tmp_color)); */
+
+  /* wrefresh(win); */
+}
+
+//}
+
+/* PrintLimitedDouble() //{ */
+
+void MrsStatus::PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit) {
+
+  if (fabs(num) > limit) {
+
+    // if the number is larger than limit, replace it with scientific notation - 1e+01 to fit the screen
+    for (unsigned long i = 0; i < str_in.length() - 2; i++) {
+      if (str_in[i] == '.' && str_in[i + 2] == 'f') {
+        str_in[i + 1] = '0';
+        str_in[i + 2] = 'e';
+        break;
+      }
+    }
+  }
+
+  const char* format = str_in.c_str();
+
+  mvwprintw(win, y, x, format, num);
+}
+
+//}
+
+/* PrintLimitedString() //{ */
+
+void MrsStatus::PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit) {
+
+  if (str_in.length() > limit) {
+    str_in.resize(limit);
+  }
+
+  const char* format = str_in.c_str();
+
+  mvwprintw(win, y, x, format);
+}
+
+//}
+
+/* UavStateCallback() //{ */
+
+void MrsStatus::UavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
+  /* uav_state_counter_++; */
+  uav_state_ = *msg;
+}
+
+//}
+
+/* GenericCallback() //{ */
+
+void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name) {
+  counter++;
+}
+
+//}
 
 //}
 
