@@ -25,11 +25,19 @@ using topic_tools::ShapeShifter;
 
 //}
 
-#define GRASS_PAIR 1
-#define EMPTY_PAIR 1
-#define WATER_PAIR 2
-#define MOUNTAIN_PAIR 3
-#define PLAYER_PAIR 4
+#define NORMAL 100
+#define GREEN 101
+#define RED 102
+#define YELLOW 103
+#define BLUE 104
+
+#define BACKGROUND_DEFAULT -1
+#define BACKGROUND_TRUE_BLACK 16
+
+#define COLOR_NICE_RED 196
+#define COLOR_NICE_GREEN 82
+#define COLOR_NICE_BLUE 33
+#define COLOR_NICE_YELLOW 220
 
 /* MRS_STATUS CLASS //{ */
 
@@ -70,7 +78,9 @@ private:
 
   mrs_msgs::UavState uav_state_;
 
-  int uav_state_counter_ = 0;
+  int       uav_state_counter_   = 0;
+  double    uav_state_rate_      = 0.0;
+  ros::Time uav_state_last_time_ = ros::Time::now();
 };
 
 //}
@@ -117,6 +127,7 @@ MrsStatus::MrsStatus() {
 
 void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
+  wattron(stdscr, COLOR_PAIR(NORMAL));
   UavStateHandler(uav_state_win);
 
   refresh();
@@ -124,12 +135,21 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 //}
 
-
 /* UavStateHandler() //{ */
 
 void MrsStatus::UavStateHandler(WINDOW* win) {
 
-  start_color();
+  uav_state_rate_ -= uav_state_rate_ / 2;
+  uav_state_rate_ += (uav_state_counter_ / ((ros::Time::now() - uav_state_last_time_).toSec())) / 2;
+
+  if (!isfinite(uav_state_rate_)) {
+    uav_state_rate_ = 0;
+  }
+
+  uav_state_last_time_ = ros::Time::now();
+  uav_state_counter_   = 0;
+
+  wattron(win, A_BOLD);
 
   double         roll, pitch, yaw;
   tf::Quaternion quaternion_odometry;
@@ -139,8 +159,16 @@ void MrsStatus::UavStateHandler(WINDOW* win) {
 
   box(win, '|', '-');
 
+  int tmp_color = RED;
+  if (uav_state_rate_ > 95) {
+    tmp_color = GREEN;
+  } else if (uav_state_rate_ > 40) {
+    tmp_color = YELLOW;
+  }
 
-  PrintLimitedDouble(win, 0, 2, "Odom %5.1f Hz", 100.1, 1000);
+  wattron(win, COLOR_PAIR(tmp_color));
+
+  PrintLimitedDouble(win, 0, 2, "Odom %5.1f Hz", uav_state_rate_, 1000);
 
   PrintLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
   PrintLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
@@ -150,6 +178,8 @@ void MrsStatus::UavStateHandler(WINDOW* win) {
   PrintLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 14);
   PrintLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 14);
   PrintLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 14);
+
+  wattroff(win, COLOR_PAIR(tmp_color));
 
   wrefresh(win);
 }
@@ -210,6 +240,7 @@ void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const std::st
 }
 
 //}
+
 //}
 
 /* MENU CLASS //{ */
@@ -318,20 +349,37 @@ int main(int argc, char** argv) {
   /* items.push_back("3"); */
   /* items.push_back("4"); */
 
-  init_pair(GRASS_PAIR, COLOR_YELLOW, COLOR_GREEN);
-  init_pair(WATER_PAIR, COLOR_CYAN, COLOR_BLUE);
-  init_pair(MOUNTAIN_PAIR, COLOR_BLACK, COLOR_WHITE);
-  init_pair(PLAYER_PAIR, COLOR_RED, COLOR_MAGENTA);
-
   initscr();
+  start_color();
   cbreak();
   noecho();
   clear();
+  use_default_colors();
 
-  /* attron(COLOR_PAIR(GRASS_PAIR)); */
-  attron(COLOR_PAIR(WATER_PAIR));
+  init_pair(NORMAL, COLOR_WHITE, BACKGROUND_DEFAULT);
+  init_pair(RED, COLOR_NICE_RED, BACKGROUND_DEFAULT);
+  init_pair(YELLOW, COLOR_NICE_YELLOW, BACKGROUND_DEFAULT);
+  init_pair(GREEN, COLOR_NICE_GREEN, BACKGROUND_DEFAULT);
+  init_pair(BLUE, COLOR_NICE_BLUE, BACKGROUND_DEFAULT);
 
-  mvwprintw(stdscr, 0, 0, "%s", "uaaaaaa");
+  attron(A_BOLD);
+
+  /* DEBUG COLOR RAINBOW //{ */
+
+  /* for (int j = 0; j < 256; j++) { */
+  /*   init_pair(j, j, BACKGROUND_DEFAULT); */
+  /* } */
+
+  /* int k = 0; */
+  /* for (int j = 0; j < 256; j++) { */
+  /*   attron(COLOR_PAIR(j)); */
+  /*   mvwprintw(stdscr, k, (3 * j + 1) - k * 60 * 3, "%i", j); */
+  /*   k = int(j / 60); */
+  /*   attroff(COLOR_PAIR(j)); */
+  /* } */
+
+  //}
+
   MrsStatus status;
 
   /* std::shared_ptr<WINDOW> menu_win(newwin(10, 12, 1, 1)); */
@@ -341,6 +389,7 @@ int main(int argc, char** argv) {
 
   while (ros::ok()) {
 
+    refresh();
     ros::spin();
     return 0;
   }
