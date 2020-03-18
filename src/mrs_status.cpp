@@ -20,6 +20,8 @@
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Pose.h>
 
+#include <boost/function.hpp>
+
 using namespace std;
 using topic_tools::ShapeShifter;
 
@@ -39,77 +41,7 @@ using topic_tools::ShapeShifter;
 #define COLOR_NICE_BLUE 33
 #define COLOR_NICE_YELLOW 220
 
-/* STATUS WINDOW CLASS //{ */
-
-/* ------------------- STATUS WINDOW CLASS ------------------- */
-
-/* class StatusWindow //{ */
-
-class StatusWindow {
-
-public:
-  StatusWindow(int lines, int cols, int begin_y, int begin_x, double rate_filter_coef, double desired_rate);
-  void Redraw(int counter);
-
-private:
-  WINDOW* win_;
-
-  double    rate_;
-  double    rate_filter_coef_;
-  double    desired_rate_;
-  ros::Time last_time_ = ros::Time::now();
-};
-
-//}
-
-/* StatusWindow() //{ */
-
-StatusWindow::StatusWindow(int lines, int cols, int begin_y, int begin_x, double rate_filter_coef, double desired_rate, &MrsStatus::UavStateCallback) {
-
-  win_              = newwin(lines, cols, begin_y, begin_x);
-  rate_filter_coef_ = rate_filter_coef;
-  desired_rate_     = desired_rate;
-}
-
-//}
-
-/* Redraw() //{ */
-
-void StatusWindow::Redraw(int counter) {
-
-  rate_ -= rate_ / rate_filter_coef_;
-  rate_ += (counter / ((ros::Time::now() - last_time_).toSec())) / rate_filter_coef_;
-
-  if (!isfinite(rate_)) {
-    rate_ = 0;
-  }
-
-  last_time_ = ros::Time::now();
-  /* counter   = 0; TODO - fix this, needs reference outside of this class! */
-
-  wattron(win_, A_BOLD);
-
-  box(win_, '|', '-');
-
-  int tmp_color = RED;
-  if (rate_ > 0.95 * desired_rate_) {
-    tmp_color = GREEN;
-  } else if (rate_ > 0.5 * desired_rate_) {
-    tmp_color = YELLOW;
-  }
-
-  wattron(win_, COLOR_PAIR(tmp_color));
-
-  wattroff(win_, COLOR_PAIR(tmp_color));
-  wattroff(win_, A_BOLD);
-  wrefresh(win_);
-}
-
-//}
-
-/* ----------------- //STATUS WINDOW CLASS ------------------- */
-
-//}
+class MrsStatus;
 
 /* MENU CLASS //{ */
 
@@ -205,6 +137,90 @@ void Menu::Activate() {
 
 //}
 
+/* STATUS WINDOW CLASS //{ */
+
+/* ------------------- STATUS WINDOW CLASS ------------------- */
+
+/* class StatusWindow //{ */
+
+class StatusWindow {
+
+public:
+  StatusWindow(int lines, int cols, int begin_y, int begin_x, double rate_filter_coef, double desired_rate);
+
+  void Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate), MrsStatus* obj, int* counter);
+
+private:
+  WINDOW* win_;
+
+  double    rate_;
+  double    rate_filter_coef_;
+  double    desired_rate_;
+  ros::Time last_time_ = ros::Time::now();
+};
+
+//}
+
+/* StatusWindow() //{ */
+
+StatusWindow::StatusWindow(int lines, int cols, int begin_y, int begin_x, double rate_filter_coef, double desired_rate) {
+
+  win_              = newwin(lines, cols, begin_y, begin_x);
+  rate_filter_coef_ = rate_filter_coef;
+  desired_rate_     = desired_rate;
+}
+
+//}
+
+/* Redraw() //{ */
+
+void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate), MrsStatus* obj, int* counter) {
+
+  wclear(win_);
+
+  rate_ -= rate_ / rate_filter_coef_;
+  rate_ += (*counter / ((ros::Time::now() - last_time_).toSec())) / rate_filter_coef_;
+
+  if (!isfinite(rate_)) {
+    rate_ = 0;
+  }
+
+  last_time_ = ros::Time::now();
+  *counter   = 0;
+
+  wattron(win_, A_BOLD);
+
+  box(win_, '|', '-');
+
+  int tmp_color = RED;
+  if (rate_ > 0.95 * desired_rate_) {
+    tmp_color = GREEN;
+  } else if (rate_ > 0.5 * desired_rate_) {
+    tmp_color = YELLOW;
+  }
+
+  wattron(win_, COLOR_PAIR(tmp_color));
+
+  if (rate_ < 0.01 * desired_rate_) {
+    wattron(win_, A_BLINK);
+    mvwprintw(win_, 0, 1, "!NO DATA!");
+    wattroff(win_, A_BLINK);
+  }
+
+  (obj->*fp)(win_, rate_);
+
+  wattroff(win_, COLOR_PAIR(tmp_color));
+  wattroff(win_, A_BOLD);
+
+  wrefresh(win_);
+}
+
+//}int(AB::*fp)(int,int)
+
+/* ----------------- //STATUS WINDOW CLASS ------------------- */
+
+//}
+
 /* MRS_STATUS CLASS //{ */
 
 /* class MrsStatus //{ */
@@ -227,7 +243,7 @@ private:
   void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
   void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
 
-  void UavStateHandler(WINDOW* win);
+  void UavStateHandler(WINDOW* win, double rate);
 
   ros::Subscriber state_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
@@ -238,15 +254,12 @@ private:
   int         counter = 0;
 
   bool initialized_ = false;
-
+  bool cleared_     = false;
 
   mrs_msgs::UavState uav_state_;
+  int                uav_state_counter_ = 0;
 
-  /* int       uav_state_counter_   = 0; */
-  /* double    uav_state_rate_      = 0.0; */
-  /* ros::Time uav_state_last_time_ = ros::Time::now(); */
-
-  StatusWindow uav_state_window{20, 20, 1, 1, 2.0, 100.0};
+  StatusWindow* uav_state_window;
 };
 
 //}
@@ -258,31 +271,24 @@ MrsStatus::MrsStatus() {
   // initialize node and create no handle
   nh_ = ros::NodeHandle("~");
 
-  // PARAMS
-  /* mrs_lib::ParamLoader param_loader(nh_, "MrsStatus"); */
-
-  /* if (!param_loader.loaded_successfully()) { */
-  /*   ROS_ERROR("[MrsStatus]: Could not load all parameters!"); */
-  /*   ros::shutdown(); */
-  /* } else { */
-  /*   ROS_INFO("[MrsStatus]: All params loaded!"); */
-  /* } */
-
   // TIMERS
   status_timer_ = nh_.createTimer(ros::Rate(10), &MrsStatus::statusTimer, this);
 
   // SUBSCRIBERS
   state_subscriber_ = nh_.subscribe("state_in", 1, &MrsStatus::UavStateCallback, this, ros::TransportHints().tcpNoDelay());
 
-  string                                                            topic_name = "/uav1/odometry/odom_main";
+  string topic_name = "/uav1/odometry/odom_main";
+
   boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;
   callback           = [this, topic_name](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name); };
   generic_subscriber = nh_.subscribe(topic_name, 10, callback);
 
+  uav_state_window = new StatusWindow(6, 30, 3, 3, 2.0, 100.0);
+
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
 
-  refresh();
+  /* refresh(); */
 }
 
 //}
@@ -291,9 +297,7 @@ MrsStatus::MrsStatus() {
 
 void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
-  wattron(stdscr, COLOR_PAIR(NORMAL));
-  uav_state_window.Redraw(10);
-
+  uav_state_window->Redraw(&MrsStatus::UavStateHandler, this, &uav_state_counter_);
   refresh();
 }
 
@@ -301,19 +305,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 /* UavStateHandler() //{ */
 
-void MrsStatus::UavStateHandler(WINDOW* win) {
-
-  /* uav_state_rate_ -= uav_state_rate_ / 2; */
-  /* uav_state_rate_ += (uav_state_counter_ / ((ros::Time::now() - uav_state_last_time_).toSec())) / 2; */
-
-  /* if (!isfinite(uav_state_rate_)) { */
-  /*   uav_state_rate_ = 0; */
-  /* } */
-
-  /* uav_state_last_time_ = ros::Time::now(); */
-  /* uav_state_counter_   = 0; */
-
-  /* wattron(win, A_BOLD); */
+void MrsStatus::UavStateHandler(WINDOW* win, double rate) {
 
   double         roll, pitch, yaw;
   tf::Quaternion quaternion_odometry;
@@ -321,31 +313,18 @@ void MrsStatus::UavStateHandler(WINDOW* win) {
   tf::Matrix3x3 m(quaternion_odometry);
   m.getRPY(roll, pitch, yaw);
 
-  /* box(win, '|', '-'); */
-
-  /* int tmp_color = RED; */
-  /* if (uav_state_rate_ > 95) { */
-  /*   tmp_color = GREEN; */
-  /* } else if (uav_state_rate_ > 40) { */
-  /*   tmp_color = YELLOW; */
-  /* } */
-
-  /* wattron(win, COLOR_PAIR(tmp_color)); */
-
-  PrintLimitedDouble(win, 0, 2, "Odom %5.1f Hz", uav_state_rate_, 1000);
-
+  PrintLimitedDouble(win, 0, 16, "Odom %5.1f Hz", rate, 1000);
   PrintLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
   PrintLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
   PrintLimitedDouble(win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000);
   PrintLimitedDouble(win, 4, 2, "Yaw %5.2f", yaw, 1000);
 
-  PrintLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 14);
-  PrintLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 14);
-  PrintLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 14);
+  int pos = uav_state_.header.frame_id.find("/") + 1;
+  PrintLimitedString(win, 1, 14, uav_state_.header.frame_id.substr(pos, uav_state_.header.frame_id.length()), 15);
 
-  /* wattroff(win, COLOR_PAIR(tmp_color)); */
-
-  /* wrefresh(win); */
+  PrintLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 15);
+  PrintLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 15);
+  PrintLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 15);
 }
 
 //}
@@ -391,7 +370,7 @@ void MrsStatus::PrintLimitedString(WINDOW* win, int y, int x, string str_in, uns
 /* UavStateCallback() //{ */
 
 void MrsStatus::UavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
-  /* uav_state_counter_++; */
+  uav_state_counter_++;
   uav_state_ = *msg;
 }
 
@@ -424,6 +403,7 @@ int main(int argc, char** argv) {
   cbreak();
   noecho();
   clear();
+  curs_set(0);  // disable cursor
   use_default_colors();
 
   init_pair(NORMAL, COLOR_WHITE, BACKGROUND_DEFAULT);
@@ -459,7 +439,6 @@ int main(int argc, char** argv) {
 
   while (ros::ok()) {
 
-    refresh();
     ros::spin();
     return 0;
   }
