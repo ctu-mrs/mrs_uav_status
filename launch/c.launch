@@ -19,7 +19,8 @@
       <param name="uav_mass" value="$(arg UAV_MASS)" />
 
         <!-- Subscribers -->
-      <remap from="~state_in" to="odometry/uav_state" />
+      <remap from="~uav_state_in" to="odometry/uav_state" />
+      <remap from="~mavros_state_in" to="mavros/state" />
 
     </node>
 

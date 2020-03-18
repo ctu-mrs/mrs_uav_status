@@ -13,6 +13,8 @@
 
 #include <topic_tools/shape_shifter.h>  // for generic topic subscribers
 
+#include <mavros_msgs/State.h>
+
 #include <mrs_msgs/TrackerPoint.h>
 #include <mrs_msgs/UavState.h>
 #include <std_srvs/Trigger.h>
@@ -236,6 +238,7 @@ private:
   ros::Timer status_timer_;
 
   void UavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
+  void MavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
   void GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name);
 
   void statusTimer(const ros::TimerEvent& event);
@@ -244,8 +247,10 @@ private:
   void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
 
   void UavStateHandler(WINDOW* win, double rate);
+  void MavrosStateHandler(WINDOW* win, double rate);
 
-  ros::Subscriber state_subscriber_;
+  ros::Subscriber uav_state_subscriber_;
+  ros::Subscriber mavros_state_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
 
   ros::Subscriber generic_subscriber;
@@ -259,7 +264,11 @@ private:
   mrs_msgs::UavState uav_state_;
   int                uav_state_counter_ = 0;
 
+  mavros_msgs::State mavros_state_;
+  int                mavros_state_counter_ = 0;
+
   StatusWindow* uav_state_window;
+  StatusWindow* mavros_state_window;
 };
 
 //}
@@ -275,7 +284,8 @@ MrsStatus::MrsStatus() {
   status_timer_ = nh_.createTimer(ros::Rate(10), &MrsStatus::statusTimer, this);
 
   // SUBSCRIBERS
-  state_subscriber_ = nh_.subscribe("state_in", 1, &MrsStatus::UavStateCallback, this, ros::TransportHints().tcpNoDelay());
+  uav_state_subscriber_    = nh_.subscribe("uav_state_in", 1, &MrsStatus::UavStateCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_state_subscriber_ = nh_.subscribe("mavros_state_in", 1, &MrsStatus::MavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
 
   string topic_name = "/uav1/odometry/odom_main";
 
@@ -283,7 +293,8 @@ MrsStatus::MrsStatus() {
   callback           = [this, topic_name](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name); };
   generic_subscriber = nh_.subscribe(topic_name, 10, callback);
 
-  uav_state_window = new StatusWindow(6, 30, 3, 3, 2.0, 100.0);
+  uav_state_window    = new StatusWindow(6, 30, 3, 3, 2.0, 100.0);
+  mavros_state_window = new StatusWindow(6, 30, 9, 3, 2.0, 100.0);
 
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
@@ -298,6 +309,7 @@ MrsStatus::MrsStatus() {
 void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   uav_state_window->Redraw(&MrsStatus::UavStateHandler, this, &uav_state_counter_);
+  mavros_state_window->Redraw(&MrsStatus::MavrosStateHandler, this, &mavros_state_counter_);
   refresh();
 }
 
@@ -325,6 +337,33 @@ void MrsStatus::UavStateHandler(WINDOW* win, double rate) {
   PrintLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 15);
   PrintLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 15);
   PrintLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 15);
+}
+
+//}
+
+/* MavrosStateHandler() //{ */
+
+void MrsStatus::MavrosStateHandler(WINDOW* win, double rate) {
+
+  PrintLimitedDouble(win, 0, 14, "Mavros %5.1f Hz", rate, 1000);
+
+  string tmp_string;
+  /* mavros_state_.armed ? tmp_string = "ARMED" : tmp_string = "DISARMED"; */
+
+  if (mavros_state_.armed) {
+    tmp_string = "ARMED";
+  } else {
+    tmp_string = "DISARMED";
+    wattron(win, COLOR_PAIR(RED));
+  }
+
+  PrintLimitedString(win, 1, 1, "State: " + tmp_string, 15);
+
+  if (mavros_state_.mode == "OFFBOARD") {
+    wattron(win, COLOR_PAIR(GREEN));
+  }
+
+  PrintLimitedString(win, 2, 1, "Mode:  " + mavros_state_.mode, 15);
 }
 
 //}
@@ -372,6 +411,15 @@ void MrsStatus::PrintLimitedString(WINDOW* win, int y, int x, string str_in, uns
 void MrsStatus::UavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
   uav_state_counter_++;
   uav_state_ = *msg;
+}
+
+//}
+
+/* MavrosStateCallback() //{ */
+
+void MrsStatus::MavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
+  mavros_state_counter_++;
+  mavros_state_ = *msg;
 }
 
 //}
