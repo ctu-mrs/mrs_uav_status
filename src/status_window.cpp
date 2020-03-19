@@ -13,14 +13,14 @@ StatusWindow::StatusWindow(int lines, int cols, int begin_y, int begin_x, double
 
 /* Redraw() //{ */
 
-void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short color), int &counter_in, MrsStatus* obj) {
+void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short color, int topic), int &counter_in, MrsStatus* obj) {
 
   wclear(win_);
 
   rate_ -= rate_ / rate_filter_coef_;
   rate_ += (counter_in / ((ros::Time::now() - last_time_).toSec())) / rate_filter_coef_;
 
-  if (!isfinite(rate_)) {
+  if (!isfinite(rate_) || rate_ < 0.05 || rate_ > 10000) {
     rate_ = 0;
   }
 
@@ -32,7 +32,7 @@ void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short 
   box(win_, '|', '-');
 
   int tmp_color = RED;
-  if (rate_ > 0.95 * desired_rate_) {
+  if (rate_ > 0.9 * desired_rate_) {
     tmp_color = GREEN;
   } else if (rate_ > 0.5 * desired_rate_) {
     tmp_color = YELLOW;

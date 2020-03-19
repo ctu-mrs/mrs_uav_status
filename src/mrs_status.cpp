@@ -10,10 +10,14 @@
 
 #include <topic_tools/shape_shifter.h>  // for generic topic subscribers
 
-#include <mavros_msgs/State.h>
-
 #include <mrs_msgs/TrackerPoint.h>
 #include <mrs_msgs/UavState.h>
+#include <mrs_msgs/ControlManagerDiagnostics.h>
+#include <mrs_msgs/GainManagerDiagnostics.h>
+#include <mrs_msgs/ConstraintManagerDiagnostics.h>
+
+#include <mavros_msgs/State.h>
+#include <mavros_msgs/AttitudeTarget.h>
 
 #include <std_srvs/Trigger.h>
 
@@ -143,7 +147,11 @@ private:
 
   void UavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
   void MavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
+  void MavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg);
   void BatteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
+  void ControlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg);
+  void GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
+  void ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
 
   void GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name);
 
@@ -152,14 +160,19 @@ private:
   void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
   void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
 
-  void UavStateHandler(WINDOW* win, double rate, short color);
-  void MavrosStateHandler(WINDOW* win, double rate, short color);
+  void UavStateHandler(WINDOW* win, double rate, short color, int topic);
+  void MavrosStateHandler(WINDOW* win, double rate, short color, int topic);
+  void ControlManagerHandler(WINDOW* win, double rate, short color, int topic);
 
   ros::Subscriber uav_state_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
 
   ros::Subscriber mavros_state_subscriber_;
+  ros::Subscriber mavros_attitude_subscriber_;
   ros::Subscriber battery_subscriber_;
+  ros::Subscriber control_manager_subscriber_;
+  ros::Subscriber gain_manager_subscriber_;
+  ros::Subscriber constraint_manager_subscriber_;
 
   ros::Subscriber generic_subscriber;
 
@@ -171,14 +184,29 @@ private:
   mrs_msgs::UavState uav_state_;
   int                uav_state_counter_ = 0;
 
-  mavros_msgs::State mavros_state_;
-  int                mavros_state_counter_ = 0;
+  mavros_msgs::State          mavros_state_;
+  mavros_msgs::AttitudeTarget mavros_attitude_;
+  sensor_msgs::BatteryState   battery_;
+  int                         mavros_state_counter_    = 0;
+  int                         mavros_attitude_counter_ = 0;
+  int                         battery_counter_         = 0;
 
-  sensor_msgs::BatteryState battery_;
-  int                       battery_counter_ = 0;
+  mrs_msgs::ControlManagerDiagnostics    control_manager_;
+  mrs_msgs::GainManagerDiagnostics       gain_manager_;
+  mrs_msgs::ConstraintManagerDiagnostics constraint_manager_;
+  int                                    control_manager_counter_    = 0;
+  int                                    gain_manager_counter_       = 0;
+  int                                    constraint_manager_counter_ = 0;
 
-  StatusWindow* uav_state_window;
-  StatusWindow* mavros_state_window;
+
+  StatusWindow*     uav_state_window;
+  std::vector<&int> uav_state_counters_;
+
+  StatusWindow*     mavros_state_window;
+  std::vector<&int> mavros_state_counters_;
+
+  StatusWindow*     control_manager_window;
+  std::vector<&int> control_manager_counters_;
 };
 
 //}
@@ -194,9 +222,13 @@ MrsStatus::MrsStatus() {
   status_timer_ = nh_.createTimer(ros::Rate(10), &MrsStatus::statusTimer, this);
 
   // SUBSCRIBERS
-  uav_state_subscriber_    = nh_.subscribe("uav_state_in", 1, &MrsStatus::UavStateCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_state_subscriber_ = nh_.subscribe("mavros_state_in", 1, &MrsStatus::MavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
-  battery_subscriber_      = nh_.subscribe("battery_in", 1, &MrsStatus::BatteryCallback, this, ros::TransportHints().tcpNoDelay());
+  uav_state_subscriber_          = nh_.subscribe("uav_state_in", 1, &MrsStatus::UavStateCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 1, &MrsStatus::MavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_attitude_subscriber_    = nh_.subscribe("mavros_attitude_in", 1, &MrsStatus::MavrosAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
+  battery_subscriber_            = nh_.subscribe("battery_in", 1, &MrsStatus::BatteryCallback, this, ros::TransportHints().tcpNoDelay());
+  control_manager_subscriber_    = nh_.subscribe("control_manager_in", 1, &MrsStatus::ControlManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 1, &MrsStatus::GainManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &MrsStatus::ConstraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
 
   string topic_name = "/uav1/odometry/odom_main";
 
@@ -204,8 +236,18 @@ MrsStatus::MrsStatus() {
   callback           = [this, topic_name](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name); };
   generic_subscriber = nh_.subscribe(topic_name, 10, callback);
 
-  uav_state_window    = new StatusWindow(6, 30, 3, 3, 10.0, 100.0);
+  uav_state_window = new StatusWindow(6, 30, 3, 3, 10.0, 100.0);
+  uav_state_counters_.push_back(uav_state_counter_);
+
   mavros_state_window = new StatusWindow(6, 30, 9, 3, 10.0, 100.0);
+  mavros_state_counters_.push_back(mavros_state_counter_);
+  mavros_state_counters_.push_back(mavros_attitude_counter_);
+  mavros_state_counters_.push_back(battery_counter_);
+
+  control_manager_window = new StatusWindow(4, 30, 16, 3, 10.0, 10.0);
+  control_manager_counters_.push_back(control_manager_counter_);
+  control_manager_counters_.push_back(gain_manager_counter_);
+  control_manager_counters_.push_back(constraint_manager_counter_);
 
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
@@ -221,6 +263,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   uav_state_window->Redraw(&MrsStatus::UavStateHandler, uav_state_counter_, this);
   mavros_state_window->Redraw(&MrsStatus::MavrosStateHandler, mavros_state_counter_, this);
+  control_manager_window->Redraw(&MrsStatus::ControlManagerHandler, control_manager_counter_, this);
   refresh();
 }
 
@@ -228,7 +271,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 /* UavStateHandler() //{ */
 
-void MrsStatus::UavStateHandler(WINDOW* win, double rate, short color) {
+void MrsStatus::UavStateHandler(WINDOW* win, double rate, short color, int topic) {
 
   double         roll, pitch, yaw;
   tf::Quaternion quaternion_odometry;
@@ -254,7 +297,7 @@ void MrsStatus::UavStateHandler(WINDOW* win, double rate, short color) {
 
 /* MavrosStateHandler() //{ */
 
-void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color) {
+void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color, int topic) {
 
   PrintLimitedDouble(win, 0, 14, "Mavros %5.1f Hz", rate, 1000);
 
@@ -284,7 +327,7 @@ void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color) {
 
   if (voltage < 3.6) {
     wattron(win, COLOR_PAIR(RED));
-  } else if (voltage < 3.8 && color != RED) {
+  } else if (voltage < 3.7 && color != RED) {
     wattron(win, COLOR_PAIR(YELLOW));
   }
 
@@ -292,6 +335,69 @@ void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color) {
   wattron(win, COLOR_PAIR(color));
 
   PrintLimitedDouble(win, 3, 15, "%5.2f A", battery_.current, 100);
+
+
+  if (mavros_attitude_.thrust > 0.75) {
+    wattron(win, COLOR_PAIR(RED));
+  } else if (mavros_attitude_.thrust > 0.65 && color != RED) {
+    wattron(win, COLOR_PAIR(YELLOW));
+  }
+  PrintLimitedDouble(win, 4, 1, "Thrst: %4.2f", mavros_attitude_.thrust, 1.01);
+  wattron(win, COLOR_PAIR(color));
+}
+
+//}
+
+/* ControlManagerHandler() //{ */
+
+void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int topic ) {
+
+  PrintLimitedString(win, 0, 14, "Control Manager", 15);
+
+  string controller;
+  string tracker;
+  if (rate > 1.0) {
+    controller = control_manager_.controller_status.controller;
+    tracker    = control_manager_.tracker_status.tracker;
+  } else {
+    controller = "NO_CONTROLLER";
+    tracker    = "NO_TRACKER";
+  }
+
+  if (controller != "So3Controller") {
+    if (controller != "MpcController") {
+      wattron(win, COLOR_PAIR(RED));
+    }
+    PrintLimitedString(win, 1, 1, controller, 29);
+  } else {
+    mvwprintw(win, 1, 1, controller.c_str());
+    wattron(win, COLOR_PAIR(NORMAL));
+    mvwprintw(win, 1, 1 + controller.length(), "%s", "/");
+    wattron(win, COLOR_PAIR(color));
+    PrintLimitedString(win, 1, 2 + controller.length(), gain_manager_.current_name, 10);
+  }
+
+
+  wattron(win, COLOR_PAIR(color));
+
+  if (tracker != "MpcTracker") {
+    if (tracker == "LandoffTracker" && color != RED) {
+      wattron(win, COLOR_PAIR(YELLOW));
+    } else {
+      wattron(win, COLOR_PAIR(RED));
+    }
+
+    PrintLimitedString(win, 2, 1, tracker, 29);
+
+  } else {
+    mvwprintw(win, 2, 1, tracker.c_str());
+    wattron(win, COLOR_PAIR(NORMAL));
+    mvwprintw(win, 2, 1 + tracker.length(), "%s", "/");
+    wattron(win, COLOR_PAIR(color));
+    PrintLimitedString(win, 2, 2 + tracker.length(), constraint_manager_.current_name, 10);
+  }
+
+  wattron(win, COLOR_PAIR(color));
 }
 
 //}
@@ -352,11 +458,47 @@ void MrsStatus::MavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
 
 //}
 
+/* MavrosAttitudeCallback() //{ */
+
+void MrsStatus::MavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg) {
+  mavros_attitude_counter_++;
+  mavros_attitude_ = *msg;
+}
+
+//}
+
 /* BatteryCallback() //{ */
 
 void MrsStatus::BatteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
   battery_counter_++;
   battery_ = *msg;
+}
+
+//}
+
+/* ControlManagerCallback() //{ */
+
+void MrsStatus::ControlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
+  control_manager_counter_++;
+  control_manager_ = *msg;
+}
+
+//}
+
+/* GainManagerCallback() //{ */
+
+void MrsStatus::GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
+  gain_manager_counter_++;
+  gain_manager_ = *msg;
+}
+
+//}
+
+/* ConstraintManagerCallback() //{ */
+
+void MrsStatus::ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
+  constraint_manager_counter_++;
+  constraint_manager_ = *msg;
 }
 
 //}

@@ -21,7 +21,11 @@
         <!-- Subscribers -->
       <remap from="~uav_state_in" to="odometry/uav_state" />
       <remap from="~mavros_state_in" to="mavros/state" />
+      <remap from="~mavros_attitude_in" to="mavros/setpoint_raw/attitude" />
       <remap from="~battery_in" to="mavros/battery" />
+      <remap from="~control_manager_in" to="control_manager/diagnostics" />
+      <remap from="~gain_manager_in" to="gain_manager/diagnostics" />
+      <remap from="~constraint_manager_in" to="constraint_manager/diagnostics" />
 
     </node>
 

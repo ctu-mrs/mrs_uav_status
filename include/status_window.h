@@ -8,7 +8,7 @@ class StatusWindow {
 public:
   StatusWindow(int lines, int cols, int begin_y, int begin_x, double rate_filter_coef, double desired_rate);
 
-  void Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short color), int &counter, MrsStatus* obj);
+  void Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short color, int topic), std::vector<std::reference_wrapper<int>> counters, MrsStatus* obj);
 
 private:
 
