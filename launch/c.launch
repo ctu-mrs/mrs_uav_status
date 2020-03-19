@@ -21,6 +21,7 @@
         <!-- Subscribers -->
       <remap from="~uav_state_in" to="odometry/uav_state" />
       <remap from="~mavros_state_in" to="mavros/state" />
+      <remap from="~battery_in" to="mavros/battery" />
 
     </node>
 

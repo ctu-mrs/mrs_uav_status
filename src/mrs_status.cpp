@@ -1,15 +1,12 @@
+
 /* INCLUDES //{ */
 
-// some ros includes
-#include <ros/ros.h>
-#include <ros/package.h>
-// some std includes
+#include <status_window.h>
+#include <commons.h>
+
 #include <stdlib.h>
 #include <stdio.h>
-// mutexes are good to keep your shared variables our of trouble
 #include <mutex>
-
-#include <ncurses.h>
 
 #include <topic_tools/shape_shifter.h>  // for generic topic subscribers
 
@@ -17,31 +14,24 @@
 
 #include <mrs_msgs/TrackerPoint.h>
 #include <mrs_msgs/UavState.h>
+
 #include <std_srvs/Trigger.h>
-#include <mrs_lib/transformer.h>
+
 #include <nav_msgs/Odometry.h>
+
 #include <geometry_msgs/Pose.h>
 
+#include <sensor_msgs/BatteryState.h>
+
 #include <boost/function.hpp>
+
+#include <mrs_lib/transformer.h>
+
 
 using namespace std;
 using topic_tools::ShapeShifter;
 
 //}
-
-#define NORMAL 100
-#define GREEN 101
-#define RED 102
-#define YELLOW 103
-#define BLUE 104
-
-#define BACKGROUND_DEFAULT -1
-#define BACKGROUND_TRUE_BLACK 16
-
-#define COLOR_NICE_RED 196
-#define COLOR_NICE_GREEN 82
-#define COLOR_NICE_BLUE 33
-#define COLOR_NICE_YELLOW 220
 
 class MrsStatus;
 
@@ -139,92 +129,6 @@ void Menu::Activate() {
 
 //}
 
-/* STATUS WINDOW CLASS //{ */
-
-/* ------------------- STATUS WINDOW CLASS ------------------- */
-
-/* class StatusWindow //{ */
-
-class StatusWindow {
-
-public:
-  StatusWindow(int lines, int cols, int begin_y, int begin_x, double rate_filter_coef, double desired_rate);
-
-  void Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate), MrsStatus* obj, int* counter);
-
-private:
-  WINDOW* win_;
-
-  double    rate_;
-  double    rate_filter_coef_;
-  double    desired_rate_;
-  ros::Time last_time_ = ros::Time::now();
-};
-
-//}
-
-/* StatusWindow() //{ */
-
-StatusWindow::StatusWindow(int lines, int cols, int begin_y, int begin_x, double rate_filter_coef, double desired_rate) {
-
-  win_              = newwin(lines, cols, begin_y, begin_x);
-  rate_filter_coef_ = rate_filter_coef;
-  desired_rate_     = desired_rate;
-}
-
-//}
-
-/* Redraw() //{ */
-
-void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate), MrsStatus* obj, int* counter) {
-
-  wclear(win_);
-
-  rate_ -= rate_ / rate_filter_coef_;
-  rate_ += (*counter / ((ros::Time::now() - last_time_).toSec())) / rate_filter_coef_;
-
-  if (!isfinite(rate_)) {
-    rate_ = 0;
-  }
-
-  last_time_ = ros::Time::now();
-  *counter   = 0;
-
-  wattron(win_, A_BOLD);
-
-  box(win_, '|', '-');
-
-  int tmp_color = RED;
-  if (rate_ > 0.95 * desired_rate_) {
-    tmp_color = GREEN;
-  } else if (rate_ > 0.5 * desired_rate_) {
-    tmp_color = YELLOW;
-  }
-
-  wattron(win_, COLOR_PAIR(tmp_color));
-
-  if (rate_ < 0.01 * desired_rate_) {
-    wattron(win_, A_BLINK);
-    mvwprintw(win_, 0, 1, "!NO DATA!");
-    wattroff(win_, A_BLINK);
-  }
-
-  (obj->*fp)(win_, rate_);
-
-  wattroff(win_, COLOR_PAIR(tmp_color));
-  wattroff(win_, A_BOLD);
-
-  wrefresh(win_);
-}
-
-//}int(AB::*fp)(int,int)
-
-/* ----------------- //STATUS WINDOW CLASS ------------------- */
-
-//}
-
-/* MRS_STATUS CLASS //{ */
-
 /* class MrsStatus //{ */
 
 class MrsStatus {
@@ -239,6 +143,8 @@ private:
 
   void UavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
   void MavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
+  void BatteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
+
   void GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name);
 
   void statusTimer(const ros::TimerEvent& event);
@@ -246,12 +152,14 @@ private:
   void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
   void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
 
-  void UavStateHandler(WINDOW* win, double rate);
-  void MavrosStateHandler(WINDOW* win, double rate);
+  void UavStateHandler(WINDOW* win, double rate, short color);
+  void MavrosStateHandler(WINDOW* win, double rate, short color);
 
   ros::Subscriber uav_state_subscriber_;
-  ros::Subscriber mavros_state_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
+
+  ros::Subscriber mavros_state_subscriber_;
+  ros::Subscriber battery_subscriber_;
 
   ros::Subscriber generic_subscriber;
 
@@ -259,13 +167,15 @@ private:
   int         counter = 0;
 
   bool initialized_ = false;
-  bool cleared_     = false;
 
   mrs_msgs::UavState uav_state_;
   int                uav_state_counter_ = 0;
 
   mavros_msgs::State mavros_state_;
   int                mavros_state_counter_ = 0;
+
+  sensor_msgs::BatteryState battery_;
+  int                       battery_counter_ = 0;
 
   StatusWindow* uav_state_window;
   StatusWindow* mavros_state_window;
@@ -286,6 +196,7 @@ MrsStatus::MrsStatus() {
   // SUBSCRIBERS
   uav_state_subscriber_    = nh_.subscribe("uav_state_in", 1, &MrsStatus::UavStateCallback, this, ros::TransportHints().tcpNoDelay());
   mavros_state_subscriber_ = nh_.subscribe("mavros_state_in", 1, &MrsStatus::MavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
+  battery_subscriber_      = nh_.subscribe("battery_in", 1, &MrsStatus::BatteryCallback, this, ros::TransportHints().tcpNoDelay());
 
   string topic_name = "/uav1/odometry/odom_main";
 
@@ -293,8 +204,8 @@ MrsStatus::MrsStatus() {
   callback           = [this, topic_name](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name); };
   generic_subscriber = nh_.subscribe(topic_name, 10, callback);
 
-  uav_state_window    = new StatusWindow(6, 30, 3, 3, 2.0, 100.0);
-  mavros_state_window = new StatusWindow(6, 30, 9, 3, 2.0, 100.0);
+  uav_state_window    = new StatusWindow(6, 30, 3, 3, 10.0, 100.0);
+  mavros_state_window = new StatusWindow(6, 30, 9, 3, 10.0, 100.0);
 
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
@@ -308,8 +219,8 @@ MrsStatus::MrsStatus() {
 
 void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
-  uav_state_window->Redraw(&MrsStatus::UavStateHandler, this, &uav_state_counter_);
-  mavros_state_window->Redraw(&MrsStatus::MavrosStateHandler, this, &mavros_state_counter_);
+  uav_state_window->Redraw(&MrsStatus::UavStateHandler, uav_state_counter_, this);
+  mavros_state_window->Redraw(&MrsStatus::MavrosStateHandler, mavros_state_counter_, this);
   refresh();
 }
 
@@ -317,7 +228,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 /* UavStateHandler() //{ */
 
-void MrsStatus::UavStateHandler(WINDOW* win, double rate) {
+void MrsStatus::UavStateHandler(WINDOW* win, double rate, short color) {
 
   double         roll, pitch, yaw;
   tf::Quaternion quaternion_odometry;
@@ -343,7 +254,7 @@ void MrsStatus::UavStateHandler(WINDOW* win, double rate) {
 
 /* MavrosStateHandler() //{ */
 
-void MrsStatus::MavrosStateHandler(WINDOW* win, double rate) {
+void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color) {
 
   PrintLimitedDouble(win, 0, 14, "Mavros %5.1f Hz", rate, 1000);
 
@@ -358,12 +269,29 @@ void MrsStatus::MavrosStateHandler(WINDOW* win, double rate) {
   }
 
   PrintLimitedString(win, 1, 1, "State: " + tmp_string, 15);
+  wattron(win, COLOR_PAIR(color));
 
-  if (mavros_state_.mode == "OFFBOARD") {
-    wattron(win, COLOR_PAIR(GREEN));
+  if (mavros_state_.mode != "OFFBOARD") {
+    wattron(win, COLOR_PAIR(RED));
   }
 
   PrintLimitedString(win, 2, 1, "Mode:  " + mavros_state_.mode, 15);
+  wattron(win, COLOR_PAIR(color));
+
+
+  double voltage = battery_.voltage;
+  (voltage > 17.0) ? (voltage = voltage / 6) : (voltage = voltage / 4);
+
+  if (voltage < 3.6) {
+    wattron(win, COLOR_PAIR(RED));
+  } else if (voltage < 3.8 && color != RED) {
+    wattron(win, COLOR_PAIR(YELLOW));
+  }
+
+  PrintLimitedDouble(win, 3, 1, "Batt:  %4.2f V", voltage, 10);
+  wattron(win, COLOR_PAIR(color));
+
+  PrintLimitedDouble(win, 3, 15, "%5.2f A", battery_.current, 100);
 }
 
 //}
@@ -424,6 +352,15 @@ void MrsStatus::MavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
 
 //}
 
+/* BatteryCallback() //{ */
+
+void MrsStatus::BatteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
+  battery_counter_++;
+  battery_ = *msg;
+}
+
+//}
+
 /* GenericCallback() //{ */
 
 void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name) {
@@ -432,7 +369,6 @@ void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const std::st
 
 //}
 
-//}
 
 /* main() //{ */
 
