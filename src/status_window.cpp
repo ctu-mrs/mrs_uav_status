@@ -19,7 +19,6 @@ void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short 
   double interval = (ros::Time::now() - last_time_).toSec();
   last_time_      = ros::Time::now();
 
-
   wattron(win_, A_BOLD);
 
   box(win_, '|', '-');
@@ -27,6 +26,34 @@ void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short 
   int tmp_color = RED;
 
   for (unsigned long i = 0; i < topic_rates_.size(); i++) {
+
+    topic_rates_[i].interval += interval;
+
+    /* if (false) { */
+    if (topic_rates_[i].interval >= 1 / topic_rates_[i].desired_rate) {
+
+      double alpha           = 0.1;
+      double rate_difference = (1 - (topic_rates_[i].rate / topic_rates_[i].desired_rate));
+
+      if (rate_difference > 0.75) {
+        alpha = 0.5;
+      } else if (rate_difference > 0.1) {
+        alpha = 0.25;
+      }
+
+      double new_rate = *topic_rates_[i].counter / (topic_rates_[i].interval);
+
+      (*topic_rates_[i].counter == 0) ? (topic_rates_[i].zero_counter++) : (topic_rates_[i].zero_counter = 0);
+
+      topic_rates_[i].interval = 0.0;
+      *topic_rates_[i].counter = 0;
+
+      if (topic_rates_[i].zero_counter >= 2) {
+        topic_rates_[i].rate = 0.0;
+      } else {
+        topic_rates_[i].rate = (alpha * new_rate) + (1.0 - alpha) * topic_rates_[i].rate;
+      }
+    }
 
     tmp_color = RED;
     if (topic_rates_[i].rate > 0.9 * topic_rates_[i].desired_rate) {
@@ -37,22 +64,10 @@ void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short 
 
     wattron(win_, COLOR_PAIR(tmp_color));
 
-    if (topic_rates_[i].rate < 0.01 * topic_rates_[i].desired_rate) {
-      wattron(win_, A_BLINK);
-      mvwprintw(win_, 0, 1, "!NO DATA!");
-      wattroff(win_, A_BLINK);
-    }
-
-
-    topic_rates_[i].rate -= topic_rates_[i].rate /  (topic_rates_[i].desired_rate / 20);
-    topic_rates_[i].rate += (*topic_rates_[i].counter / (interval)) /  (topic_rates_[i].desired_rate / 20);
-
     if (!isfinite(topic_rates_[i].rate) || topic_rates_[i].rate < 0.05 || topic_rates_[i].rate > 10000) {
       topic_rates_[i].rate = 0;
     }
     (obj->*fp)(win_, topic_rates_[i].rate, tmp_color, i);
-
-    *topic_rates_[i].counter = 0;
   }
 
   wattroff(win_, COLOR_PAIR(tmp_color));
@@ -61,5 +76,5 @@ void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short 
   wrefresh(win_);
 }
 
-//}int(AB::*fp)(int,int)
+//}
 

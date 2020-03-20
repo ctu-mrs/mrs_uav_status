@@ -160,6 +160,9 @@ private:
   void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
   void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
 
+  void PrintNoData(WINDOW* win, int y, int x);
+  void PrintNoData(WINDOW* win, int y, int x, string text);
+
   void UavStateHandler(WINDOW* win, double rate, short color, int topic);
   void MavrosStateHandler(WINDOW* win, double rate, short color, int topic);
   void ControlManagerHandler(WINDOW* win, double rate, short color, int topic);
@@ -187,16 +190,16 @@ private:
   mavros_msgs::State          mavros_state_;
   mavros_msgs::AttitudeTarget mavros_attitude_;
   sensor_msgs::BatteryState   battery_;
-  std::shared_ptr<int> mavros_state_counter_ptr_ = std::make_shared<int>(0);
-  std::shared_ptr<int> mavros_attitude_counter_ptr_ = std::make_shared<int>(0);
-  std::shared_ptr<int> battery_counter_ptr_ = std::make_shared<int>(0);
+  std::shared_ptr<int>        mavros_state_counter_ptr_    = std::make_shared<int>(0);
+  std::shared_ptr<int>        mavros_attitude_counter_ptr_ = std::make_shared<int>(0);
+  std::shared_ptr<int>        battery_counter_ptr_         = std::make_shared<int>(0);
 
   mrs_msgs::ControlManagerDiagnostics    control_manager_;
   mrs_msgs::GainManagerDiagnostics       gain_manager_;
   mrs_msgs::ConstraintManagerDiagnostics constraint_manager_;
-  std::shared_ptr<int> control_manager_counter_ptr_ = std::make_shared<int>(0);
-  std::shared_ptr<int> gain_manager_counter_ptr_ = std::make_shared<int>(0);
-  std::shared_ptr<int> constraint_manager_counter_ptr_ = std::make_shared<int>(0);
+  std::shared_ptr<int>                   control_manager_counter_ptr_    = std::make_shared<int>(0);
+  std::shared_ptr<int>                   gain_manager_counter_ptr_       = std::make_shared<int>(0);
+  std::shared_ptr<int>                   constraint_manager_counter_ptr_ = std::make_shared<int>(0);
 
   StatusWindow*           uav_state_window;
   std::vector<topic_rate> uav_state_rates_;
@@ -235,19 +238,19 @@ MrsStatus::MrsStatus() {
   callback           = [this, topic_name](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name); };
   generic_subscriber = nh_.subscribe(topic_name, 10, callback);
 
-  uav_state_rates_.push_back(topic_rate{uav_state_counter_ptr_, 0.0, 100.0});
+  uav_state_rates_.push_back(topic_rate{uav_state_counter_ptr_, 100.0});
 
   uav_state_window = new StatusWindow(6, 30, 3, 3, uav_state_rates_);
 
-  mavros_state_rates_.push_back(topic_rate{mavros_state_counter_ptr_, 0.0, 100.0});
-  mavros_state_rates_.push_back(topic_rate{mavros_attitude_counter_ptr_, 0.0, 100.0});
-  mavros_state_rates_.push_back(topic_rate{battery_counter_ptr_, 0.0, 1.0});
+  mavros_state_rates_.push_back(topic_rate{mavros_state_counter_ptr_, 100.0});
+  mavros_state_rates_.push_back(topic_rate{battery_counter_ptr_, 1.0});
+  mavros_state_rates_.push_back(topic_rate{mavros_attitude_counter_ptr_, 100.0});
 
   mavros_state_window = new StatusWindow(6, 30, 9, 3, mavros_state_rates_);
 
-  control_manager_rates_.push_back(topic_rate{control_manager_counter_ptr_, 0.0, 10.0});
-  control_manager_rates_.push_back(topic_rate{gain_manager_counter_ptr_, 0.0, 1.0});
-  control_manager_rates_.push_back(topic_rate{constraint_manager_counter_ptr_, 0.0, 1.0});
+  control_manager_rates_.push_back(topic_rate{control_manager_counter_ptr_, 10.0});
+  control_manager_rates_.push_back(topic_rate{gain_manager_counter_ptr_, 1.0});
+  control_manager_rates_.push_back(topic_rate{constraint_manager_counter_ptr_, 1.0});
 
   control_manager_window = new StatusWindow(4, 30, 16, 3, control_manager_rates_);
 
@@ -274,28 +277,33 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 /* UavStateHandler() //{ */
 
 void MrsStatus::UavStateHandler(WINDOW* win, double rate, short color, int topic) {
-  if (topic != 0) {
-    return;
-  }
-
-  double         roll, pitch, yaw;
-  tf::Quaternion quaternion_odometry;
-  quaternionMsgToTF(uav_state_.pose.orientation, quaternion_odometry);
-  tf::Matrix3x3 m(quaternion_odometry);
-  m.getRPY(roll, pitch, yaw);
 
   PrintLimitedDouble(win, 0, 16, "Odom %5.1f Hz", rate, 1000);
-  PrintLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
-  PrintLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
-  PrintLimitedDouble(win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000);
-  PrintLimitedDouble(win, 4, 2, "Yaw %5.2f", yaw, 1000);
 
-  int pos = uav_state_.header.frame_id.find("/") + 1;
-  PrintLimitedString(win, 1, 14, uav_state_.header.frame_id.substr(pos, uav_state_.header.frame_id.length()), 15);
+  if (rate == 0) {
 
-  PrintLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 15);
-  PrintLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 15);
-  PrintLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 15);
+    PrintNoData(win, 0, 1);
+
+  } else {
+
+    double         roll, pitch, yaw;
+    tf::Quaternion quaternion_odometry;
+    quaternionMsgToTF(uav_state_.pose.orientation, quaternion_odometry);
+    tf::Matrix3x3 m(quaternion_odometry);
+    m.getRPY(roll, pitch, yaw);
+
+    PrintLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
+    PrintLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
+    PrintLimitedDouble(win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000);
+    PrintLimitedDouble(win, 4, 2, "Yaw %5.2f", yaw, 1000);
+
+    int pos = uav_state_.header.frame_id.find("/") + 1;
+    PrintLimitedString(win, 1, 14, uav_state_.header.frame_id.substr(pos, uav_state_.header.frame_id.length()), 15);
+
+    PrintLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 15);
+    PrintLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 15);
+    PrintLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 15);
+  }
 }
 
 //}
@@ -304,54 +312,78 @@ void MrsStatus::UavStateHandler(WINDOW* win, double rate, short color, int topic
 
 void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color, int topic) {
 
-  if (topic != 0) {
-    return;
-  }
-  PrintLimitedDouble(win, 0, 14, "Mavros %5.1f Hz", rate, 1000);
-
   string tmp_string;
-  /* mavros_state_.armed ? tmp_string = "ARMED" : tmp_string = "DISARMED"; */
 
-  if (mavros_state_.armed) {
-    tmp_string = "ARMED";
-  } else {
-    tmp_string = "DISARMED";
-    wattron(win, COLOR_PAIR(RED));
+  switch (topic) {
+    case 0:  // mavros state
+      PrintLimitedDouble(win, 0, 14, "Mavros %5.1f Hz", rate, 1000);
+
+      if (rate == 0) {
+
+        PrintNoData(win, 0, 1);
+
+      } else {
+
+        if (mavros_state_.armed) {
+          tmp_string = "ARMED";
+        } else {
+          tmp_string = "DISARMED";
+          wattron(win, COLOR_PAIR(RED));
+        }
+
+        PrintLimitedString(win, 1, 1, "State: " + tmp_string, 15);
+        wattron(win, COLOR_PAIR(color));
+
+        if (mavros_state_.mode != "OFFBOARD") {
+          wattron(win, COLOR_PAIR(RED));
+        }
+
+        PrintLimitedString(win, 2, 1, "Mode:  " + mavros_state_.mode, 15);
+        wattron(win, COLOR_PAIR(color));
+      }
+
+      break;
+
+    case 1:  // battery
+      if (rate == 0) {
+
+        PrintNoData(win, 3, 1, "Batt:  ");
+
+      } else {
+
+        double voltage = battery_.voltage;
+        (voltage > 17.0) ? (voltage = voltage / 6) : (voltage = voltage / 4);
+
+        if (voltage < 3.6) {
+          wattron(win, COLOR_PAIR(RED));
+        } else if (voltage < 3.7 && color != RED) {
+          wattron(win, COLOR_PAIR(YELLOW));
+        }
+
+        PrintLimitedDouble(win, 3, 1, "Batt:  %4.2f V", voltage, 10);
+        wattron(win, COLOR_PAIR(color));
+
+        PrintLimitedDouble(win, 3, 15, "%5.2f A", battery_.current, 100);
+      }
+      break;
+
+    case 2:  // mavros attitude
+      if (rate == 0) {
+
+        PrintNoData(win, 4, 1, "Thrst: ");
+
+      } else {
+
+        if (mavros_attitude_.thrust > 0.75) {
+          wattron(win, COLOR_PAIR(RED));
+        } else if (mavros_attitude_.thrust > 0.65 && color != RED) {
+          wattron(win, COLOR_PAIR(YELLOW));
+        }
+        PrintLimitedDouble(win, 4, 1, "Thrst: %4.2f", mavros_attitude_.thrust, 1.01);
+        wattron(win, COLOR_PAIR(color));
+      }
+      break;
   }
-
-  PrintLimitedString(win, 1, 1, "State: " + tmp_string, 15);
-  wattron(win, COLOR_PAIR(color));
-
-  if (mavros_state_.mode != "OFFBOARD") {
-    wattron(win, COLOR_PAIR(RED));
-  }
-
-  PrintLimitedString(win, 2, 1, "Mode:  " + mavros_state_.mode, 15);
-  wattron(win, COLOR_PAIR(color));
-
-
-  double voltage = battery_.voltage;
-  (voltage > 17.0) ? (voltage = voltage / 6) : (voltage = voltage / 4);
-
-  if (voltage < 3.6) {
-    wattron(win, COLOR_PAIR(RED));
-  } else if (voltage < 3.7 && color != RED) {
-    wattron(win, COLOR_PAIR(YELLOW));
-  }
-
-  PrintLimitedDouble(win, 3, 1, "Batt:  %4.2f V", voltage, 10);
-  wattron(win, COLOR_PAIR(color));
-
-  PrintLimitedDouble(win, 3, 15, "%5.2f A", battery_.current, 100);
-
-
-  if (mavros_attitude_.thrust > 0.75) {
-    wattron(win, COLOR_PAIR(RED));
-  } else if (mavros_attitude_.thrust > 0.65 && color != RED) {
-    wattron(win, COLOR_PAIR(YELLOW));
-  }
-  PrintLimitedDouble(win, 4, 1, "Thrst: %4.2f", mavros_attitude_.thrust, 1.01);
-  wattron(win, COLOR_PAIR(color));
 }
 
 //}
@@ -360,56 +392,80 @@ void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color, int to
 
 void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int topic) {
 
-  if (topic != 0) {
-    return;
-  }
-
-  PrintLimitedString(win, 0, 14, "Control Manager", 15);
-
   string controller;
   string tracker;
-  if (rate > 1.0) {
-    controller = control_manager_.controller_status.controller;
-    tracker    = control_manager_.tracker_status.tracker;
-  } else {
-    controller = "NO_CONTROLLER";
-    tracker    = "NO_TRACKER";
+  controller = control_manager_.controller_status.controller;
+  tracker    = control_manager_.tracker_status.tracker;
+
+  switch (topic) {
+    case 0:  // mavros state
+      PrintLimitedString(win, 0, 14, "Control Manager", 15);
+
+      if (rate == 0) {
+
+        PrintNoData(win, 0, 1);
+
+        wattron(win, COLOR_PAIR(RED));
+        mvwprintw(win, 1, 1, "NO_CONTROLLER");
+        mvwprintw(win, 2, 1, "NO_TRACKER");
+        wattron(win, COLOR_PAIR(color));
+
+      } else {
+        if (controller != "So3Controller") {
+          if (controller != "MpcController") {
+            wattron(win, COLOR_PAIR(RED));
+          }
+          PrintLimitedString(win, 1, 1, controller, 29);
+        } else {
+          mvwprintw(win, 1, 1, controller.c_str());
+          wattron(win, COLOR_PAIR(NORMAL));
+          mvwprintw(win, 1, 1 + controller.length(), "%s", "/");
+        }
+
+        wattron(win, COLOR_PAIR(color));
+
+        if (tracker != "MpcTracker") {
+          if (tracker == "LandoffTracker" && color != RED) {
+            wattron(win, COLOR_PAIR(YELLOW));
+          } else {
+            wattron(win, COLOR_PAIR(RED));
+          }
+
+          PrintLimitedString(win, 2, 1, tracker, 29);
+
+        } else {
+          mvwprintw(win, 2, 1, tracker.c_str());
+          wattron(win, COLOR_PAIR(NORMAL));
+          mvwprintw(win, 2, 1 + tracker.length(), "%s", "/");
+          wattron(win, COLOR_PAIR(color));
+        }
+      }
+      break;
+
+    case 1:  // mavros state
+
+      if (controller == "So3Controller") {
+
+        PrintLimitedDouble(win, 1, 2, "rate %7.2f", rate, 1000);
+        /* if (rate == 0) { */
+        /*   PrintNoData(win, 1, 2 + controller.length()); */
+        /* } else { */
+        /*   PrintLimitedString(win, 1, 2 + controller.length(), gain_manager_.current_name, 10); */
+        /* } */
+      }
+      break;
+
+    case 2:  // mavros state
+
+      if (tracker == "MpcTracker") {
+        if (rate == 0) {
+          PrintNoData(win, 2, 2 + tracker.length());
+        } else {
+          PrintLimitedString(win, 2, 2 + tracker.length(), constraint_manager_.current_name, 10);
+        }
+      }
+      break;
   }
-
-  if (controller != "So3Controller") {
-    if (controller != "MpcController") {
-      wattron(win, COLOR_PAIR(RED));
-    }
-    PrintLimitedString(win, 1, 1, controller, 29);
-  } else {
-    mvwprintw(win, 1, 1, controller.c_str());
-    wattron(win, COLOR_PAIR(NORMAL));
-    mvwprintw(win, 1, 1 + controller.length(), "%s", "/");
-    wattron(win, COLOR_PAIR(color));
-    PrintLimitedString(win, 1, 2 + controller.length(), gain_manager_.current_name, 10);
-  }
-
-
-  wattron(win, COLOR_PAIR(color));
-
-  if (tracker != "MpcTracker") {
-    if (tracker == "LandoffTracker" && color != RED) {
-      wattron(win, COLOR_PAIR(YELLOW));
-    } else {
-      wattron(win, COLOR_PAIR(RED));
-    }
-
-    PrintLimitedString(win, 2, 1, tracker, 29);
-
-  } else {
-    mvwprintw(win, 2, 1, tracker.c_str());
-    wattron(win, COLOR_PAIR(NORMAL));
-    mvwprintw(win, 2, 1 + tracker.length(), "%s", "/");
-    wattron(win, COLOR_PAIR(color));
-    PrintLimitedString(win, 2, 2 + tracker.length(), constraint_manager_.current_name, 10);
-  }
-
-  wattron(win, COLOR_PAIR(color));
 }
 
 //}
@@ -448,6 +504,30 @@ void MrsStatus::PrintLimitedString(WINDOW* win, int y, int x, string str_in, uns
   const char* format = str_in.c_str();
 
   mvwprintw(win, y, x, format);
+}
+
+//}
+
+/* PrintNoData() //{ */
+
+void MrsStatus::PrintNoData(WINDOW* win, int y, int x) {
+
+  wattron(win, A_BLINK);
+  wattron(win, COLOR_PAIR(RED));
+  mvwprintw(win, y, x, "!NO DATA!");
+  wattroff(win, COLOR_PAIR(RED));
+  wattroff(win, A_BLINK);
+}
+
+//}
+
+/* PrintNoData() //{ */
+
+void MrsStatus::PrintNoData(WINDOW* win, int y, int x, string text) {
+
+  wattron(win, COLOR_PAIR(RED));
+  mvwprintw(win, y, x, text.c_str());
+  PrintNoData(win, y + text.length(), x);
 }
 
 //}
