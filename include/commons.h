@@ -17,3 +17,9 @@
 #define COLOR_NICE_GREEN 82
 #define COLOR_NICE_BLUE 33
 #define COLOR_NICE_YELLOW 220
+
+struct topic_rate {
+  std::shared_ptr<int> counter;
+  double rate;
+  double desired_rate;
+}; 

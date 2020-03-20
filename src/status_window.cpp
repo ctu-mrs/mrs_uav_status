@@ -2,51 +2,58 @@
 
 /* StatusWindow() //{ */
 
-StatusWindow::StatusWindow(int lines, int cols, int begin_y, int begin_x, double rate_filter_coef, double desired_rate) {
+StatusWindow::StatusWindow(int lines, int cols, int begin_y, int begin_x, std::vector<topic_rate> topic_rates) {
 
-  win_              = newwin(lines, cols, begin_y, begin_x);
-  rate_filter_coef_ = rate_filter_coef;
-  desired_rate_     = desired_rate;
+  win_         = newwin(lines, cols, begin_y, begin_x);
+  topic_rates_ = topic_rates;
 }
 
 //}
 
 /* Redraw() //{ */
 
-void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short color, int topic), int &counter_in, MrsStatus* obj) {
+void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short color, int topic), MrsStatus* obj) {
 
   wclear(win_);
 
-  rate_ -= rate_ / rate_filter_coef_;
-  rate_ += (counter_in / ((ros::Time::now() - last_time_).toSec())) / rate_filter_coef_;
+  double interval = (ros::Time::now() - last_time_).toSec();
+  last_time_      = ros::Time::now();
 
-  if (!isfinite(rate_) || rate_ < 0.05 || rate_ > 10000) {
-    rate_ = 0;
-  }
-
-  last_time_ = ros::Time::now();
-  counter_in   = 0;
 
   wattron(win_, A_BOLD);
 
   box(win_, '|', '-');
 
   int tmp_color = RED;
-  if (rate_ > 0.9 * desired_rate_) {
-    tmp_color = GREEN;
-  } else if (rate_ > 0.5 * desired_rate_) {
-    tmp_color = YELLOW;
+
+  for (unsigned long i = 0; i < topic_rates_.size(); i++) {
+
+    tmp_color = RED;
+    if (topic_rates_[i].rate > 0.9 * topic_rates_[i].desired_rate) {
+      tmp_color = GREEN;
+    } else if (topic_rates_[i].rate > 0.5 * topic_rates_[i].desired_rate) {
+      tmp_color = YELLOW;
+    }
+
+    wattron(win_, COLOR_PAIR(tmp_color));
+
+    if (topic_rates_[i].rate < 0.01 * topic_rates_[i].desired_rate) {
+      wattron(win_, A_BLINK);
+      mvwprintw(win_, 0, 1, "!NO DATA!");
+      wattroff(win_, A_BLINK);
+    }
+
+
+    topic_rates_[i].rate -= topic_rates_[i].rate /  (topic_rates_[i].desired_rate / 20);
+    topic_rates_[i].rate += (*topic_rates_[i].counter / (interval)) /  (topic_rates_[i].desired_rate / 20);
+
+    if (!isfinite(topic_rates_[i].rate) || topic_rates_[i].rate < 0.05 || topic_rates_[i].rate > 10000) {
+      topic_rates_[i].rate = 0;
+    }
+    (obj->*fp)(win_, topic_rates_[i].rate, tmp_color, i);
+
+    *topic_rates_[i].counter = 0;
   }
-
-  wattron(win_, COLOR_PAIR(tmp_color));
-
-  if (rate_ < 0.01 * desired_rate_) {
-    wattron(win_, A_BLINK);
-    mvwprintw(win_, 0, 1, "!NO DATA!");
-    wattroff(win_, A_BLINK);
-  }
-
-  (obj->*fp)(win_, rate_, tmp_color);
 
   wattroff(win_, COLOR_PAIR(tmp_color));
   wattroff(win_, A_BOLD);

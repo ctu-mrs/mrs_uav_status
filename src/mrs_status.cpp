@@ -2,7 +2,7 @@
 /* INCLUDES //{ */
 
 #include <status_window.h>
-#include <commons.h>
+/* #include <commons.h> */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -181,32 +181,31 @@ private:
 
   bool initialized_ = false;
 
-  mrs_msgs::UavState uav_state_;
-  int                uav_state_counter_ = 0;
+  mrs_msgs::UavState   uav_state_;
+  std::shared_ptr<int> uav_state_counter_ptr_ = std::make_shared<int>(0);
 
   mavros_msgs::State          mavros_state_;
   mavros_msgs::AttitudeTarget mavros_attitude_;
   sensor_msgs::BatteryState   battery_;
-  int                         mavros_state_counter_    = 0;
-  int                         mavros_attitude_counter_ = 0;
-  int                         battery_counter_         = 0;
+  std::shared_ptr<int> mavros_state_counter_ptr_ = std::make_shared<int>(0);
+  std::shared_ptr<int> mavros_attitude_counter_ptr_ = std::make_shared<int>(0);
+  std::shared_ptr<int> battery_counter_ptr_ = std::make_shared<int>(0);
 
   mrs_msgs::ControlManagerDiagnostics    control_manager_;
   mrs_msgs::GainManagerDiagnostics       gain_manager_;
   mrs_msgs::ConstraintManagerDiagnostics constraint_manager_;
-  int                                    control_manager_counter_    = 0;
-  int                                    gain_manager_counter_       = 0;
-  int                                    constraint_manager_counter_ = 0;
+  std::shared_ptr<int> control_manager_counter_ptr_ = std::make_shared<int>(0);
+  std::shared_ptr<int> gain_manager_counter_ptr_ = std::make_shared<int>(0);
+  std::shared_ptr<int> constraint_manager_counter_ptr_ = std::make_shared<int>(0);
 
+  StatusWindow*           uav_state_window;
+  std::vector<topic_rate> uav_state_rates_;
 
-  StatusWindow*     uav_state_window;
-  std::vector<&int> uav_state_counters_;
+  StatusWindow*           mavros_state_window;
+  std::vector<topic_rate> mavros_state_rates_;
 
-  StatusWindow*     mavros_state_window;
-  std::vector<&int> mavros_state_counters_;
-
-  StatusWindow*     control_manager_window;
-  std::vector<&int> control_manager_counters_;
+  StatusWindow*           control_manager_window;
+  std::vector<topic_rate> control_manager_rates_;
 };
 
 //}
@@ -236,18 +235,21 @@ MrsStatus::MrsStatus() {
   callback           = [this, topic_name](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name); };
   generic_subscriber = nh_.subscribe(topic_name, 10, callback);
 
-  uav_state_window = new StatusWindow(6, 30, 3, 3, 10.0, 100.0);
-  uav_state_counters_.push_back(uav_state_counter_);
+  uav_state_rates_.push_back(topic_rate{uav_state_counter_ptr_, 0.0, 100.0});
 
-  mavros_state_window = new StatusWindow(6, 30, 9, 3, 10.0, 100.0);
-  mavros_state_counters_.push_back(mavros_state_counter_);
-  mavros_state_counters_.push_back(mavros_attitude_counter_);
-  mavros_state_counters_.push_back(battery_counter_);
+  uav_state_window = new StatusWindow(6, 30, 3, 3, uav_state_rates_);
 
-  control_manager_window = new StatusWindow(4, 30, 16, 3, 10.0, 10.0);
-  control_manager_counters_.push_back(control_manager_counter_);
-  control_manager_counters_.push_back(gain_manager_counter_);
-  control_manager_counters_.push_back(constraint_manager_counter_);
+  mavros_state_rates_.push_back(topic_rate{mavros_state_counter_ptr_, 0.0, 100.0});
+  mavros_state_rates_.push_back(topic_rate{mavros_attitude_counter_ptr_, 0.0, 100.0});
+  mavros_state_rates_.push_back(topic_rate{battery_counter_ptr_, 0.0, 1.0});
+
+  mavros_state_window = new StatusWindow(6, 30, 9, 3, mavros_state_rates_);
+
+  control_manager_rates_.push_back(topic_rate{control_manager_counter_ptr_, 0.0, 10.0});
+  control_manager_rates_.push_back(topic_rate{gain_manager_counter_ptr_, 0.0, 1.0});
+  control_manager_rates_.push_back(topic_rate{constraint_manager_counter_ptr_, 0.0, 1.0});
+
+  control_manager_window = new StatusWindow(4, 30, 16, 3, control_manager_rates_);
 
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
@@ -261,9 +263,9 @@ MrsStatus::MrsStatus() {
 
 void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
-  uav_state_window->Redraw(&MrsStatus::UavStateHandler, uav_state_counter_, this);
-  mavros_state_window->Redraw(&MrsStatus::MavrosStateHandler, mavros_state_counter_, this);
-  control_manager_window->Redraw(&MrsStatus::ControlManagerHandler, control_manager_counter_, this);
+  uav_state_window->Redraw(&MrsStatus::UavStateHandler, this);
+  mavros_state_window->Redraw(&MrsStatus::MavrosStateHandler, this);
+  control_manager_window->Redraw(&MrsStatus::ControlManagerHandler, this);
   refresh();
 }
 
@@ -272,6 +274,9 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 /* UavStateHandler() //{ */
 
 void MrsStatus::UavStateHandler(WINDOW* win, double rate, short color, int topic) {
+  if (topic != 0) {
+    return;
+  }
 
   double         roll, pitch, yaw;
   tf::Quaternion quaternion_odometry;
@@ -299,6 +304,9 @@ void MrsStatus::UavStateHandler(WINDOW* win, double rate, short color, int topic
 
 void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color, int topic) {
 
+  if (topic != 0) {
+    return;
+  }
   PrintLimitedDouble(win, 0, 14, "Mavros %5.1f Hz", rate, 1000);
 
   string tmp_string;
@@ -350,7 +358,11 @@ void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color, int to
 
 /* ControlManagerHandler() //{ */
 
-void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int topic ) {
+void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int topic) {
+
+  if (topic != 0) {
+    return;
+  }
 
   PrintLimitedString(win, 0, 14, "Control Manager", 15);
 
@@ -443,7 +455,7 @@ void MrsStatus::PrintLimitedString(WINDOW* win, int y, int x, string str_in, uns
 /* UavStateCallback() //{ */
 
 void MrsStatus::UavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
-  uav_state_counter_++;
+  (*uav_state_counter_ptr_)++;
   uav_state_ = *msg;
 }
 
@@ -452,7 +464,7 @@ void MrsStatus::UavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
 /* MavrosStateCallback() //{ */
 
 void MrsStatus::MavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
-  mavros_state_counter_++;
+  (*mavros_state_counter_ptr_)++;
   mavros_state_ = *msg;
 }
 
@@ -461,7 +473,7 @@ void MrsStatus::MavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
 /* MavrosAttitudeCallback() //{ */
 
 void MrsStatus::MavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg) {
-  mavros_attitude_counter_++;
+  (*mavros_attitude_counter_ptr_)++;
   mavros_attitude_ = *msg;
 }
 
@@ -470,7 +482,7 @@ void MrsStatus::MavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr
 /* BatteryCallback() //{ */
 
 void MrsStatus::BatteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
-  battery_counter_++;
+  (*battery_counter_ptr_)++;
   battery_ = *msg;
 }
 
@@ -479,7 +491,7 @@ void MrsStatus::BatteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
 /* ControlManagerCallback() //{ */
 
 void MrsStatus::ControlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
-  control_manager_counter_++;
+  (*control_manager_counter_ptr_)++;
   control_manager_ = *msg;
 }
 
@@ -488,7 +500,7 @@ void MrsStatus::ControlManagerCallback(const mrs_msgs::ControlManagerDiagnostics
 /* GainManagerCallback() //{ */
 
 void MrsStatus::GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
-  gain_manager_counter_++;
+  (*gain_manager_counter_ptr_)++;
   gain_manager_ = *msg;
 }
 
@@ -497,7 +509,7 @@ void MrsStatus::GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstP
 /* ConstraintManagerCallback() //{ */
 
 void MrsStatus::ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
-  constraint_manager_counter_++;
+  (*constraint_manager_counter_ptr_)++;
   constraint_manager_ = *msg;
 }
 
