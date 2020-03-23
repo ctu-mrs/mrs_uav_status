@@ -153,7 +153,7 @@ private:
   void GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
   void ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
 
-  void GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name);
+  void GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name, const int id);
 
   void statusTimer(const ros::TimerEvent& event);
 
@@ -202,13 +202,13 @@ private:
   std::shared_ptr<int>                   constraint_manager_counter_ptr_ = std::make_shared<int>(0);
 
   StatusWindow*           uav_state_window;
-  std::vector<topic_rate> uav_state_rates_;
+  std::vector<topic> uav_state_topics_;
 
   StatusWindow*           mavros_state_window;
-  std::vector<topic_rate> mavros_state_rates_;
+  std::vector<topic> mavros_state_topics_;
 
   StatusWindow*           control_manager_window;
-  std::vector<topic_rate> control_manager_rates_;
+  std::vector<topic> control_manager_topics_;
 };
 
 //}
@@ -233,26 +233,27 @@ MrsStatus::MrsStatus() {
   constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &MrsStatus::ConstraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
 
   string topic_name = "/uav1/odometry/odom_main";
+  int id = 1;
 
   boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;
-  callback           = [this, topic_name](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name); };
-  generic_subscriber = nh_.subscribe(topic_name, 10, callback);
+  callback           = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name, id); };
+  generic_subscriber = nh_.subscribe(topic_name, 1, callback);
 
-  uav_state_rates_.push_back(topic_rate{uav_state_counter_ptr_, 100.0});
+  uav_state_topics_.push_back(topic{uav_state_counter_ptr_, 100.0});
 
-  uav_state_window = new StatusWindow(6, 30, 5, 1, uav_state_rates_);
+  uav_state_window = new StatusWindow(6, 30, 5, 1, uav_state_topics_);
 
-  mavros_state_rates_.push_back(topic_rate{mavros_state_counter_ptr_, 100.0});
-  mavros_state_rates_.push_back(topic_rate{battery_counter_ptr_, 1.0});
-  mavros_state_rates_.push_back(topic_rate{mavros_attitude_counter_ptr_, 100.0});
+  mavros_state_topics_.push_back(topic{mavros_state_counter_ptr_, 100.0});
+  mavros_state_topics_.push_back(topic{battery_counter_ptr_, 1.0});
+  mavros_state_topics_.push_back(topic{mavros_attitude_counter_ptr_, 100.0});
 
-  mavros_state_window = new StatusWindow(6, 30, 5, 31, mavros_state_rates_);
+  mavros_state_window = new StatusWindow(6, 30, 5, 31, mavros_state_topics_);
 
-  control_manager_rates_.push_back(topic_rate{control_manager_counter_ptr_, 10.0});
-  control_manager_rates_.push_back(topic_rate{gain_manager_counter_ptr_, 1.0});
-  control_manager_rates_.push_back(topic_rate{constraint_manager_counter_ptr_, 1.0});
+  control_manager_topics_.push_back(topic{control_manager_counter_ptr_, 10.0});
+  control_manager_topics_.push_back(topic{gain_manager_counter_ptr_, 1.0});
+  control_manager_topics_.push_back(topic{constraint_manager_counter_ptr_, 1.0});
 
-  control_manager_window = new StatusWindow(4, 30, 1, 1, control_manager_rates_);
+  control_manager_window = new StatusWindow(4, 30, 1, 1, control_manager_topics_);
 
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
@@ -596,7 +597,7 @@ void MrsStatus::ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagn
 
 /* GenericCallback() //{ */
 
-void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name) {
+void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name, const int id) {
   counter++;
 }
 

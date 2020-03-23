@@ -18,15 +18,26 @@
 #define COLOR_NICE_BLUE 33
 #define COLOR_NICE_YELLOW 220
 
-struct topic_rate
+struct topic
 {
+  std::string          topic_name;
   std::shared_ptr<int> counter;
   double               rate;
   double               interval;
   double               desired_rate;
   int                  zero_counter;
 
-  topic_rate(std::shared_ptr<int> counter_in, double desired_rate_in) {
+  topic(std::shared_ptr<int> counter_in, double desired_rate_in) {
+    topic_name   = "NOT DEFINED";
+    counter      = counter_in;
+    desired_rate = desired_rate_in;
+    rate         = 0.0;
+    interval     = 0.0;
+    zero_counter = 0;
+  }
+
+  topic(std::string topic_name_in, std::shared_ptr<int> counter_in, double desired_rate_in) {
+    topic_name   = topic_name_in;
     counter      = counter_in;
     desired_rate = desired_rate_in;
     rate         = 0.0;
