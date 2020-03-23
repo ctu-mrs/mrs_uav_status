@@ -28,6 +28,7 @@
 #include <sensor_msgs/BatteryState.h>
 
 #include <boost/function.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include <mrs_lib/transformer.h>
 
@@ -177,37 +178,32 @@ private:
   ros::Subscriber gain_manager_subscriber_;
   ros::Subscriber constraint_manager_subscriber_;
 
-  ros::Subscriber generic_subscriber;
+  std::vector<string>               generic_topics_input_vec_;
+  std::vector<topic>                generic_topics_vec_;
+  std::vector<ros::Subscriber>      generic_subscriber_vec_;
 
   std::string _uav_name_;
-  int         counter = 0;
 
   bool initialized_ = false;
 
-  mrs_msgs::UavState   uav_state_;
-  std::shared_ptr<int> uav_state_counter_ptr_ = std::make_shared<int>(0);
+  mrs_msgs::UavState uav_state_;
+  /* std::shared_ptr<int> uav_state_counter_ptr_ = std::make_shared<int>(0); */
 
   mavros_msgs::State          mavros_state_;
   mavros_msgs::AttitudeTarget mavros_attitude_;
   sensor_msgs::BatteryState   battery_;
-  std::shared_ptr<int>        mavros_state_counter_ptr_    = std::make_shared<int>(0);
-  std::shared_ptr<int>        mavros_attitude_counter_ptr_ = std::make_shared<int>(0);
-  std::shared_ptr<int>        battery_counter_ptr_         = std::make_shared<int>(0);
 
   mrs_msgs::ControlManagerDiagnostics    control_manager_;
   mrs_msgs::GainManagerDiagnostics       gain_manager_;
   mrs_msgs::ConstraintManagerDiagnostics constraint_manager_;
-  std::shared_ptr<int>                   control_manager_counter_ptr_    = std::make_shared<int>(0);
-  std::shared_ptr<int>                   gain_manager_counter_ptr_       = std::make_shared<int>(0);
-  std::shared_ptr<int>                   constraint_manager_counter_ptr_ = std::make_shared<int>(0);
 
-  StatusWindow*           uav_state_window;
+  StatusWindow*      uav_state_window;
   std::vector<topic> uav_state_topics_;
 
-  StatusWindow*           mavros_state_window;
+  StatusWindow*      mavros_state_window;
   std::vector<topic> mavros_state_topics_;
 
-  StatusWindow*           control_manager_window;
+  StatusWindow*      control_manager_window;
   std::vector<topic> control_manager_topics_;
 };
 
@@ -232,26 +228,52 @@ MrsStatus::MrsStatus() {
   gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 1, &MrsStatus::GainManagerCallback, this, ros::TransportHints().tcpNoDelay());
   constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &MrsStatus::ConstraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
 
-  string topic_name = "/uav1/odometry/odom_main";
-  int id = 1;
+  string tmp  = "/uav1/odometry/odom_main Odom 100";
+  string tmp2 = "/uav1/mavros/battery Garmin 80";
+  string tmp3 = "/uav1/garmin/range Garmin 80";
+  string tmp4 = "/uav1/gain_manager/diagnostics Garmin 80";
 
-  boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;
-  callback           = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name, id); };
-  generic_subscriber = nh_.subscribe(topic_name, 1, callback);
+  std::vector<string> generic_topics_input_vec_;
+  generic_topics_input_vec_.push_back(tmp);
+  generic_topics_input_vec_.push_back(tmp2);
+  generic_topics_input_vec_.push_back(tmp3);
+  generic_topics_input_vec_.push_back(tmp4);
 
-  uav_state_topics_.push_back(topic{uav_state_counter_ptr_, 100.0});
+  boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;  // generic callback
+
+  for (unsigned long i = 0; i < generic_topics_input_vec_.size(); i++) {
+
+    std::vector<std::string> results;
+    boost::split(results, generic_topics_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
+
+    topic                tmp_topic(results[0], results[1], std::stoi(results[2]));
+
+    generic_topics_vec_.push_back(tmp_topic);
+
+    int    id          = i;  // id to identify which topic called the generic callback
+    string topic_name  = generic_topics_vec_[i].topic_name;
+
+    callback = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name, id); };
+    ros::Subscriber tmp_subscriber = nh_.subscribe(topic_name, 1, callback);
+
+    generic_subscriber_vec_.push_back(tmp_subscriber);
+  }
+
+  std::vector<ros::Subscriber> generic_subscriber_vec_;
+
+  uav_state_topics_.push_back(topic{100.0});
 
   uav_state_window = new StatusWindow(6, 30, 5, 1, uav_state_topics_);
 
-  mavros_state_topics_.push_back(topic{mavros_state_counter_ptr_, 100.0});
-  mavros_state_topics_.push_back(topic{battery_counter_ptr_, 1.0});
-  mavros_state_topics_.push_back(topic{mavros_attitude_counter_ptr_, 100.0});
+  mavros_state_topics_.push_back(topic{100.0});
+  mavros_state_topics_.push_back(topic{1.0});
+  mavros_state_topics_.push_back(topic{100.0});
 
   mavros_state_window = new StatusWindow(6, 30, 5, 31, mavros_state_topics_);
 
-  control_manager_topics_.push_back(topic{control_manager_counter_ptr_, 10.0});
-  control_manager_topics_.push_back(topic{gain_manager_counter_ptr_, 1.0});
-  control_manager_topics_.push_back(topic{constraint_manager_counter_ptr_, 1.0});
+  control_manager_topics_.push_back(topic{10.0});
+  control_manager_topics_.push_back(topic{1.0});
+  control_manager_topics_.push_back(topic{1.0});
 
   control_manager_window = new StatusWindow(4, 30, 1, 1, control_manager_topics_);
 
@@ -535,7 +557,7 @@ void MrsStatus::PrintNoData(WINDOW* win, int y, int x, string text) {
 /* UavStateCallback() //{ */
 
 void MrsStatus::UavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
-  (*uav_state_counter_ptr_)++;
+  uav_state_topics_[0].counter++;
   uav_state_ = *msg;
 }
 
@@ -544,17 +566,8 @@ void MrsStatus::UavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
 /* MavrosStateCallback() //{ */
 
 void MrsStatus::MavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
-  (*mavros_state_counter_ptr_)++;
+  mavros_state_topics_[0].counter++;
   mavros_state_ = *msg;
-}
-
-//}
-
-/* MavrosAttitudeCallback() //{ */
-
-void MrsStatus::MavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg) {
-  (*mavros_attitude_counter_ptr_)++;
-  mavros_attitude_ = *msg;
 }
 
 //}
@@ -562,8 +575,17 @@ void MrsStatus::MavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr
 /* BatteryCallback() //{ */
 
 void MrsStatus::BatteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
-  (*battery_counter_ptr_)++;
+  mavros_state_topics_[1].counter++;
   battery_ = *msg;
+}
+
+//}
+
+/* MavrosAttitudeCallback() //{ */
+
+void MrsStatus::MavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg) {
+  mavros_state_topics_[2].counter++;
+  mavros_attitude_ = *msg;
 }
 
 //}
@@ -571,7 +593,7 @@ void MrsStatus::BatteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
 /* ControlManagerCallback() //{ */
 
 void MrsStatus::ControlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
-  (*control_manager_counter_ptr_)++;
+  control_manager_topics_[0].counter++;
   control_manager_ = *msg;
 }
 
@@ -580,7 +602,7 @@ void MrsStatus::ControlManagerCallback(const mrs_msgs::ControlManagerDiagnostics
 /* GainManagerCallback() //{ */
 
 void MrsStatus::GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
-  (*gain_manager_counter_ptr_)++;
+  control_manager_topics_[1].counter++;
   gain_manager_ = *msg;
 }
 
@@ -589,7 +611,7 @@ void MrsStatus::GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstP
 /* ConstraintManagerCallback() //{ */
 
 void MrsStatus::ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
-  (*constraint_manager_counter_ptr_)++;
+  control_manager_topics_[2].counter++;
   constraint_manager_ = *msg;
 }
 
@@ -598,7 +620,9 @@ void MrsStatus::ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagn
 /* GenericCallback() //{ */
 
 void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name, const int id) {
-  counter++;
+  generic_topics_vec_[id].counter++;
+  mvwprintw(stdscr, 32 + id, 30, "%i", id);
+  mvwprintw(stdscr, 32 + id, 40, "%i", generic_topics_vec_[id].counter);
 }
 
 //}

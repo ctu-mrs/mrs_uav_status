@@ -1,15 +1,5 @@
 #include <status_window.h>
 
-/* StatusWindow() //{ */
-
-StatusWindow::StatusWindow(int lines, int cols, int begin_y, int begin_x, std::vector<topic> topics) {
-
-  win_         = newwin(lines, cols, begin_y, begin_x);
-  topics_ = topics;
-}
-
-//}
-
 /* Redraw() //{ */
 
 void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short color, int topic), MrsStatus* obj) {
@@ -41,12 +31,12 @@ void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short 
         alpha = 0.25;
       }
 
-      double new_rate = *topics_[i].counter / (topics_[i].interval);
+      double new_rate = topics_[i].counter / (topics_[i].interval);
 
-      (*topics_[i].counter == 0) ? (topics_[i].zero_counter++) : (topics_[i].zero_counter = 0);
+      (topics_[i].counter == 0) ? (topics_[i].zero_counter++) : (topics_[i].zero_counter = 0);
 
       topics_[i].interval = 0.0;
-      *topics_[i].counter = 0;
+      topics_[i].counter = 0;
 
       if (topics_[i].zero_counter >= 2) {
         topics_[i].rate = 0.0;
