@@ -240,19 +240,19 @@ MrsStatus::MrsStatus() {
 
   uav_state_rates_.push_back(topic_rate{uav_state_counter_ptr_, 100.0});
 
-  uav_state_window = new StatusWindow(6, 30, 3, 3, uav_state_rates_);
+  uav_state_window = new StatusWindow(6, 30, 5, 1, uav_state_rates_);
 
   mavros_state_rates_.push_back(topic_rate{mavros_state_counter_ptr_, 100.0});
   mavros_state_rates_.push_back(topic_rate{battery_counter_ptr_, 1.0});
   mavros_state_rates_.push_back(topic_rate{mavros_attitude_counter_ptr_, 100.0});
 
-  mavros_state_window = new StatusWindow(6, 30, 9, 3, mavros_state_rates_);
+  mavros_state_window = new StatusWindow(6, 30, 5, 31, mavros_state_rates_);
 
   control_manager_rates_.push_back(topic_rate{control_manager_counter_ptr_, 10.0});
   control_manager_rates_.push_back(topic_rate{gain_manager_counter_ptr_, 1.0});
   control_manager_rates_.push_back(topic_rate{constraint_manager_counter_ptr_, 1.0});
 
-  control_manager_window = new StatusWindow(4, 30, 16, 3, control_manager_rates_);
+  control_manager_window = new StatusWindow(4, 30, 1, 1, control_manager_rates_);
 
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
@@ -446,12 +446,11 @@ void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int
 
       if (controller == "So3Controller") {
 
-        PrintLimitedDouble(win, 1, 2, "rate %7.2f", rate, 1000);
-        /* if (rate == 0) { */
-        /*   PrintNoData(win, 1, 2 + controller.length()); */
-        /* } else { */
-        /*   PrintLimitedString(win, 1, 2 + controller.length(), gain_manager_.current_name, 10); */
-        /* } */
+        if (rate == 0) {
+          PrintNoData(win, 1, 2 + controller.length());
+        } else {
+          PrintLimitedString(win, 1, 2 + controller.length(), gain_manager_.current_name, 10);
+        }
       }
       break;
 
@@ -527,7 +526,7 @@ void MrsStatus::PrintNoData(WINDOW* win, int y, int x, string text) {
 
   wattron(win, COLOR_PAIR(RED));
   mvwprintw(win, y, x, text.c_str());
-  PrintNoData(win, y + text.length(), x);
+  PrintNoData(win, y, x + text.length());
 }
 
 //}
