@@ -164,6 +164,7 @@ private:
   void PrintNoData(WINDOW* win, int y, int x);
   void PrintNoData(WINDOW* win, int y, int x, string text);
 
+  void GenericTopicHandler(WINDOW* win, double rate, short color, int topic);
   void UavStateHandler(WINDOW* win, double rate, short color, int topic);
   void MavrosStateHandler(WINDOW* win, double rate, short color, int topic);
   void ControlManagerHandler(WINDOW* win, double rate, short color, int topic);
@@ -177,10 +178,6 @@ private:
   ros::Subscriber control_manager_subscriber_;
   ros::Subscriber gain_manager_subscriber_;
   ros::Subscriber constraint_manager_subscriber_;
-
-  std::vector<string>               generic_topics_input_vec_;
-  std::vector<topic>                generic_topics_vec_;
-  std::vector<ros::Subscriber>      generic_subscriber_vec_;
 
   std::string _uav_name_;
 
@@ -197,14 +194,19 @@ private:
   mrs_msgs::GainManagerDiagnostics       gain_manager_;
   mrs_msgs::ConstraintManagerDiagnostics constraint_manager_;
 
-  StatusWindow*      uav_state_window;
+  StatusWindow*      uav_state_window_;
   std::vector<topic> uav_state_topics_;
 
-  StatusWindow*      mavros_state_window;
+  StatusWindow*      mavros_state_window_;
   std::vector<topic> mavros_state_topics_;
 
-  StatusWindow*      control_manager_window;
+  StatusWindow*      control_manager_window_;
   std::vector<topic> control_manager_topics_;
+
+  StatusWindow*      generic_topics_window_;
+  std::vector<topic>                generic_topics_vec_;
+  std::vector<string>               generic_topics_input_vec_;
+  std::vector<ros::Subscriber>      generic_subscriber_vec_;
 };
 
 //}
@@ -229,15 +231,15 @@ MrsStatus::MrsStatus() {
   constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &MrsStatus::ConstraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
 
   string tmp  = "/uav1/odometry/odom_main Odom 100";
-  string tmp2 = "/uav1/mavros/battery Garmin 80";
-  string tmp3 = "/uav1/garmin/range Garmin 80";
-  string tmp4 = "/uav1/gain_manager/diagnostics Garmin 80";
+  string tmp2 = "/uav1/mavros/battery batt 10";
+  /* string tmp3 = "/uav1/garmin/range Garmin 80"; */
+  /* string tmp4 = "/uav1/odometry/diagnostics gain 1"; */
 
   std::vector<string> generic_topics_input_vec_;
   generic_topics_input_vec_.push_back(tmp);
   generic_topics_input_vec_.push_back(tmp2);
-  generic_topics_input_vec_.push_back(tmp3);
-  generic_topics_input_vec_.push_back(tmp4);
+  /* generic_topics_input_vec_.push_back(tmp3); */
+  /* generic_topics_input_vec_.push_back(tmp4); */
 
   boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;  // generic callback
 
@@ -259,24 +261,24 @@ MrsStatus::MrsStatus() {
     generic_subscriber_vec_.push_back(tmp_subscriber);
   }
 
-  std::vector<ros::Subscriber> generic_subscriber_vec_;
-
   uav_state_topics_.push_back(topic{100.0});
 
-  uav_state_window = new StatusWindow(6, 30, 5, 1, uav_state_topics_);
+  uav_state_window_ = new StatusWindow(6, 30, 5, 1, uav_state_topics_);
 
   mavros_state_topics_.push_back(topic{100.0});
   mavros_state_topics_.push_back(topic{1.0});
   mavros_state_topics_.push_back(topic{100.0});
 
-  mavros_state_window = new StatusWindow(6, 30, 5, 31, mavros_state_topics_);
+  mavros_state_window_ = new StatusWindow(6, 30, 5, 31, mavros_state_topics_);
 
   control_manager_topics_.push_back(topic{10.0});
   control_manager_topics_.push_back(topic{1.0});
   control_manager_topics_.push_back(topic{1.0});
 
-  control_manager_window = new StatusWindow(4, 30, 1, 1, control_manager_topics_);
+  control_manager_window_ = new StatusWindow(4, 30, 1, 1, control_manager_topics_);
 
+  generic_topics_window_ = new StatusWindow(10, 30, 1, 62, control_manager_topics_);
+  
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
 
@@ -289,10 +291,49 @@ MrsStatus::MrsStatus() {
 
 void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
-  uav_state_window->Redraw(&MrsStatus::UavStateHandler, this);
-  mavros_state_window->Redraw(&MrsStatus::MavrosStateHandler, this);
-  control_manager_window->Redraw(&MrsStatus::ControlManagerHandler, this);
+  uav_state_window_->Redraw(&MrsStatus::UavStateHandler, this);
+  mavros_state_window_->Redraw(&MrsStatus::MavrosStateHandler, this);
+  control_manager_window_->Redraw(&MrsStatus::ControlManagerHandler, this);
+  generic_topics_window_->Redraw(&MrsStatus::GenericTopicHandler, this);
   refresh();
+}
+
+//}
+
+/* GenericTopicHandler() //{ */
+
+void MrsStatus::GenericTopicHandler(WINDOW* win, double rate, short color, int topic) {
+
+  PrintLimitedString(win, 2+topic, 1, generic_topics_vec_[topic].topic_display_name, 19);
+  PrintLimitedDouble(win, 2+topic, 20, "%5.1f Hz", rate, 1000);
+
+
+  mvwprintw(win, 2+topic, 10, "%i", topic);
+
+  /* if (rate == 0) { */
+
+  /*   PrintNoData(win, 0, 1); */
+
+  /* } else { */
+
+  /*   double         roll, pitch, yaw; */
+  /*   tf::Quaternion quaternion_odometry; */
+  /*   quaternionMsgToTF(uav_state_.pose.orientation, quaternion_odometry); */
+  /*   tf::Matrix3x3 m(quaternion_odometry); */
+  /*   m.getRPY(roll, pitch, yaw); */
+
+  /*   PrintLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000); */
+  /*   PrintLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000); */
+  /*   PrintLimitedDouble(win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000); */
+  /*   PrintLimitedDouble(win, 4, 2, "Yaw %5.2f", yaw, 1000); */
+
+  /*   int pos = uav_state_.header.frame_id.find("/") + 1; */
+  /*   PrintLimitedString(win, 1, 14, uav_state_.header.frame_id.substr(pos, uav_state_.header.frame_id.length()), 15); */
+
+  /*   PrintLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 15); */
+  /*   PrintLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 15); */
+  /*   PrintLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 15); */
+  /* } */
 }
 
 //}
