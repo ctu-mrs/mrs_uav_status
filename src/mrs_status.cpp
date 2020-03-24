@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <mutex>
 
+#include <fstream>
+
 #include <topic_tools/shape_shifter.h>  // for generic topic subscribers
 
 #include <mrs_msgs/TrackerPoint.h>
@@ -185,6 +187,9 @@ private:
 
   bool initialized_ = false;
 
+  long last_idle_     = 0;
+  long last_total_    = 0;
+
   mrs_msgs::UavState uav_state_;
   /* std::shared_ptr<int> uav_state_counter_ptr_ = std::make_shared<int>(0); */
 
@@ -360,6 +365,39 @@ MrsStatus::MrsStatus() {
 /* statusTimer //{ */
 
 void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
+
+  clear();
+  std::ifstream fileStat("/proc/stat");
+  std::string   line;
+  std::getline(fileStat, line);
+
+  std::vector<std::string> results;
+  boost::split(results, line, [](char c) { return c == ' '; });
+
+  long idle;
+  long non_idle;
+  long total;
+
+  try {
+    idle     = std::stol(results[5]) + std::stol(results[6]);
+    non_idle = std::stol(results[2]) + std::stol(results[3]) + std::stol(results[4]) + std::stol(results[7]) + std::stol(results[8]) + std::stol(results[9]);
+    total    = idle + non_idle;
+  }
+  catch (const std::invalid_argument& e) {
+    idle = 0;
+    non_idle = 0;
+    total = 0;
+  }
+
+  long total_diff = total - last_total_;
+  long idle_diff  = idle - last_idle_;
+
+  double cpu_load = 100*(double(total_diff - idle_diff) / double(total_diff));
+
+  last_total_ = total;
+  last_idle_ = idle;
+
+  mvwprintw(stdscr, 22, 22, "%f", cpu_load);
 
   uav_state_window_->Redraw(&MrsStatus::UavStateHandler, this);
   mavros_state_window_->Redraw(&MrsStatus::MavrosStateHandler, this);
