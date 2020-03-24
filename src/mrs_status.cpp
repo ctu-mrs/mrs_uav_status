@@ -21,8 +21,6 @@
 
 #include <std_srvs/Trigger.h>
 
-#include <nav_msgs/Odometry.h>
-
 #include <geometry_msgs/Pose.h>
 
 #include <sensor_msgs/BatteryState.h>
@@ -31,6 +29,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include <mrs_lib/transformer.h>
+#include <mrs_lib/ParamLoader.h>
 
 
 using namespace std;
@@ -180,6 +179,9 @@ private:
   ros::Subscriber constraint_manager_subscriber_;
 
   std::string _uav_name_;
+  std::string _uav_type_;
+  std::string _sensors_;
+  bool        _pixgarm_;
 
   bool initialized_ = false;
 
@@ -203,10 +205,10 @@ private:
   StatusWindow*      control_manager_window_;
   std::vector<topic> control_manager_topics_;
 
-  StatusWindow*      generic_topics_window_;
-  std::vector<topic>                generic_topics_vec_;
-  std::vector<string>               generic_topics_input_vec_;
-  std::vector<ros::Subscriber>      generic_subscriber_vec_;
+  StatusWindow*                generic_topics_window_;
+  std::vector<topic>           generic_topics_vec_;
+  std::vector<string>          generic_topics_input_vec_;
+  std::vector<ros::Subscriber> generic_subscriber_vec_;
 };
 
 //}
@@ -230,16 +232,80 @@ MrsStatus::MrsStatus() {
   gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 1, &MrsStatus::GainManagerCallback, this, ros::TransportHints().tcpNoDelay());
   constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &MrsStatus::ConstraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
 
-  string tmp  = "/uav1/odometry/odom_main Odom 100";
-  string tmp2 = "/uav1/mavros/battery batt 10";
-  /* string tmp3 = "/uav1/garmin/range Garmin 80"; */
-  /* string tmp4 = "/uav1/odometry/diagnostics gain 1"; */
+  mrs_lib::ParamLoader param_loader(nh_, "MrsStatus");
+
+  param_loader.load_param("uav_name", _uav_name_);
+  param_loader.load_param("uav_type", _uav_type_);
+  param_loader.load_param("sensors", _sensors_);
+  param_loader.load_param("pixgarm", _pixgarm_);
+
+  if (!param_loader.loaded_successfully()) {
+    ROS_ERROR("[LidarFlier]: Could not load all parameters!");
+    ros::shutdown();
+  } else {
+    ROS_INFO("[LidarFlier]: All params loaded!");
+  }
+
+
+  std::vector<std::string> results;
+  split(results, _sensors_, boost::is_any_of(", "), boost::token_compress_on);
 
   std::vector<string> generic_topics_input_vec_;
-  generic_topics_input_vec_.push_back(tmp);
-  generic_topics_input_vec_.push_back(tmp2);
-  /* generic_topics_input_vec_.push_back(tmp3); */
-  /* generic_topics_input_vec_.push_back(tmp4); */
+
+  if (_pixgarm_) {
+    generic_topics_input_vec_.push_back("mavros/distance_sensor/garmin Garmin_pix 80+");
+  }
+
+  for (int i = 0; i < results.size(); i++) {
+    if (results[i] == "garmin_down" && _pixgarm_ == false) {
+      generic_topics_input_vec_.push_back("garmin/range Garmin_Down 80+");
+
+    } else if (results[i] == "garmin_up") {
+      generic_topics_input_vec_.push_back("garmin/range_up Garmin_Up 80+");
+
+    } else if (results[i] == "realsense_brick") {
+      generic_topics_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Brick 25+");
+
+    } else if (results[i] == "realsense_front") {
+      generic_topics_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Front 25+");
+
+    } else if (results[i] == "bluefox_brick") {
+      generic_topics_input_vec_.push_back("bluefox_brick/camera_info Bluefox_Brick 25+");
+
+    } else if (results[i] == "bluefox_optflow") {
+      generic_topics_input_vec_.push_back("bluefox_optflow/camera_info Bluefox_Optflow 60+");
+      generic_topics_input_vec_.push_back("optic_flow/velocity Optic_flow 60+");
+
+    } else if (results[i] == "trinocular_thermal") {
+      generic_topics_input_vec_.push_back("thermal/top/rgb_image Thermal_Top 15+");
+      generic_topics_input_vec_.push_back("thermal/middle/rgb_image Thermal_Middle 15+");
+      generic_topics_input_vec_.push_back("thermal/bottom/rgb_image Thermal_Bottom 15+");
+
+    } else if (results[i] == "rplidar") {
+      generic_topics_input_vec_.push_back("rplidar/scan Rplidar 10+");
+    }
+
+    /* } else if (results[i] == "rplidar") { */
+    /*   generic_topics_input_vec_.push_back("rplidar/scan Rplidar 10+"); */
+    /* } */
+
+
+    /* if str(self.PIXGARM) == "true": */
+    /*             self.param_list.insert(0, "mavros/distance_sensor/garmin Garmin_pix 80+") */
+
+    /*         if str(self.PIXGARM) == "false" and 'garmin_down' in self.sensor_list: */
+    /*             self.param_list.insert(0, "garmin/range Garmin_Down 80+") */
+
+
+    /*         if str(self.BLUEFOX_UV_LEFT) != "": */
+    /*             self.param_list.insert(0, "uvdar_bluefox/left/camera_info Bluefox_UV_left 70+") */
+
+    /*         if str(self.BLUEFOX_UV_RIGHT) != "": */
+    /*             self.param_list.insert(0, "uvdar_bluefox/right/camera_info Bluefox_UV_right 70+") */
+
+    /*         if str(self.ODOMETRY_TYPE) == "gps": */
+    /*             self.param_list.insert(0, "mavros/global_position/global PX4 GPS 100") */
+  }
 
   boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;  // generic callback
 
@@ -247,15 +313,19 @@ MrsStatus::MrsStatus() {
 
     std::vector<std::string> results;
     boost::split(results, generic_topics_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
+    if (results[2].back() == '+') {
+      // TODO handle the + sign
+      results[2].pop_back();
+    }
 
-    topic                tmp_topic(results[0], results[1], std::stoi(results[2]));
+    topic tmp_topic(results[0], results[1], std::stoi(results[2]));
 
     generic_topics_vec_.push_back(tmp_topic);
 
-    int    id          = i;  // id to identify which topic called the generic callback
-    string topic_name  = generic_topics_vec_[i].topic_name;
+    int    id         = i;  // id to identify which topic called the generic callback
+    string topic_name = "/" + _uav_name_ + "/" + generic_topics_vec_[i].topic_name;
 
-    callback = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name, id); };
+    callback                       = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name, id); };
     ros::Subscriber tmp_subscriber = nh_.subscribe(topic_name, 1, callback);
 
     generic_subscriber_vec_.push_back(tmp_subscriber);
@@ -277,8 +347,8 @@ MrsStatus::MrsStatus() {
 
   control_manager_window_ = new StatusWindow(4, 30, 1, 1, control_manager_topics_);
 
-  generic_topics_window_ = new StatusWindow(10, 30, 1, 62, control_manager_topics_);
-  
+  generic_topics_window_ = new StatusWindow(10, 30, 1, 62, generic_topics_vec_);
+
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
 
@@ -304,36 +374,8 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 void MrsStatus::GenericTopicHandler(WINDOW* win, double rate, short color, int topic) {
 
-  PrintLimitedString(win, 2+topic, 1, generic_topics_vec_[topic].topic_display_name, 19);
-  PrintLimitedDouble(win, 2+topic, 20, "%5.1f Hz", rate, 1000);
-
-
-  mvwprintw(win, 2+topic, 10, "%i", topic);
-
-  /* if (rate == 0) { */
-
-  /*   PrintNoData(win, 0, 1); */
-
-  /* } else { */
-
-  /*   double         roll, pitch, yaw; */
-  /*   tf::Quaternion quaternion_odometry; */
-  /*   quaternionMsgToTF(uav_state_.pose.orientation, quaternion_odometry); */
-  /*   tf::Matrix3x3 m(quaternion_odometry); */
-  /*   m.getRPY(roll, pitch, yaw); */
-
-  /*   PrintLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000); */
-  /*   PrintLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000); */
-  /*   PrintLimitedDouble(win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000); */
-  /*   PrintLimitedDouble(win, 4, 2, "Yaw %5.2f", yaw, 1000); */
-
-  /*   int pos = uav_state_.header.frame_id.find("/") + 1; */
-  /*   PrintLimitedString(win, 1, 14, uav_state_.header.frame_id.substr(pos, uav_state_.header.frame_id.length()), 15); */
-
-  /*   PrintLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 15); */
-  /*   PrintLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 15); */
-  /*   PrintLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 15); */
-  /* } */
+  PrintLimitedString(win, 1 + topic, 1, generic_topics_vec_[topic].topic_display_name, 19);
+  PrintLimitedDouble(win, 1 + topic, 21, "%5.1f Hz", rate, 1000);
 }
 
 //}
@@ -662,8 +704,6 @@ void MrsStatus::ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagn
 
 void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name, const int id) {
   generic_topics_vec_[id].counter++;
-  mvwprintw(stdscr, 32 + id, 30, "%i", id);
-  mvwprintw(stdscr, 32 + id, 40, "%i", generic_topics_vec_[id].counter);
 }
 
 //}
@@ -674,12 +714,6 @@ void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const std::st
 int main(int argc, char** argv) {
 
   ros::init(argc, argv, "mrs_status");
-
-  /* std::vector<string> items; */
-  /* items.push_back("1"); */
-  /* items.push_back("2"); */
-  /* items.push_back("3"); */
-  /* items.push_back("4"); */
 
   initscr();
   start_color();
