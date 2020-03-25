@@ -166,6 +166,8 @@ private:
   void PrintNoData(WINDOW* win, int y, int x, string text);
 
   void PrintCpuLoad(WINDOW* win);
+  void PrintCpuFreq(WINDOW* win);
+  void PrintMemLoad(WINDOW* win);
 
   void GenericTopicHandler(WINDOW* win, double rate, short color, int topic);
   void UavStateHandler(WINDOW* win, double rate, short color, int topic);
@@ -389,6 +391,8 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 void MrsStatus::GeneralInfoHandler(WINDOW* win, double rate, short color, int topic) {
 
   PrintCpuLoad(win);
+  PrintMemLoad(win);
+  PrintCpuFreq(win);
 }
 
 //}
@@ -598,6 +602,89 @@ void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int
 
 //}
 
+/* PrintMemLoad() //{ */
+
+void MrsStatus::PrintMemLoad(WINDOW* win) {
+
+  std::ifstream fileStat("/proc/meminfo");
+  std::string   line1, line2, line3, line4;
+  std::getline(fileStat, line1);
+  std::getline(fileStat, line2);
+  std::getline(fileStat, line3);
+  std::getline(fileStat, line4);
+
+  std::vector<std::string> results;
+  boost::split(results, line1, [](char c) { return c == ' '; });
+
+  double ram_total;
+  double ram_free;
+  double ram_used;
+  double buffers;
+
+  for (unsigned long i = 1; i < results.size(); i++) {
+
+    if (isdigit(results[i].front())) {
+      try {
+        ram_total = double(std::stol(results[i])) / 1000000;
+      }
+      catch (const std::invalid_argument& e) {
+        ram_total = 0.0;
+      }
+      break;
+    }
+  }
+
+  boost::split(results, line3, [](char c) { return c == ' '; });
+
+  for (unsigned long i = 1; i < results.size(); i++) {
+
+    if (isdigit(results[i].front())) {
+      try {
+        ram_free = double(std::stol(results[i])) / 1000000;
+      }
+      catch (const std::invalid_argument& e) {
+        ram_free = 0.0;
+      }
+      break;
+    }
+  }
+
+  boost::split(results, line4, [](char c) { return c == ' '; });
+
+  for (unsigned long i = 1; i < results.size(); i++) {
+
+    if (isdigit(results[i].front())) {
+      try {
+        buffers = double(std::stol(results[i])) / 1000000;
+      }
+      catch (const std::invalid_argument& e) {
+        buffers = 0.0;
+      }
+      break;
+    }
+  }
+
+  ram_used = ram_total - (ram_free + buffers);
+
+  int    tmp_color = GREEN;
+  double ram_ratio = ram_used / ram_total;
+  if (ram_ratio > 0.8) {
+    tmp_color = RED;
+  } else if (ram_ratio > 0.6) {
+    tmp_color = YELLOW;
+  }
+
+  wattron(win, COLOR_PAIR(tmp_color));
+
+  PrintLimitedDouble(win, 2, 1, "RAM free: %4.1f G", (ram_free+buffers), 100);
+
+  /* wattron(win, COLOR_PAIR(NORMAL)); */
+
+  /* PrintLimitedDouble(win, 2, 15, "/%4.1f", ram_total, 100); */
+}
+
+//}
+
 /* PrintCpuLoad() //{ */
 
 void MrsStatus::PrintCpuLoad(WINDOW* win) {
@@ -641,7 +728,49 @@ void MrsStatus::PrintCpuLoad(WINDOW* win) {
 
   wattron(win, COLOR_PAIR(tmp_color));
 
-  PrintLimitedDouble(win, 1, 1, "CPU load: %4.1f", cpu_load, 100);
+  PrintLimitedDouble(win, 1, 1, "CPU load: %4.1f %%", cpu_load, 99.9);
+}
+
+//}
+
+/* PrintCpuFreq() //{ */
+
+void MrsStatus::PrintCpuFreq(WINDOW* win) {
+
+  std::ifstream fileStat("/sys/devices/system/cpu/online");
+  std::string   line;
+  std::getline(fileStat, line);
+
+  std::vector<std::string> results;
+  boost::split(results, line, [](char c) { return c == '-'; });
+
+  int num_cores;
+
+  try {
+    num_cores = std::stoi(results[1]) + 1;
+  }
+  catch (const std::invalid_argument& e) {
+    num_cores = 0;
+  }
+
+  long cpu_freq = 0;
+
+  for (int i = 0; i < num_cores; i++) {
+    std::string   filename = "/sys/devices/system/cpu/cpu" + to_string(i) + "/cpufreq/scaling_cur_freq";
+    std::ifstream fileStat(filename.c_str());
+    std::getline(fileStat, line);
+    try {
+      cpu_freq += std::stol(line);
+    }
+    catch (const std::invalid_argument& e) {
+      cpu_freq = 0;
+    }
+  }
+
+  double avg_cpu_ghz = double(cpu_freq / num_cores)/1000000;
+
+  wattron(win, COLOR_PAIR(GREEN));
+  PrintLimitedDouble(win, 1, 21, "%4.2f GHz", avg_cpu_ghz, 10);
 }
 
 //}
