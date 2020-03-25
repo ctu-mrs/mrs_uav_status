@@ -29,6 +29,7 @@
 
 #include <boost/function.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 
 #include <mrs_lib/transformer.h>
 #include <mrs_lib/ParamLoader.h>
@@ -159,6 +160,7 @@ private:
 
   void statusTimer(const ros::TimerEvent& event);
 
+  void PrintLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit);
   void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
   void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
 
@@ -168,6 +170,7 @@ private:
   void PrintCpuLoad(WINDOW* win);
   void PrintCpuFreq(WINDOW* win);
   void PrintMemLoad(WINDOW* win);
+  void PrintDiskSpace(WINDOW* win);
 
   void GenericTopicHandler(WINDOW* win, double rate, short color, int topic);
   void UavStateHandler(WINDOW* win, double rate, short color, int topic);
@@ -194,6 +197,7 @@ private:
 
   long last_idle_  = 0;
   long last_total_ = 0;
+  long last_gigas_ = 0;
 
   mrs_msgs::UavState uav_state_;
   /* std::shared_ptr<int> uav_state_counter_ptr_ = std::make_shared<int>(0); */
@@ -393,6 +397,7 @@ void MrsStatus::GeneralInfoHandler(WINDOW* win, double rate, short color, int to
   PrintCpuLoad(win);
   PrintMemLoad(win);
   PrintCpuFreq(win);
+  PrintDiskSpace(win);
 }
 
 //}
@@ -676,7 +681,7 @@ void MrsStatus::PrintMemLoad(WINDOW* win) {
 
   wattron(win, COLOR_PAIR(tmp_color));
 
-  PrintLimitedDouble(win, 2, 1, "RAM free: %4.1f G", (ram_free+buffers), 100);
+  PrintLimitedDouble(win, 2, 1, "RAM free: %4.1f G", (ram_free + buffers), 100);
 
   /* wattron(win, COLOR_PAIR(NORMAL)); */
 
@@ -767,10 +772,61 @@ void MrsStatus::PrintCpuFreq(WINDOW* win) {
     }
   }
 
-  double avg_cpu_ghz = double(cpu_freq / num_cores)/1000000;
+  double avg_cpu_ghz = double(cpu_freq / num_cores) / 1000000;
+
 
   wattron(win, COLOR_PAIR(GREEN));
   PrintLimitedDouble(win, 1, 21, "%4.2f GHz", avg_cpu_ghz, 10);
+}
+
+//}
+
+/* PrintDiskSpace() //{ */
+
+void MrsStatus::PrintDiskSpace(WINDOW* win) {
+
+  boost::filesystem::space_info si = boost::filesystem::space(".");
+
+  int gigas = round(si.available / 100000000);
+
+  wattron(win, COLOR_PAIR(GREEN));
+  if (gigas < 200 || gigas != last_gigas_) {
+    wattron(win, COLOR_PAIR(YELLOW));
+  }
+  if (gigas < 100) {
+    wattron(win, COLOR_PAIR(RED));
+    PrintLimitedDouble(win, 2, 19, "HDD: %3.1f G", double(gigas) / 10, 10);
+  } else {
+    if (gigas < 1000) {
+      PrintLimitedInt(win, 2, 19, "HDD:  %i G", gigas / 10, 1000);
+    } else {
+      PrintLimitedInt(win, 2, 19, "HDD: %i G", gigas / 10, 1000);
+    }
+  }
+  last_gigas_ = gigas;
+}
+
+//}
+
+/* PrintLimitedInt() //{ */
+
+void MrsStatus::PrintLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit) {
+
+  if (abs(num) > limit) {
+
+    // if the number is larger than limit, replace it with scientific notation - 1e+01 to fit the screen
+    for (unsigned long i = 0; i < str_in.length() - 2; i++) {
+      if (str_in[i] == '.' && str_in[i + 2] == 'i') {
+        str_in[i + 1] = '0';
+        str_in[i + 2] = 'e';
+        break;
+      }
+    }
+  }
+
+  const char* format = str_in.c_str();
+
+  mvwprintw(win, y, x, format, num);
 }
 
 //}
