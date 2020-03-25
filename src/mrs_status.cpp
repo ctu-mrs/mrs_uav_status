@@ -165,10 +165,13 @@ private:
   void PrintNoData(WINDOW* win, int y, int x);
   void PrintNoData(WINDOW* win, int y, int x, string text);
 
+  void PrintCpuLoad(WINDOW* win);
+
   void GenericTopicHandler(WINDOW* win, double rate, short color, int topic);
   void UavStateHandler(WINDOW* win, double rate, short color, int topic);
   void MavrosStateHandler(WINDOW* win, double rate, short color, int topic);
   void ControlManagerHandler(WINDOW* win, double rate, short color, int topic);
+  void GeneralInfoHandler(WINDOW* win, double rate, short color, int topic);
 
   ros::Subscriber uav_state_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
@@ -187,8 +190,8 @@ private:
 
   bool initialized_ = false;
 
-  long last_idle_     = 0;
-  long last_total_    = 0;
+  long last_idle_  = 0;
+  long last_total_ = 0;
 
   mrs_msgs::UavState uav_state_;
   /* std::shared_ptr<int> uav_state_counter_ptr_ = std::make_shared<int>(0); */
@@ -209,6 +212,9 @@ private:
 
   StatusWindow*      control_manager_window_;
   std::vector<topic> control_manager_topics_;
+
+  StatusWindow*      general_info_window_;
+  std::vector<topic> general_info_topics_;
 
   StatusWindow*                generic_topics_window_;
   std::vector<topic>           generic_topics_vec_;
@@ -340,19 +346,21 @@ MrsStatus::MrsStatus() {
 
   uav_state_window_ = new StatusWindow(6, 30, 5, 1, uav_state_topics_);
 
-  mavros_state_topics_.push_back(topic{100.0});
-  mavros_state_topics_.push_back(topic{1.0});
-  mavros_state_topics_.push_back(topic{100.0});
-
-  mavros_state_window_ = new StatusWindow(6, 30, 5, 31, mavros_state_topics_);
-
   control_manager_topics_.push_back(topic{10.0});
   control_manager_topics_.push_back(topic{1.0});
   control_manager_topics_.push_back(topic{1.0});
 
   control_manager_window_ = new StatusWindow(4, 30, 1, 1, control_manager_topics_);
 
-  generic_topics_window_ = new StatusWindow(10, 30, 1, 62, generic_topics_vec_);
+  mavros_state_topics_.push_back(topic{100.0});
+  mavros_state_topics_.push_back(topic{1.0});
+  mavros_state_topics_.push_back(topic{100.0});
+
+  mavros_state_window_ = new StatusWindow(6, 30, 5, 31, mavros_state_topics_);
+
+  general_info_window_ = new StatusWindow(4, 30, 1, 31, general_info_topics_);
+
+  generic_topics_window_ = new StatusWindow(10, 30, 1, 61, generic_topics_vec_);
 
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
@@ -366,44 +374,21 @@ MrsStatus::MrsStatus() {
 
 void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
-  clear();
-  std::ifstream fileStat("/proc/stat");
-  std::string   line;
-  std::getline(fileStat, line);
-
-  std::vector<std::string> results;
-  boost::split(results, line, [](char c) { return c == ' '; });
-
-  long idle;
-  long non_idle;
-  long total;
-
-  try {
-    idle     = std::stol(results[5]) + std::stol(results[6]);
-    non_idle = std::stol(results[2]) + std::stol(results[3]) + std::stol(results[4]) + std::stol(results[7]) + std::stol(results[8]) + std::stol(results[9]);
-    total    = idle + non_idle;
-  }
-  catch (const std::invalid_argument& e) {
-    idle = 0;
-    non_idle = 0;
-    total = 0;
-  }
-
-  long total_diff = total - last_total_;
-  long idle_diff  = idle - last_idle_;
-
-  double cpu_load = 100*(double(total_diff - idle_diff) / double(total_diff));
-
-  last_total_ = total;
-  last_idle_ = idle;
-
-  mvwprintw(stdscr, 22, 22, "%f", cpu_load);
-
   uav_state_window_->Redraw(&MrsStatus::UavStateHandler, this);
   mavros_state_window_->Redraw(&MrsStatus::MavrosStateHandler, this);
   control_manager_window_->Redraw(&MrsStatus::ControlManagerHandler, this);
   generic_topics_window_->Redraw(&MrsStatus::GenericTopicHandler, this);
+  general_info_window_->Redraw(&MrsStatus::GeneralInfoHandler, this);
   refresh();
+}
+
+//}
+
+/* GeneralInfoHandler() //{ */
+
+void MrsStatus::GeneralInfoHandler(WINDOW* win, double rate, short color, int topic) {
+
+  PrintCpuLoad(win);
 }
 
 //}
@@ -609,6 +594,54 @@ void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int
       }
       break;
   }
+}
+
+//}
+
+/* PrintCpuLoad() //{ */
+
+void MrsStatus::PrintCpuLoad(WINDOW* win) {
+
+  std::ifstream fileStat("/proc/stat");
+  std::string   line;
+  std::getline(fileStat, line);
+
+  std::vector<std::string> results;
+  boost::split(results, line, [](char c) { return c == ' '; });
+
+  long idle;
+  long non_idle;
+  long total;
+
+  try {
+    idle     = std::stol(results[5]) + std::stol(results[6]);
+    non_idle = std::stol(results[2]) + std::stol(results[3]) + std::stol(results[4]) + std::stol(results[7]) + std::stol(results[8]) + std::stol(results[9]);
+    total    = idle + non_idle;
+  }
+  catch (const std::invalid_argument& e) {
+    idle     = 0;
+    non_idle = 0;
+    total    = 0;
+  }
+
+  long total_diff = total - last_total_;
+  long idle_diff  = idle - last_idle_;
+
+  double cpu_load = 100 * (double(total_diff - idle_diff) / double(total_diff));
+
+  last_total_ = total;
+  last_idle_  = idle;
+
+  int tmp_color = GREEN;
+  if (cpu_load > 80.0) {
+    tmp_color = RED;
+  } else if (cpu_load > 60.0) {
+    tmp_color = YELLOW;
+  }
+
+  wattron(win, COLOR_PAIR(tmp_color));
+
+  PrintLimitedDouble(win, 1, 1, "CPU load: %4.1f", cpu_load, 100);
 }
 
 //}

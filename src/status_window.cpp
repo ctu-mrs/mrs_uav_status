@@ -14,6 +14,10 @@ void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short 
   box(win_, '|', '-');
 
   int tmp_color = RED;
+  
+  if (topics_.size() == 0) {
+    (obj->*fp)(win_, 0, NORMAL, 0);
+  }
 
   for (unsigned long i = 0; i < topics_.size(); i++) {
 
