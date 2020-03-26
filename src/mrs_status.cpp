@@ -54,80 +54,74 @@ class MrsStatus;
 class Menu {
 
 public:
-  Menu(std::shared_ptr<WINDOW> win);
-  Menu(std::shared_ptr<WINDOW> win, std::vector<string> menu_items);
-  void Activate();
+  Menu();
+  Menu(std::vector<string> menu_items);
+
+  int Iterate(int ch);
 
 private:
-  std::shared_ptr<WINDOW> win;
-  std::vector<string>     menu_items;
+  WINDOW*             win_;
+  std::vector<string> menu_items;
+  int                 i = 0;
 };
 
 //}
 
 /* Menu() //{ */
 
-Menu::Menu(std::shared_ptr<WINDOW> win) {
+Menu::Menu() {
 
-  this->win = win;  // set the pointer to the window that this menu is contained in
+  win_ = newwin(10, 12, 1, 1);
+  curs_set(0);  // hide the default screen cursor.
+  Iterate(0);
 }
 
-Menu::Menu(std::shared_ptr<WINDOW> win, std::vector<string> menu_items) {
+Menu::Menu(std::vector<string> menu_items) {
 
-  this->win        = win;         // set the pointer to the window that this menu is contained in
+  win_             = newwin(10, 12, 1, 1);
   this->menu_items = menu_items;  // set the pointer to the window that this menu is contained in
+  curs_set(0);                    // hide the default screen cursor.
+  Iterate(0);
 }
 
-void Menu::Activate() {
+//}
 
-  box(win.get(), '|', '-');
+/* Iterate() //{ */
+
+int Menu::Iterate(int ch) {
+
+  int ret_val = 0;
+
+  box(win_, '*', '*');
 
   for (unsigned long i = 0; i < menu_items.size(); i++) {
 
-    if (i == 0)
+    mvwaddstr(win_, i + 1, 2, menu_items[i].c_str());
+  }
+  // right pad with spaces to make the items appear with even width.
 
-      wattron(win.get(), A_STANDOUT);  // highlights the first item.
-
-    else
-
-      wattroff(win.get(), A_STANDOUT);
-
-    mvwaddstr(win.get(), i + 1, 2, menu_items[i].c_str());
+  mvwaddstr(win_, i + 1, 2, menu_items[i].c_str());
+  // use a variable to increment or decrement the value based on the input.
+  if (ch == KEY_UP || ch == 'k') {
+    i--;
+    i = (i < 0) ? menu_items.size() - 1 : i;
+  } else if (ch == KEY_DOWN || ch == 'j') {
+    i++;
+    i = (i > int(menu_items.size() - 1)) ? 0 : i;
+  } else if (ch == KEY_ENT) {
+    ret_val = i + 100;
+  } else if (ch == 'q' || ch == KEY_ESC) {
   }
 
-  wrefresh(win.get());  // update the terminal screen
+  // now highlight the next item in the list.
+  //
+  wattron(win_, A_STANDOUT);
+  mvwaddstr(win_, i + 1, 2, menu_items[i].c_str());
+  wattroff(win_, A_STANDOUT);
 
-  keypad(win.get(), TRUE);  // enable keyboard input for the window.
-  curs_set(0);              // hide the default screen cursor.
+  wrefresh(win_);  // update the terminal screen
 
-  int  ch  = 0;
-  int  i   = 0;
-  bool run = true;
-
-  while (run) {
-    ch = wgetch(win.get());
-    // right pad with spaces to make the items appear with even width.
-
-    mvwaddstr(win.get(), i + 1, 2, menu_items[i].c_str());
-    // use a variable to increment or decrement the value based on the input.
-    if (ch == KEY_UP || ch == 'k') {
-      i--;
-      i = (i < 0) ? menu_items.size() - 1 : i;
-    } else if (ch == KEY_DOWN || ch == 'j') {
-      i++;
-      i = (i > int(menu_items.size() - 1)) ? 0 : i;
-    } else if (ch == KEY_ENT) {
-      menu_items[i] = "e";
-    } else if (ch == 'q' || ch == KEY_ESC) {
-      run = false;
-    }
-
-    // now highlight the next item in the list.
-    //
-    wattron(win.get(), A_STANDOUT);
-    mvwaddstr(win.get(), i + 1, 2, menu_items[i].c_str());
-    wattroff(win.get(), A_STANDOUT);
-  }
+  return ret_val;
 }
 
 //}
@@ -211,21 +205,27 @@ private:
   mrs_msgs::ConstraintManagerDiagnostics constraint_manager_;
 
   StatusWindow*      uav_state_window_;
-  std::vector<topic> uav_state_topics_;
+  std::vector<topic> uav_state_topic_;
 
   StatusWindow*      mavros_state_window_;
-  std::vector<topic> mavros_state_topics_;
+  std::vector<topic> mavros_state_topic_;
 
   StatusWindow*      control_manager_window_;
-  std::vector<topic> control_manager_topics_;
+  std::vector<topic> control_manager_topic_;
 
   StatusWindow*      general_info_window_;
-  std::vector<topic> general_info_topics_;
+  std::vector<topic> general_info_topic_;
 
-  StatusWindow*                generic_topics_window_;
-  std::vector<topic>           generic_topics_vec_;
-  std::vector<string>          generic_topics_input_vec_;
+  StatusWindow*                generic_topic_window_;
+  std::vector<topic>           generic_topic_vec_;
+  std::vector<string>          generic_topic_input_vec_;
   std::vector<ros::Subscriber> generic_subscriber_vec_;
+
+  Menu*             menu_;
+  std::vector<Menu> menu_vec_;
+
+  std::vector<service>            service_vec_;
+  std::vector<ros::ServiceClient> service_client_vec_;
 };
 
 //}
@@ -264,48 +264,45 @@ MrsStatus::MrsStatus() {
   }
 
 
+  /* Generic topic definitions //{ */
+
   std::vector<std::string> results;
   split(results, _sensors_, boost::is_any_of(", "), boost::token_compress_on);
 
-  std::vector<string> generic_topics_input_vec_;
+  std::vector<string> generic_topic_input_vec_;
 
   if (_pixgarm_) {
-    generic_topics_input_vec_.push_back("mavros/distance_sensor/garmin Garmin_pix 80+");
+    generic_topic_input_vec_.push_back("mavros/distance_sensor/garmin Garmin_pix 80+");
   }
 
   for (int i = 0; i < results.size(); i++) {
     if (results[i] == "garmin_down" && _pixgarm_ == false) {
-      generic_topics_input_vec_.push_back("garmin/range Garmin_Down 80+");
+      generic_topic_input_vec_.push_back("garmin/range Garmin_Down 80+");
 
     } else if (results[i] == "garmin_up") {
-      generic_topics_input_vec_.push_back("garmin/range_up Garmin_Up 80+");
+      generic_topic_input_vec_.push_back("garmin/range_up Garmin_Up 80+");
 
     } else if (results[i] == "realsense_brick") {
-      generic_topics_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Brick 25+");
+      generic_topic_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Brick 25+");
 
     } else if (results[i] == "realsense_front") {
-      generic_topics_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Front 25+");
+      generic_topic_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Front 25+");
 
     } else if (results[i] == "bluefox_brick") {
-      generic_topics_input_vec_.push_back("bluefox_brick/camera_info Bluefox_Brick 25+");
+      generic_topic_input_vec_.push_back("bluefox_brick/camera_info Bluefox_Brick 25+");
 
     } else if (results[i] == "bluefox_optflow") {
-      generic_topics_input_vec_.push_back("bluefox_optflow/camera_info Bluefox_Optflow 60+");
-      generic_topics_input_vec_.push_back("optic_flow/velocity Optic_flow 60+");
+      generic_topic_input_vec_.push_back("bluefox_optflow/camera_info Bluefox_Optflow 60+");
+      generic_topic_input_vec_.push_back("optic_flow/velocity Optic_flow 60+");
 
     } else if (results[i] == "trinocular_thermal") {
-      generic_topics_input_vec_.push_back("thermal/top/rgb_image Thermal_Top 15+");
-      generic_topics_input_vec_.push_back("thermal/middle/rgb_image Thermal_Middle 15+");
-      generic_topics_input_vec_.push_back("thermal/bottom/rgb_image Thermal_Bottom 15+");
+      generic_topic_input_vec_.push_back("thermal/top/rgb_image Thermal_Top 15+");
+      generic_topic_input_vec_.push_back("thermal/middle/rgb_image Thermal_Middle 15+");
+      generic_topic_input_vec_.push_back("thermal/bottom/rgb_image Thermal_Bottom 15+");
 
     } else if (results[i] == "rplidar") {
-      generic_topics_input_vec_.push_back("rplidar/scan Rplidar 10+");
+      generic_topic_input_vec_.push_back("rplidar/scan Rplidar 10+");
     }
-
-    /* } else if (results[i] == "rplidar") { */
-    /*   generic_topics_input_vec_.push_back("rplidar/scan Rplidar 10+"); */
-    /* } */
-
 
     /* if str(self.PIXGARM) == "true": */
     /*             self.param_list.insert(0, "mavros/distance_sensor/garmin Garmin_pix 80+") */
@@ -326,10 +323,10 @@ MrsStatus::MrsStatus() {
 
   boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;  // generic callback
 
-  for (unsigned long i = 0; i < generic_topics_input_vec_.size(); i++) {
+  for (unsigned long i = 0; i < generic_topic_input_vec_.size(); i++) {
 
     std::vector<std::string> results;
-    boost::split(results, generic_topics_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
+    boost::split(results, generic_topic_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
     if (results[2].back() == '+') {
       // TODO handle the + sign
       results[2].pop_back();
@@ -337,10 +334,10 @@ MrsStatus::MrsStatus() {
 
     topic tmp_topic(results[0], results[1], std::stoi(results[2]));
 
-    generic_topics_vec_.push_back(tmp_topic);
+    generic_topic_vec_.push_back(tmp_topic);
 
     int    id         = i;  // id to identify which topic called the generic callback
-    string topic_name = "/" + _uav_name_ + "/" + generic_topics_vec_[i].topic_name;
+    string topic_name = "/" + _uav_name_ + "/" + generic_topic_vec_[i].topic_name;
 
     callback                       = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name, id); };
     ros::Subscriber tmp_subscriber = nh_.subscribe(topic_name, 1, callback);
@@ -348,25 +345,50 @@ MrsStatus::MrsStatus() {
     generic_subscriber_vec_.push_back(tmp_subscriber);
   }
 
-  uav_state_topics_.push_back(topic{100.0});
+  //}
 
-  uav_state_window_ = new StatusWindow(6, 30, 5, 1, uav_state_topics_);
+  std::vector<string> service_input_vec_;
 
-  control_manager_topics_.push_back(topic{10.0});
-  control_manager_topics_.push_back(topic{1.0});
-  control_manager_topics_.push_back(topic{1.0});
+  service_input_vec_.push_back("control_manager/eland E-Land");
 
-  control_manager_window_ = new StatusWindow(4, 30, 1, 1, control_manager_topics_);
 
-  mavros_state_topics_.push_back(topic{100.0});
-  mavros_state_topics_.push_back(topic{1.0});
-  mavros_state_topics_.push_back(topic{100.0});
+  for (unsigned long i = 0; i < service_input_vec_.size(); i++) {
 
-  mavros_state_window_ = new StatusWindow(6, 30, 5, 31, mavros_state_topics_);
+    std::vector<std::string> results;
+    boost::split(results, service_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
 
-  general_info_window_ = new StatusWindow(4, 30, 1, 31, general_info_topics_);
+    service tmp_service(results[0], results[1]);
 
-  generic_topics_window_ = new StatusWindow(10, 30, 1, 61, generic_topics_vec_);
+    service_vec_.push_back(tmp_service);
+
+    string service_name = "/" + _uav_name_ + "/" + results[0];
+
+    ros::ServiceClient tmp_service_client;
+    tmp_service_client = nh_.serviceClient<std_srvs::Trigger>(service_name);
+
+    service_client_vec_.push_back(tmp_service_client);
+  }
+
+
+  uav_state_topic_.push_back(topic{100.0});
+
+  uav_state_window_ = new StatusWindow(6, 30, 5, 1, uav_state_topic_);
+
+  control_manager_topic_.push_back(topic{10.0});
+  control_manager_topic_.push_back(topic{1.0});
+  control_manager_topic_.push_back(topic{1.0});
+
+  control_manager_window_ = new StatusWindow(4, 30, 1, 1, control_manager_topic_);
+
+  mavros_state_topic_.push_back(topic{100.0});
+  mavros_state_topic_.push_back(topic{1.0});
+  mavros_state_topic_.push_back(topic{100.0});
+
+  mavros_state_window_ = new StatusWindow(6, 30, 5, 31, mavros_state_topic_);
+
+  general_info_window_ = new StatusWindow(4, 30, 1, 31, general_info_topic_);
+
+  generic_topic_window_ = new StatusWindow(10, 30, 1, 61, generic_topic_vec_);
 
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
@@ -383,8 +405,45 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   uav_state_window_->Redraw(&MrsStatus::UavStateHandler, this);
   mavros_state_window_->Redraw(&MrsStatus::MavrosStateHandler, this);
   control_manager_window_->Redraw(&MrsStatus::ControlManagerHandler, this);
-  generic_topics_window_->Redraw(&MrsStatus::GenericTopicHandler, this);
+  generic_topic_window_->Redraw(&MrsStatus::GenericTopicHandler, this);
   general_info_window_->Redraw(&MrsStatus::GeneralInfoHandler, this);
+
+  int key_in = getch();
+
+  /* ROS_INFO("slon"); */
+
+  if (menu_vec_.empty()) {
+    if (key_in == 'm') {
+
+      std::vector<string> items;
+
+      for (unsigned long i = 0; i < service_vec_.size(); i++) {
+
+        items.push_back(service_vec_[i].service_display_name);
+      }
+
+      /* std::shared_ptr<WINDOW> menu_win(newwin(10, 12, 1, 1)); */
+      Menu menu(items);
+      menu_vec_.push_back(menu);
+    }
+  } else {
+    if (key_in == KEY_ESC || key_in == 'q') {
+
+      menu_vec_.clear();
+
+    } else {
+
+      int action = menu_vec_[0].Iterate(key_in);
+
+      if (action != 0) {
+
+        std_srvs::Trigger trig;
+        service_client_vec_[action - 100].call(trig);
+        menu_vec_.clear();
+      }
+    }
+  }
+
   refresh();
 }
 
@@ -406,7 +465,7 @@ void MrsStatus::GeneralInfoHandler(WINDOW* win, double rate, short color, int to
 
 void MrsStatus::GenericTopicHandler(WINDOW* win, double rate, short color, int topic) {
 
-  PrintLimitedString(win, 1 + topic, 1, generic_topics_vec_[topic].topic_display_name, 19);
+  PrintLimitedString(win, 1 + topic, 1, generic_topic_vec_[topic].topic_display_name, 19);
   PrintLimitedDouble(win, 1 + topic, 21, "%5.1f Hz", rate, 1000);
 }
 
@@ -682,10 +741,6 @@ void MrsStatus::PrintMemLoad(WINDOW* win) {
   wattron(win, COLOR_PAIR(tmp_color));
 
   PrintLimitedDouble(win, 2, 1, "RAM free: %4.1f G", (ram_free + buffers), 100);
-
-  /* wattron(win, COLOR_PAIR(NORMAL)); */
-
-  /* PrintLimitedDouble(win, 2, 15, "/%4.1f", ram_total, 100); */
 }
 
 //}
@@ -896,7 +951,7 @@ void MrsStatus::PrintNoData(WINDOW* win, int y, int x, string text) {
 /* UavStateCallback() //{ */
 
 void MrsStatus::UavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
-  uav_state_topics_[0].counter++;
+  uav_state_topic_[0].counter++;
   uav_state_ = *msg;
 }
 
@@ -905,7 +960,7 @@ void MrsStatus::UavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
 /* MavrosStateCallback() //{ */
 
 void MrsStatus::MavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
-  mavros_state_topics_[0].counter++;
+  mavros_state_topic_[0].counter++;
   mavros_state_ = *msg;
 }
 
@@ -914,7 +969,7 @@ void MrsStatus::MavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
 /* BatteryCallback() //{ */
 
 void MrsStatus::BatteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
-  mavros_state_topics_[1].counter++;
+  mavros_state_topic_[1].counter++;
   battery_ = *msg;
 }
 
@@ -923,7 +978,7 @@ void MrsStatus::BatteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
 /* MavrosAttitudeCallback() //{ */
 
 void MrsStatus::MavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg) {
-  mavros_state_topics_[2].counter++;
+  mavros_state_topic_[2].counter++;
   mavros_attitude_ = *msg;
 }
 
@@ -932,7 +987,7 @@ void MrsStatus::MavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr
 /* ControlManagerCallback() //{ */
 
 void MrsStatus::ControlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
-  control_manager_topics_[0].counter++;
+  control_manager_topic_[0].counter++;
   control_manager_ = *msg;
 }
 
@@ -941,7 +996,7 @@ void MrsStatus::ControlManagerCallback(const mrs_msgs::ControlManagerDiagnostics
 /* GainManagerCallback() //{ */
 
 void MrsStatus::GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
-  control_manager_topics_[1].counter++;
+  control_manager_topic_[1].counter++;
   gain_manager_ = *msg;
 }
 
@@ -950,7 +1005,7 @@ void MrsStatus::GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstP
 /* ConstraintManagerCallback() //{ */
 
 void MrsStatus::ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
-  control_manager_topics_[2].counter++;
+  control_manager_topic_[2].counter++;
   constraint_manager_ = *msg;
 }
 
@@ -959,7 +1014,7 @@ void MrsStatus::ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagn
 /* GenericCallback() //{ */
 
 void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name, const int id) {
-  generic_topics_vec_[id].counter++;
+  generic_topic_vec_[id].counter++;
 }
 
 //}
@@ -976,6 +1031,7 @@ int main(int argc, char** argv) {
   cbreak();
   noecho();
   clear();
+  timeout(0);
   curs_set(0);  // disable cursor
   use_default_colors();
 
@@ -1004,11 +1060,6 @@ int main(int argc, char** argv) {
   //}
 
   MrsStatus status;
-
-  /* std::shared_ptr<WINDOW> menu_win(newwin(10, 12, 1, 1)); */
-  /* Menu menu(menu_win, items); */
-  /* menu.Activate(); */
-  /* endwin(); */
 
   while (ros::ok()) {
 

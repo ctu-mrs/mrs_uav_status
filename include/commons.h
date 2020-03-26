@@ -48,3 +48,15 @@ struct topic
     zero_counter       = 0;
   }
 };
+
+struct service
+{
+  std::string          service_name;
+  std::string          service_display_name;
+
+  service (std::string name_in, std::string display_name_in) {
+  service_name  = name_in;
+  service_display_name = display_name_in;
+  }
+
+};
