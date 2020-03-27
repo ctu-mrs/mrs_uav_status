@@ -18,6 +18,8 @@
 #include <mrs_msgs/GainManagerDiagnostics.h>
 #include <mrs_msgs/ConstraintManagerDiagnostics.h>
 
+#include <mrs_msgs/ReferenceStampedSrv.h>
+
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/AttitudeTarget.h>
 
@@ -54,33 +56,57 @@ class MrsStatus;
 class Menu {
 
 public:
-  Menu();
-  Menu(std::vector<string> menu_items);
+  Menu(int lines, int cols, int begin_y, int begin_x, ros::NodeHandle& nh, std::string uav_name);
 
   int Iterate(int ch);
 
 private:
-  WINDOW*             win_;
-  std::vector<string> menu_items;
-  int                 i = 0;
+  WINDOW*          win_;
+  ros::NodeHandle& nh_;
+  int              i = 0;
+
+  std::string                     _uav_name_;
+  std::vector<service>            service_vec_;
+  std::vector<ros::ServiceClient> service_client_vec_;
+
+  Menu* sub_menu_;
+  bool  sub_menu_open_ = false;
 };
 
 //}
 
 /* Menu() //{ */
 
-Menu::Menu() {
+Menu::Menu(int lines, int cols, int begin_y, int begin_x, ros::NodeHandle& nh, std::string uav_name) : nh_(nh) {
 
   win_ = newwin(10, 12, 1, 1);
+  win_ = newwin(lines, cols, begin_y, begin_x);
+  /* nh_              = nh; */
+  _uav_name_ = uav_name;
   curs_set(0);  // hide the default screen cursor.
-  Iterate(0);
-}
 
-Menu::Menu(std::vector<string> menu_items) {
+  std::vector<string> service_input_vec_;
 
-  win_             = newwin(10, 12, 1, 1);
-  this->menu_items = menu_items;  // set the pointer to the window that this menu is contained in
-  curs_set(0);                    // hide the default screen cursor.
+  service_input_vec_.push_back("control_manager/eland E-Land");
+
+
+  for (unsigned long i = 0; i < service_input_vec_.size(); i++) {
+
+    std::vector<std::string> results;
+    boost::split(results, service_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
+
+    service tmp_service(results[0], results[1]);
+
+    service_vec_.push_back(tmp_service);
+
+    string service_name = "/" + _uav_name_ + "/" + results[0];
+
+    ros::ServiceClient tmp_service_client;
+    tmp_service_client = nh_.serviceClient<std_srvs::Trigger>(service_name);
+
+    service_client_vec_.push_back(tmp_service_client);
+  }
+
   Iterate(0);
 }
 
@@ -89,39 +115,46 @@ Menu::Menu(std::vector<string> menu_items) {
 /* Iterate() //{ */
 
 int Menu::Iterate(int ch) {
+  if (sub_menu_open_) {
+    sub_menu_->Iterate(ch);
 
-  int ret_val = 0;
+  } else {
 
-  box(win_, '*', '*');
+    int ret_val = 0;
 
-  for (unsigned long i = 0; i < menu_items.size(); i++) {
+    box(win_, '*', '*');
 
-    mvwaddstr(win_, i + 1, 2, menu_items[i].c_str());
+    for (unsigned long i = 0; i < service_vec_.size(); i++) {
+
+      mvwaddstr(win_, i + 1, 2, service_vec_[i].service_display_name.c_str());
+    }
+
+    // use a variable to increment or decrement the value based on the input.
+    if (ch == KEY_UP || ch == 'k') {
+      i--;
+      i = (i < 0) ? service_vec_.size() - 1 : i;
+    } else if (ch == KEY_DOWN || ch == 'j') {
+      i++;
+      i = (i > int(service_vec_.size() - 1)) ? 0 : i;
+    } else if (ch == KEY_ENT) {
+      /* std_srvs::Trigger trig; */
+      /* service_client_vec_[i].call(trig); */
+      sub_menu_ = new Menu(10, 12, 3, 3, nh_, _uav_name_);
+      sub_menu_open_ == true;
+      sub_menu_->Iterate(0);
+
+    } else if (ch == 'q' || ch == KEY_ESC) {
+    }
+
+    // now highlight the next item in the list.
+    wattron(win_, A_STANDOUT);
+    mvwaddstr(win_, i + 1, 2, service_vec_[i].service_display_name.c_str());
+    wattroff(win_, A_STANDOUT);
+
+    wrefresh(win_);  // update the terminal screen
+
+    return ret_val;
   }
-  // right pad with spaces to make the items appear with even width.
-
-  mvwaddstr(win_, i + 1, 2, menu_items[i].c_str());
-  // use a variable to increment or decrement the value based on the input.
-  if (ch == KEY_UP || ch == 'k') {
-    i--;
-    i = (i < 0) ? menu_items.size() - 1 : i;
-  } else if (ch == KEY_DOWN || ch == 'j') {
-    i++;
-    i = (i > int(menu_items.size() - 1)) ? 0 : i;
-  } else if (ch == KEY_ENT) {
-    ret_val = i + 100;
-  } else if (ch == 'q' || ch == KEY_ESC) {
-  }
-
-  // now highlight the next item in the list.
-  //
-  wattron(win_, A_STANDOUT);
-  mvwaddstr(win_, i + 1, 2, menu_items[i].c_str());
-  wattroff(win_, A_STANDOUT);
-
-  wrefresh(win_);  // update the terminal screen
-
-  return ret_val;
 }
 
 //}
@@ -182,6 +215,8 @@ private:
   ros::Subscriber gain_manager_subscriber_;
   ros::Subscriber constraint_manager_subscriber_;
 
+  ros::ServiceClient service_goto_reference_;
+
   std::string _uav_name_;
   std::string _uav_type_;
   std::string _sensors_;
@@ -221,11 +256,7 @@ private:
   std::vector<string>          generic_topic_input_vec_;
   std::vector<ros::Subscriber> generic_subscriber_vec_;
 
-  Menu*             menu_;
   std::vector<Menu> menu_vec_;
-
-  std::vector<service>            service_vec_;
-  std::vector<ros::ServiceClient> service_client_vec_;
 };
 
 //}
@@ -248,6 +279,9 @@ MrsStatus::MrsStatus() {
   control_manager_subscriber_    = nh_.subscribe("control_manager_in", 1, &MrsStatus::ControlManagerCallback, this, ros::TransportHints().tcpNoDelay());
   gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 1, &MrsStatus::GainManagerCallback, this, ros::TransportHints().tcpNoDelay());
   constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &MrsStatus::ConstraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
+
+  // SERVICES
+  service_goto_reference_ = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
 
   mrs_lib::ParamLoader param_loader(nh_, "MrsStatus");
 
@@ -347,28 +381,6 @@ MrsStatus::MrsStatus() {
 
   //}
 
-  std::vector<string> service_input_vec_;
-
-  service_input_vec_.push_back("control_manager/eland E-Land");
-
-
-  for (unsigned long i = 0; i < service_input_vec_.size(); i++) {
-
-    std::vector<std::string> results;
-    boost::split(results, service_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
-
-    service tmp_service(results[0], results[1]);
-
-    service_vec_.push_back(tmp_service);
-
-    string service_name = "/" + _uav_name_ + "/" + results[0];
-
-    ros::ServiceClient tmp_service_client;
-    tmp_service_client = nh_.serviceClient<std_srvs::Trigger>(service_name);
-
-    service_client_vec_.push_back(tmp_service_client);
-  }
-
 
   uav_state_topic_.push_back(topic{100.0});
 
@@ -415,15 +427,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   if (menu_vec_.empty()) {
     if (key_in == 'm') {
 
-      std::vector<string> items;
-
-      for (unsigned long i = 0; i < service_vec_.size(); i++) {
-
-        items.push_back(service_vec_[i].service_display_name);
-      }
-
-      /* std::shared_ptr<WINDOW> menu_win(newwin(10, 12, 1, 1)); */
-      Menu menu(items);
+      Menu menu(10, 12, 1, 1, nh_, _uav_name_);
       menu_vec_.push_back(menu);
     }
   } else {
@@ -435,12 +439,12 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
       int action = menu_vec_[0].Iterate(key_in);
 
-      if (action != 0) {
+      /* if (action != 0) { */
 
-        std_srvs::Trigger trig;
-        service_client_vec_[action - 100].call(trig);
-        menu_vec_.clear();
-      }
+      /*   /1* std_srvs::Trigger trig; *1/ */
+      /*   /1* service_client_vec_[action - 100].call(trig); *1/ */
+      /*   menu_vec_.clear(); */
+      /* } */
     }
   }
 
