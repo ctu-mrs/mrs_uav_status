@@ -65,10 +65,10 @@ class Status:
         self.count_gains = self.count_gains + 1
 
     def ControlManagerDiagnostics(self, data):
-        self.controller_status = data.controller_status
+
+        self.control_manager_diag = data
         self.count_controller = self.count_controller + 1
 
-        self.tracker_status = data.tracker_status
         self.count_tracker = self.count_tracker + 1
 
     def AttitudeCmdCallback(self, data):
@@ -822,7 +822,7 @@ class Status:
             controller = "NO CONTROLLER"
             tmp_color = red
         else:
-            controller = self.controller_status.controller.rsplit('/', 1)[-1]
+            controller = self.control_manager_diag.active_controller.rsplit('/', 1)[-1]
     
         if controller == "So3Controller" or controller == "MpcController":
             tmp_color = green
@@ -866,7 +866,7 @@ class Status:
             tmp_color = red
             self.tracker_flag = False
         else:
-            self.tracker = self.tracker_status.tracker.rsplit('/', 1)[-1]
+            self.tracker = self.control_manager_diag.active_tracker.rsplit('/', 1)[-1]
             if self.tracker == "NullTracker":
                 self.tracker_flag = False
             else:
@@ -1345,8 +1345,7 @@ class Status:
 
         # #{ Var definitions
         
-        self.tracker_status = TrackerStatus()
-        self.controller_status = ControllerStatus()
+        self.control_manager_diag = ControlManagerDiagnostics()
         self.uav_state = UavState()
         self.mavros_state = State()
         self.attitude_cmd = AttitudeCommand()
