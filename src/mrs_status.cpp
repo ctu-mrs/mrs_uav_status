@@ -19,6 +19,7 @@
 #include <mrs_msgs/ConstraintManagerDiagnostics.h>
 
 #include <mrs_msgs/ReferenceStampedSrv.h>
+#include <mrs_msgs/Vec4.h>
 
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/AttitudeTarget.h>
@@ -88,6 +89,7 @@ Menu::Menu(int lines, int cols, int begin_y, int begin_x, ros::NodeHandle& nh, s
   std::vector<string> service_input_vec_;
 
   service_input_vec_.push_back("control_manager/eland E-Land");
+  service_input_vec_.push_back("control_manager/landoff_trackereland Land");
 
 
   for (unsigned long i = 0; i < service_input_vec_.size(); i++) {
@@ -216,11 +218,14 @@ private:
   ros::Subscriber constraint_manager_subscriber_;
 
   ros::ServiceClient service_goto_reference_;
+  ros::ServiceClient service_goto_fcu_;
 
   std::string _uav_name_;
   std::string _uav_type_;
   std::string _sensors_;
   bool        _pixgarm_;
+
+  bool retard_mode_ = false;
 
   bool initialized_ = false;
 
@@ -282,6 +287,7 @@ MrsStatus::MrsStatus() {
 
   // SERVICES
   service_goto_reference_ = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
+  service_goto_fcu_       = nh_.serviceClient<mrs_msgs::Vec4>("goto_fcu_out");
 
   mrs_lib::ParamLoader param_loader(nh_, "MrsStatus");
 
@@ -421,30 +427,97 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   general_info_window_->Redraw(&MrsStatus::GeneralInfoHandler, this);
 
   int key_in = getch();
+  flushinp();
 
-  /* ROS_INFO("slon"); */
+  if (key_in == 'R') {
+    retard_mode_ = !retard_mode_;
+  }
 
-  if (menu_vec_.empty()) {
-    if (key_in == 'm') {
+  if (retard_mode_) {
 
-      Menu menu(10, 12, 1, 1, nh_, _uav_name_);
-      menu_vec_.push_back(menu);
+    wattron(stdscr, COLOR_PAIR(RED));
+    mvwprintw(stdscr, 0, 30, "RETARD MODE IS ACTIVE, YOU HAVE CONTROL");
+    wattroff(stdscr, COLOR_PAIR(RED));
+
+    mrs_msgs::Vec4 goal;
+    goal.request.goal[0] = 0.0;
+    goal.request.goal[1] = 0.0;
+    goal.request.goal[2] = 0.0;
+    goal.request.goal[3] = 0.0;
+
+
+    switch (key_in) {
+      case 'w':
+        goal.request.goal[0] = 2.0;
+        service_goto_fcu_.call(goal);
+        mvwprintw(stdscr, 0, 0, " forward ");
+        break;
+      case 's':
+        goal.request.goal[0] = -2.0;
+        service_goto_fcu_.call(goal);
+        mvwprintw(stdscr, 0, 0, " backward ");
+        break;
+      case 'a':
+        goal.request.goal[1] = 2.0;
+        service_goto_fcu_.call(goal);
+        mvwprintw(stdscr, 0, 0, " left ");
+        break;
+      case 'd':
+        goal.request.goal[1] = -2.0;
+        service_goto_fcu_.call(goal);
+        mvwprintw(stdscr, 0, 0, " right ");
+        break;
+      case 'r':
+        goal.request.goal[2] = 1.0;
+        service_goto_fcu_.call(goal);
+        mvwprintw(stdscr, 0, 0, " up ");
+        break;
+      case 'f':
+        goal.request.goal[2] = -1.0;
+        service_goto_fcu_.call(goal);
+        mvwprintw(stdscr, 0, 0, " down ");
+        break;
+      case 'q':
+        goal.request.goal[3] = 0.5;
+        service_goto_fcu_.call(goal);
+        mvwprintw(stdscr, 0, 0, " yaw left ");
+        break;
+      case 'e':
+        goal.request.goal[3] = -0.5;
+        service_goto_fcu_.call(goal);
+        mvwprintw(stdscr, 0, 0, " yaw_right ");
+        break;
+
+      default:
+        mvwprintw(stdscr, 0, 0, "              ");
+        mvwprintw(stdscr, 0, 0, "%i", key_in);
+        break;
     }
   } else {
-    if (key_in == KEY_ESC || key_in == 'q') {
 
-      menu_vec_.clear();
+    mvwprintw(stdscr, 0, 30, "                                       ");
+    if (menu_vec_.empty()) {
+      if (key_in == 'm') {
 
+        Menu menu(10, 12, 1, 1, nh_, _uav_name_);
+        menu_vec_.push_back(menu);
+      }
     } else {
+      if (key_in == KEY_ESC || key_in == 'q') {
 
-      int action = menu_vec_[0].Iterate(key_in);
+        menu_vec_.clear();
 
-      /* if (action != 0) { */
+      } else {
 
-      /*   /1* std_srvs::Trigger trig; *1/ */
-      /*   /1* service_client_vec_[action - 100].call(trig); *1/ */
-      /*   menu_vec_.clear(); */
-      /* } */
+        int action = menu_vec_[0].Iterate(key_in);
+
+        /* if (action != 0) { */
+
+        /*   /1* std_srvs::Trigger trig; *1/ */
+        /*   /1* service_client_vec_[action - 100].call(trig); *1/ */
+        /*   menu_vec_.clear(); */
+        /* } */
+      }
     }
   }
 
