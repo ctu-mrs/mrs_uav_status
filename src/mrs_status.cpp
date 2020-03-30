@@ -2,11 +2,8 @@
 /* INCLUDES //{ */
 
 #include <status_window.h>
-/* #include <commons.h> */
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <mutex>
+#include <menu.h>
+#include <commons.h>
 
 #include <fstream>
 
@@ -30,10 +27,6 @@
 
 #include <sensor_msgs/BatteryState.h>
 
-#include <boost/function.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
-
 #include <mrs_lib/transformer.h>
 #include <mrs_lib/ParamLoader.h>
 
@@ -44,131 +37,6 @@ using topic_tools::ShapeShifter;
 //}
 
 class MrsStatus;
-
-/* MENU CLASS //{ */
-
-/* ------------------- MENU CLASS ------------------- */
-
-#define KEY_ENT 10
-#define KEY_ESC 27
-
-/* class Menu //{ */
-
-class Menu {
-
-public:
-  Menu(int lines, int cols, int begin_y, int begin_x, ros::NodeHandle& nh, std::string uav_name);
-
-  void Iterate(int key);
-
-  bool kill_me = false;
-
-private:
-  WINDOW*          win_;
-  ros::NodeHandle& nh_;
-  int              i = 0;
-
-  std::string                     _uav_name_;
-  std::vector<service>            service_vec_;
-  std::vector<ros::ServiceClient> service_client_vec_;
-
-  Menu* sub_menu_;
-  bool  sub_menu_open_ = false;
-};
-
-//}
-
-/* Menu() //{ */
-
-Menu::Menu(int lines, int cols, int begin_y, int begin_x, ros::NodeHandle& nh, std::string uav_name) : nh_(nh) {
-
-  win_ = newwin(10, 12, 1, 1);
-  win_ = newwin(lines, cols, begin_y, begin_x);
-  /* nh_              = nh; */
-  _uav_name_ = uav_name;
-  curs_set(0);  // hide the default screen cursor.
-
-  std::vector<string> service_input_vec_;
-
-  service_input_vec_.push_back("control_manager/eland E-Land");
-  service_input_vec_.push_back("control_manager/landoff_trackereland Land");
-
-
-  for (unsigned long i = 0; i < service_input_vec_.size(); i++) {
-
-    std::vector<std::string> results;
-    boost::split(results, service_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
-
-    service tmp_service(results[0], results[1]);
-
-    service_vec_.push_back(tmp_service);
-
-    string service_name = "/" + _uav_name_ + "/" + results[0];
-
-    ros::ServiceClient tmp_service_client;
-    tmp_service_client = nh_.serviceClient<std_srvs::Trigger>(service_name);
-
-    service_client_vec_.push_back(tmp_service_client);
-  }
-
-  Iterate(0);
-}
-
-//}
-
-/* Iterate() //{ */
-
-void Menu::Iterate(int key) {
-
-  wclear(win_);  // update the terminal screen
-
-  if (sub_menu_open_) {
-    sub_menu_->Iterate(key);
-
-  } else {
-
-    if (key == 'q' || key == KEY_ESC) {
-      kill_me = true;
-      return;
-    }
-
-    box(win_, '*', '*');
-
-    for (unsigned long i = 0; i < service_vec_.size(); i++) {
-
-      mvwaddstr(win_, i + 1, 2, service_vec_[i].service_display_name.c_str());
-    }
-
-    // use a variable to increment or decrement the value based on the input.
-    if (key == KEY_UP || key == 'k') {
-      i--;
-      i = (i < 0) ? service_vec_.size() - 1 : i;
-    } else if (key == KEY_DOWN || key == 'j') {
-      i++;
-      i = (i > int(service_vec_.size() - 1)) ? 0 : i;
-    } else if (key == KEY_ENT) {
-      /* std_srvs::Trigger trig; */
-      /* service_client_vec_[i].call(trig); */
-      sub_menu_ = new Menu(10, 12, 3, 3, nh_, _uav_name_);
-      sub_menu_open_ == true;
-      sub_menu_->Iterate(0);
-
-
-      // now highlight the next item in the list.
-      wattron(win_, A_STANDOUT);
-      mvwaddstr(win_, i + 1, 2, service_vec_[i].service_display_name.c_str());
-      wattroff(win_, A_STANDOUT);
-
-      wrefresh(win_);  // update the terminal screen
-    }
-  }
-}
-
-//}
-
-/* ----------------- //MENU CLASS ------------------- */
-
-//}
 
 /* class MrsStatus //{ */
 
@@ -190,7 +58,7 @@ private:
   void GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
   void ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
 
-  void GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name, const int id);
+  void GenericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
 
   void statusTimer(const ros::TimerEvent& event);
 
@@ -212,6 +80,8 @@ private:
   void ControlManagerHandler(WINDOW* win, double rate, short color, int topic);
   void GeneralInfoHandler(WINDOW* win, double rate, short color, int topic);
 
+  bool TriggerServiceHandler(int line, int key);
+
   void RetardHandler(int key, WINDOW* win);
 
   ros::Subscriber uav_state_subscriber_;
@@ -227,10 +97,10 @@ private:
   ros::ServiceClient service_goto_reference_;
   ros::ServiceClient service_goto_fcu_;
 
-  std::string _uav_name_;
-  std::string _uav_type_;
-  std::string _sensors_;
-  bool        _pixgarm_;
+  string _uav_name_;
+  string _uav_type_;
+  string _sensors_;
+  bool   _pixgarm_;
 
   bool retard_mode_ = false;
 
@@ -241,7 +111,7 @@ private:
   long last_gigas_ = 0;
 
   mrs_msgs::UavState uav_state_;
-  /* std::shared_ptr<int> uav_state_counter_ptr_ = std::make_shared<int>(0); */
+  /* shared_ptr<int> uav_state_counter_ptr_ = make_shared<int>(0); */
 
   mavros_msgs::State          mavros_state_;
   mavros_msgs::AttitudeTarget mavros_attitude_;
@@ -251,26 +121,28 @@ private:
   mrs_msgs::GainManagerDiagnostics       gain_manager_;
   mrs_msgs::ConstraintManagerDiagnostics constraint_manager_;
 
-  StatusWindow*      uav_state_window_;
-  std::vector<topic> uav_state_topic_;
+  StatusWindow* uav_state_window_;
+  vector<topic> uav_state_topic_;
 
-  StatusWindow*      mavros_state_window_;
-  std::vector<topic> mavros_state_topic_;
+  StatusWindow* mavros_state_window_;
+  vector<topic> mavros_state_topic_;
 
-  StatusWindow*      control_manager_window_;
-  std::vector<topic> control_manager_topic_;
+  StatusWindow* control_manager_window_;
+  vector<topic> control_manager_topic_;
 
-  StatusWindow*      general_info_window_;
-  std::vector<topic> general_info_topic_;
+  StatusWindow* general_info_window_;
+  vector<topic> general_info_topic_;
 
   WINDOW* top_bar_window_;
 
-  StatusWindow*                generic_topic_window_;
-  std::vector<topic>           generic_topic_vec_;
-  std::vector<string>          generic_topic_input_vec_;
-  std::vector<ros::Subscriber> generic_subscriber_vec_;
+  StatusWindow*           generic_topic_window_;
+  vector<topic>           generic_topic_vec_;
+  vector<string>          generic_topic_input_vec_;
+  vector<ros::Subscriber> generic_subscriber_vec_;
 
   std::vector<Menu> menu_vec_;
+
+  std::vector<service> service_vec_;
 };
 
 //}
@@ -281,6 +153,20 @@ MrsStatus::MrsStatus() {
 
   // initialize node and create no handle
   nh_ = ros::NodeHandle("~");
+
+  mrs_lib::ParamLoader param_loader(nh_, "MrsStatus");
+
+  param_loader.load_param("uav_name", _uav_name_);
+  param_loader.load_param("uav_type", _uav_type_);
+  param_loader.load_param("sensors", _sensors_);
+  param_loader.load_param("pixgarm", _pixgarm_);
+
+  if (!param_loader.loaded_successfully()) {
+    ROS_ERROR("[LidarFlier]: Could not load all parameters!");
+    ros::shutdown();
+  } else {
+    ROS_INFO("[LidarFlier]: All params loaded!");
+  }
 
   // TIMERS
   status_timer_ = nh_.createTimer(ros::Rate(10), &MrsStatus::statusTimer, this);
@@ -298,27 +184,32 @@ MrsStatus::MrsStatus() {
   service_goto_reference_ = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
   service_goto_fcu_       = nh_.serviceClient<mrs_msgs::Vec4>("goto_fcu_out");
 
-  mrs_lib::ParamLoader param_loader(nh_, "MrsStatus");
 
-  param_loader.load_param("uav_name", _uav_name_);
-  param_loader.load_param("uav_type", _uav_type_);
-  param_loader.load_param("sensors", _sensors_);
-  param_loader.load_param("pixgarm", _pixgarm_);
+  std::vector<string> service_input_vec_;
 
-  if (!param_loader.loaded_successfully()) {
-    ROS_ERROR("[LidarFlier]: Could not load all parameters!");
-    ros::shutdown();
-  } else {
-    ROS_INFO("[LidarFlier]: All params loaded!");
+  service_input_vec_.push_back("uav_manager/land Land");
+  service_input_vec_.push_back("uav_manager/land_home Land Home");
+  service_input_vec_.push_back("uav_manager/takeoff Takeoff");
+
+  for (unsigned long i = 0; i < service_input_vec_.size(); i++) {
+
+    std::vector<std::string> results;
+    boost::split(results, service_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
+
+    string service_name = "/" + _uav_name_ + "/" + results[0];
+
+    service tmp_service(service_name, results[1]);
+    tmp_service.service_client = nh_.serviceClient<std_srvs::Trigger>(service_name);
+
+    service_vec_.push_back(tmp_service);
   }
-
 
   /* Generic topic definitions //{ */
 
-  std::vector<std::string> results;
+  vector<string> results;
   split(results, _sensors_, boost::is_any_of(", "), boost::token_compress_on);
 
-  std::vector<string> generic_topic_input_vec_;
+  vector<string> generic_topic_input_vec_;
 
   if (_pixgarm_) {
     generic_topic_input_vec_.push_back("mavros/distance_sensor/garmin Garmin_pix 80+");
@@ -374,14 +265,14 @@ MrsStatus::MrsStatus() {
 
   for (unsigned long i = 0; i < generic_topic_input_vec_.size(); i++) {
 
-    std::vector<std::string> results;
+    vector<string> results;
     boost::split(results, generic_topic_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
     if (results[2].back() == '+') {
       // TODO handle the + sign
       results[2].pop_back();
     }
 
-    topic tmp_topic(results[0], results[1], std::stoi(results[2]));
+    topic tmp_topic(results[0], results[1], stoi(results[2]));
 
     generic_topic_vec_.push_back(tmp_topic);
 
@@ -440,14 +331,21 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   wclear(top_bar_window_);
 
   int key_in = getch();
-  flushinp();
 
-  mvwprintw(stdscr, 30, 30, "pes");
+  if (retard_mode_) {
+    flushinp();
+  }
+
+  vector<string> tmp_vec;
+
+  for (unsigned long i = 0; i < service_vec_.size(); i++) {
+    tmp_vec.push_back(service_vec_[i].service_display_name);
+  }
+
   if (menu_vec_.empty()) {
-    mvwprintw(stdscr, 31, 30, "kocka");
     if (key_in == 'm' && !retard_mode_) {
 
-      Menu menu(10, 12, 1, 1, nh_, _uav_name_);
+      Menu menu(5, 3, tmp_vec);
       menu_vec_.push_back(menu);
 
     } else if (key_in == 'R') {
@@ -460,12 +358,17 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
     }
 
   } else {
-    mvwprintw(stdscr, 32, 30, "slon");
 
-    menu_vec_[0].Iterate(key_in);
-    if (menu_vec_[0].kill_me) {
-      mvwprintw(stdscr, 33, 30, "KILLED");
-      menu_vec_.clear();
+    optional<tuple<int, int>> ret = menu_vec_[0].Iterate(tmp_vec, key_in);
+
+    if (ret.has_value()) {
+      if (get<0>(ret.value()) == 666 && get<1>(ret.value()) == 666) {
+        menu_vec_.clear();
+      } else {
+        if (TriggerServiceHandler(get<0>(ret.value()), get<1>(ret.value()))) {
+          menu_vec_.clear();
+        }
+      }
     }
   }
 
@@ -473,6 +376,24 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   wrefresh(top_bar_window_);
 }
 
+
+//}
+
+
+/* TriggerServiceHandler() //{ */
+
+bool MrsStatus::TriggerServiceHandler(int line, int key) {
+
+  if (key == KEY_ENT) {
+
+    std_srvs::Trigger trig;
+    service_vec_[line].service_client.call(trig);
+
+    return true;
+  }
+
+  return false;
+}
 
 //}
 
@@ -767,14 +688,14 @@ void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int
 
 void MrsStatus::PrintMemLoad(WINDOW* win) {
 
-  std::ifstream fileStat("/proc/meminfo");
-  std::string   line1, line2, line3, line4;
-  std::getline(fileStat, line1);
-  std::getline(fileStat, line2);
-  std::getline(fileStat, line3);
-  std::getline(fileStat, line4);
+  ifstream fileStat("/proc/meminfo");
+  string   line1, line2, line3, line4;
+  getline(fileStat, line1);
+  getline(fileStat, line2);
+  getline(fileStat, line3);
+  getline(fileStat, line4);
 
-  std::vector<std::string> results;
+  vector<string> results;
   boost::split(results, line1, [](char c) { return c == ' '; });
 
   double ram_total;
@@ -786,9 +707,9 @@ void MrsStatus::PrintMemLoad(WINDOW* win) {
 
     if (isdigit(results[i].front())) {
       try {
-        ram_total = double(std::stol(results[i])) / 1000000;
+        ram_total = double(stol(results[i])) / 1000000;
       }
-      catch (const std::invalid_argument& e) {
+      catch (const invalid_argument& e) {
         ram_total = 0.0;
       }
       break;
@@ -801,9 +722,9 @@ void MrsStatus::PrintMemLoad(WINDOW* win) {
 
     if (isdigit(results[i].front())) {
       try {
-        ram_free = double(std::stol(results[i])) / 1000000;
+        ram_free = double(stol(results[i])) / 1000000;
       }
-      catch (const std::invalid_argument& e) {
+      catch (const invalid_argument& e) {
         ram_free = 0.0;
       }
       break;
@@ -816,9 +737,9 @@ void MrsStatus::PrintMemLoad(WINDOW* win) {
 
     if (isdigit(results[i].front())) {
       try {
-        buffers = double(std::stol(results[i])) / 1000000;
+        buffers = double(stol(results[i])) / 1000000;
       }
-      catch (const std::invalid_argument& e) {
+      catch (const invalid_argument& e) {
         buffers = 0.0;
       }
       break;
@@ -846,11 +767,11 @@ void MrsStatus::PrintMemLoad(WINDOW* win) {
 
 void MrsStatus::PrintCpuLoad(WINDOW* win) {
 
-  std::ifstream fileStat("/proc/stat");
-  std::string   line;
-  std::getline(fileStat, line);
+  ifstream fileStat("/proc/stat");
+  string   line;
+  getline(fileStat, line);
 
-  std::vector<std::string> results;
+  vector<string> results;
   boost::split(results, line, [](char c) { return c == ' '; });
 
   long idle;
@@ -858,11 +779,11 @@ void MrsStatus::PrintCpuLoad(WINDOW* win) {
   long total;
 
   try {
-    idle     = std::stol(results[5]) + std::stol(results[6]);
-    non_idle = std::stol(results[2]) + std::stol(results[3]) + std::stol(results[4]) + std::stol(results[7]) + std::stol(results[8]) + std::stol(results[9]);
+    idle     = stol(results[5]) + stol(results[6]);
+    non_idle = stol(results[2]) + stol(results[3]) + stol(results[4]) + stol(results[7]) + stol(results[8]) + stol(results[9]);
     total    = idle + non_idle;
   }
-  catch (const std::invalid_argument& e) {
+  catch (const invalid_argument& e) {
     idle     = 0;
     non_idle = 0;
     total    = 0;
@@ -894,32 +815,32 @@ void MrsStatus::PrintCpuLoad(WINDOW* win) {
 
 void MrsStatus::PrintCpuFreq(WINDOW* win) {
 
-  std::ifstream fileStat("/sys/devices/system/cpu/online");
-  std::string   line;
-  std::getline(fileStat, line);
+  ifstream fileStat("/sys/devices/system/cpu/online");
+  string   line;
+  getline(fileStat, line);
 
-  std::vector<std::string> results;
+  vector<string> results;
   boost::split(results, line, [](char c) { return c == '-'; });
 
   int num_cores;
 
   try {
-    num_cores = std::stoi(results[1]) + 1;
+    num_cores = stoi(results[1]) + 1;
   }
-  catch (const std::invalid_argument& e) {
+  catch (const invalid_argument& e) {
     num_cores = 0;
   }
 
   long cpu_freq = 0;
 
   for (int i = 0; i < num_cores; i++) {
-    std::string   filename = "/sys/devices/system/cpu/cpu" + to_string(i) + "/cpufreq/scaling_cur_freq";
-    std::ifstream fileStat(filename.c_str());
-    std::getline(fileStat, line);
+    string   filename = "/sys/devices/system/cpu/cpu" + to_string(i) + "/cpufreq/scaling_cur_freq";
+    ifstream fileStat(filename.c_str());
+    getline(fileStat, line);
     try {
-      cpu_freq += std::stol(line);
+      cpu_freq += stol(line);
     }
-    catch (const std::invalid_argument& e) {
+    catch (const invalid_argument& e) {
       cpu_freq = 0;
     }
   }
@@ -1110,7 +1031,7 @@ void MrsStatus::ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagn
 
 /* GenericCallback() //{ */
 
-void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const std::string& topic_name, const int id) {
+void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id) {
   generic_topic_vec_[id].counter++;
 }
 

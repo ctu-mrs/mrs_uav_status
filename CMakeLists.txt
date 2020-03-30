@@ -32,7 +32,7 @@ include_directories(include
   ${CURSES_INCLUDE_DIR}
 )
 
-add_executable(mrs_status src/mrs_status.cpp src/status_window.cpp)
+add_executable(mrs_status src/mrs_status.cpp src/status_window.cpp src/menu.cpp)
 
 add_dependencies(mrs_status ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 

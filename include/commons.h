@@ -1,5 +1,18 @@
+#ifndef COMMONS_H
+#define COMMONS_H
 
+#define KEY_ENT 10
+#define KEY_ESC 27
+
+#include <stdlib.h>
+#include <stdio.h>
 #include <ncurses.h>
+
+#include <tuple>
+
+#include <boost/function.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 
 #include <ros/ros.h>
 #include <ros/package.h>
@@ -20,13 +33,13 @@
 
 struct topic
 {
-  std::string          topic_name;
-  std::string          topic_display_name;
-  int                  counter;
-  double               rate;
-  double               interval;
-  double               desired_rate;
-  int                  zero_counter;
+  std::string topic_name;
+  std::string topic_display_name;
+  int         counter;
+  double      rate;
+  double      interval;
+  double      desired_rate;
+  int         zero_counter;
 
   topic(double desired_rate_in) {
     topic_name         = "NOT DEFINED";
@@ -51,12 +64,14 @@ struct topic
 
 struct service
 {
-  std::string          service_name;
-  std::string          service_display_name;
+  std::string        service_name;
+  std::string        service_display_name;
+  ros::ServiceClient service_client;
 
-  service (std::string name_in, std::string display_name_in) {
-  service_name  = name_in;
-  service_display_name = display_name_in;
+  service(std::string name_in, std::string display_name_in) {
+    service_name         = name_in;
+    service_display_name = display_name_in;
   }
-
 };
+
+#endif
