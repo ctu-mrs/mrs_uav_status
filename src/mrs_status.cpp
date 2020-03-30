@@ -59,7 +59,9 @@ class Menu {
 public:
   Menu(int lines, int cols, int begin_y, int begin_x, ros::NodeHandle& nh, std::string uav_name);
 
-  int Iterate(int ch);
+  void Iterate(int key);
+
+  bool kill_me = false;
 
 private:
   WINDOW*          win_;
@@ -116,13 +118,19 @@ Menu::Menu(int lines, int cols, int begin_y, int begin_x, ros::NodeHandle& nh, s
 
 /* Iterate() //{ */
 
-int Menu::Iterate(int ch) {
+void Menu::Iterate(int key) {
+
+  wclear(win_);  // update the terminal screen
+
   if (sub_menu_open_) {
-    sub_menu_->Iterate(ch);
+    sub_menu_->Iterate(key);
 
   } else {
 
-    int ret_val = 0;
+    if (key == 'q' || key == KEY_ESC) {
+      kill_me = true;
+      return;
+    }
 
     box(win_, '*', '*');
 
@@ -132,30 +140,27 @@ int Menu::Iterate(int ch) {
     }
 
     // use a variable to increment or decrement the value based on the input.
-    if (ch == KEY_UP || ch == 'k') {
+    if (key == KEY_UP || key == 'k') {
       i--;
       i = (i < 0) ? service_vec_.size() - 1 : i;
-    } else if (ch == KEY_DOWN || ch == 'j') {
+    } else if (key == KEY_DOWN || key == 'j') {
       i++;
       i = (i > int(service_vec_.size() - 1)) ? 0 : i;
-    } else if (ch == KEY_ENT) {
+    } else if (key == KEY_ENT) {
       /* std_srvs::Trigger trig; */
       /* service_client_vec_[i].call(trig); */
       sub_menu_ = new Menu(10, 12, 3, 3, nh_, _uav_name_);
       sub_menu_open_ == true;
       sub_menu_->Iterate(0);
 
-    } else if (ch == 'q' || ch == KEY_ESC) {
+
+      // now highlight the next item in the list.
+      wattron(win_, A_STANDOUT);
+      mvwaddstr(win_, i + 1, 2, service_vec_[i].service_display_name.c_str());
+      wattroff(win_, A_STANDOUT);
+
+      wrefresh(win_);  // update the terminal screen
     }
-
-    // now highlight the next item in the list.
-    wattron(win_, A_STANDOUT);
-    mvwaddstr(win_, i + 1, 2, service_vec_[i].service_display_name.c_str());
-    wattroff(win_, A_STANDOUT);
-
-    wrefresh(win_);  // update the terminal screen
-
-    return ret_val;
   }
 }
 
@@ -207,6 +212,8 @@ private:
   void ControlManagerHandler(WINDOW* win, double rate, short color, int topic);
   void GeneralInfoHandler(WINDOW* win, double rate, short color, int topic);
 
+  void RetardHandler(int key, WINDOW* win);
+
   ros::Subscriber uav_state_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
 
@@ -255,6 +262,8 @@ private:
 
   StatusWindow*      general_info_window_;
   std::vector<topic> general_info_topic_;
+
+  WINDOW* top_bar_window_;
 
   StatusWindow*                generic_topic_window_;
   std::vector<topic>           generic_topic_vec_;
@@ -408,10 +417,12 @@ MrsStatus::MrsStatus() {
 
   generic_topic_window_ = new StatusWindow(10, 30, 1, 61, generic_topic_vec_);
 
+  top_bar_window_ = newwin(1, 60, 0, 0);
+
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
 
-  /* refresh(); */
+  refresh();
 }
 
 //}
@@ -426,102 +437,111 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   generic_topic_window_->Redraw(&MrsStatus::GenericTopicHandler, this);
   general_info_window_->Redraw(&MrsStatus::GeneralInfoHandler, this);
 
+  wclear(top_bar_window_);
+
   int key_in = getch();
   flushinp();
 
-  if (key_in == 'R') {
-    retard_mode_ = !retard_mode_;
-  }
+  mvwprintw(stdscr, 30, 30, "pes");
+  if (menu_vec_.empty()) {
+    mvwprintw(stdscr, 31, 30, "kocka");
+    if (key_in == 'm' && !retard_mode_) {
 
-  if (retard_mode_) {
+      Menu menu(10, 12, 1, 1, nh_, _uav_name_);
+      menu_vec_.push_back(menu);
 
-    wattron(stdscr, COLOR_PAIR(RED));
-    mvwprintw(stdscr, 0, 30, "RETARD MODE IS ACTIVE, YOU HAVE CONTROL");
-    wattroff(stdscr, COLOR_PAIR(RED));
+    } else if (key_in == 'R') {
 
-    mrs_msgs::Vec4 goal;
-    goal.request.goal[0] = 0.0;
-    goal.request.goal[1] = 0.0;
-    goal.request.goal[2] = 0.0;
-    goal.request.goal[3] = 0.0;
+      retard_mode_ = !retard_mode_;
 
+    } else if (retard_mode_) {
 
-    switch (key_in) {
-      case 'w':
-        goal.request.goal[0] = 2.0;
-        service_goto_fcu_.call(goal);
-        mvwprintw(stdscr, 0, 0, " forward ");
-        break;
-      case 's':
-        goal.request.goal[0] = -2.0;
-        service_goto_fcu_.call(goal);
-        mvwprintw(stdscr, 0, 0, " backward ");
-        break;
-      case 'a':
-        goal.request.goal[1] = 2.0;
-        service_goto_fcu_.call(goal);
-        mvwprintw(stdscr, 0, 0, " left ");
-        break;
-      case 'd':
-        goal.request.goal[1] = -2.0;
-        service_goto_fcu_.call(goal);
-        mvwprintw(stdscr, 0, 0, " right ");
-        break;
-      case 'r':
-        goal.request.goal[2] = 1.0;
-        service_goto_fcu_.call(goal);
-        mvwprintw(stdscr, 0, 0, " up ");
-        break;
-      case 'f':
-        goal.request.goal[2] = -1.0;
-        service_goto_fcu_.call(goal);
-        mvwprintw(stdscr, 0, 0, " down ");
-        break;
-      case 'q':
-        goal.request.goal[3] = 0.5;
-        service_goto_fcu_.call(goal);
-        mvwprintw(stdscr, 0, 0, " yaw left ");
-        break;
-      case 'e':
-        goal.request.goal[3] = -0.5;
-        service_goto_fcu_.call(goal);
-        mvwprintw(stdscr, 0, 0, " yaw_right ");
-        break;
-
-      default:
-        mvwprintw(stdscr, 0, 0, "              ");
-        mvwprintw(stdscr, 0, 0, "%i", key_in);
-        break;
+      RetardHandler(key_in, top_bar_window_);
     }
+
   } else {
+    mvwprintw(stdscr, 32, 30, "slon");
 
-    mvwprintw(stdscr, 0, 30, "                                       ");
-    if (menu_vec_.empty()) {
-      if (key_in == 'm') {
-
-        Menu menu(10, 12, 1, 1, nh_, _uav_name_);
-        menu_vec_.push_back(menu);
-      }
-    } else {
-      if (key_in == KEY_ESC || key_in == 'q') {
-
-        menu_vec_.clear();
-
-      } else {
-
-        int action = menu_vec_[0].Iterate(key_in);
-
-        /* if (action != 0) { */
-
-        /*   /1* std_srvs::Trigger trig; *1/ */
-        /*   /1* service_client_vec_[action - 100].call(trig); *1/ */
-        /*   menu_vec_.clear(); */
-        /* } */
-      }
+    menu_vec_[0].Iterate(key_in);
+    if (menu_vec_[0].kill_me) {
+      mvwprintw(stdscr, 33, 30, "KILLED");
+      menu_vec_.clear();
     }
   }
 
   refresh();
+  wrefresh(top_bar_window_);
+}
+
+
+//}
+
+/* RetardHandler() //{ */
+
+void MrsStatus::RetardHandler(int key, WINDOW* win) {
+
+  wattron(win, A_BOLD);
+  wattron(win, COLOR_PAIR(RED));
+  mvwprintw(win, 0, 20, "RETARD MODE IS ACTIVE, YOU HAVE CONTROL");
+  wattroff(win, COLOR_PAIR(RED));
+
+  mrs_msgs::Vec4 goal;
+  goal.request.goal[0] = 0.0;
+  goal.request.goal[1] = 0.0;
+  goal.request.goal[2] = 0.0;
+  goal.request.goal[3] = 0.0;
+
+  switch (key) {
+    case 'w':
+    case 'k':
+      goal.request.goal[0] = 2.0;
+      service_goto_fcu_.call(goal);
+      mvwprintw(win, 0, 0, " forward ");
+      break;
+    case 's':
+    case 'j':
+      goal.request.goal[0] = -2.0;
+      service_goto_fcu_.call(goal);
+      mvwprintw(win, 0, 0, " backward ");
+      break;
+    case 'a':
+    case 'h':
+      goal.request.goal[1] = 2.0;
+      service_goto_fcu_.call(goal);
+      mvwprintw(win, 0, 0, " left ");
+      break;
+    case 'd':
+    case 'l':
+      goal.request.goal[1] = -2.0;
+      service_goto_fcu_.call(goal);
+      mvwprintw(win, 0, 0, " right ");
+      break;
+    case 'r':
+      goal.request.goal[2] = 1.0;
+      service_goto_fcu_.call(goal);
+      mvwprintw(win, 0, 0, " up ");
+      break;
+    case 'f':
+      goal.request.goal[2] = -1.0;
+      service_goto_fcu_.call(goal);
+      mvwprintw(win, 0, 0, " down ");
+      break;
+    case 'q':
+      goal.request.goal[3] = 0.5;
+      service_goto_fcu_.call(goal);
+      mvwprintw(win, 0, 0, " yaw left ");
+      break;
+    case 'e':
+      goal.request.goal[3] = -0.5;
+      service_goto_fcu_.call(goal);
+      mvwprintw(win, 0, 0, " yaw_right ");
+      break;
+
+    default:
+      mvwprintw(win, 0, 0, "%i", key);
+      break;
+  }
+  wattroff(win, A_BOLD);
 }
 
 //}
