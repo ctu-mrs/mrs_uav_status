@@ -3,10 +3,13 @@
 
 #define KEY_ENT 10
 #define KEY_ESC 27
+#define KEY_BACKSPACE 263
+#define KEY_DELETE 330
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <ncurses.h>
+#include <form.h>
 
 #include <tuple>
 
@@ -18,10 +21,11 @@
 #include <ros/package.h>
 
 #define NORMAL 100
-#define GREEN 101
-#define RED 102
-#define YELLOW 103
-#define BLUE 104
+#define FIELD 101
+#define GREEN 102
+#define RED 103
+#define YELLOW 104
+#define BLUE 105
 
 #define BACKGROUND_DEFAULT -1
 #define BACKGROUND_TRUE_BLACK 16

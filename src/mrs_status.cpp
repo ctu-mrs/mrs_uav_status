@@ -1,8 +1,8 @@
-
 /* INCLUDES //{ */
 
 #include <status_window.h>
 #include <menu.h>
+#include <input_box.h>
 #include <commons.h>
 
 #include <fstream>
@@ -35,6 +35,14 @@ using namespace std;
 using topic_tools::ShapeShifter;
 
 //}
+
+typedef enum
+{
+  STANDARD,
+  RETARD,
+  TRIG_MENU,
+  GOTO_MENU,
+} status_state;
 
 class MrsStatus;
 
@@ -80,7 +88,11 @@ private:
   void ControlManagerHandler(WINDOW* win, double rate, short color, int topic);
   void GeneralInfoHandler(WINDOW* win, double rate, short color, int topic);
 
-  bool TriggerServiceHandler(int line, int key);
+  void SetupTrigMenu();
+  bool TrigMenuHandler(int key_in);
+
+  void SetupGotoMenu();
+  bool GotoMenuHandler(int key_in);
 
   void RetardHandler(int key, WINDOW* win);
 
@@ -101,8 +113,6 @@ private:
   string _uav_type_;
   string _sensors_;
   bool   _pixgarm_;
-
-  bool retard_mode_ = false;
 
   bool initialized_ = false;
 
@@ -135,14 +145,23 @@ private:
 
   WINDOW* top_bar_window_;
 
+  WINDOW* bottom_window_;
+
   StatusWindow*           generic_topic_window_;
   vector<topic>           generic_topic_vec_;
   vector<string>          generic_topic_input_vec_;
   vector<ros::Subscriber> generic_subscriber_vec_;
 
-  std::vector<Menu> menu_vec_;
+  vector<Menu> menu_vec_;
 
-  std::vector<service> service_vec_;
+  vector<service> service_vec_;
+  vector<string>  trig_menu_text_;
+
+  mrs_msgs::ReferenceStampedSrv reference_;
+  vector<string>                goto_menu_text_;
+  vector<InputBox>              goto_menu_inputs_;
+
+  status_state state = STANDARD;
 };
 
 //}
@@ -309,6 +328,7 @@ MrsStatus::MrsStatus() {
   generic_topic_window_ = new StatusWindow(10, 30, 1, 61, generic_topic_vec_);
 
   top_bar_window_ = newwin(1, 60, 0, 0);
+  bottom_window_  = newwin(20, 60, 20, 0);
 
   initialized_ = true;
   ROS_INFO("[Mrs Status]: Node initialized!");
@@ -329,70 +349,166 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   general_info_window_->Redraw(&MrsStatus::GeneralInfoHandler, this);
 
   wclear(top_bar_window_);
+  wclear(bottom_window_);
+
 
   int key_in = getch();
 
-  if (retard_mode_) {
-    flushinp();
-  }
+  mvwprintw(top_bar_window_, 0, 0, "%i", key_in);
 
-  vector<string> tmp_vec;
+  switch (state) {
 
-  for (unsigned long i = 0; i < service_vec_.size(); i++) {
-    tmp_vec.push_back(service_vec_[i].service_display_name);
-  }
+    case STANDARD:
 
-  if (menu_vec_.empty()) {
-    if (key_in == 'm' && !retard_mode_) {
+      switch (key_in) {
 
-      Menu menu(5, 3, tmp_vec);
-      menu_vec_.push_back(menu);
+        case 'R':
+          state = RETARD;
+          break;
 
-    } else if (key_in == 'R') {
+        case 'm':
+          SetupTrigMenu();
+          state = TRIG_MENU;
+          break;
 
-      retard_mode_ = !retard_mode_;
-
-    } else if (retard_mode_) {
-
-      RetardHandler(key_in, top_bar_window_);
-    }
-
-  } else {
-
-    optional<tuple<int, int>> ret = menu_vec_[0].Iterate(tmp_vec, key_in);
-
-    if (ret.has_value()) {
-      if (get<0>(ret.value()) == 666 && get<1>(ret.value()) == 666) {
-        menu_vec_.clear();
-      } else {
-        if (TriggerServiceHandler(get<0>(ret.value()), get<1>(ret.value()))) {
-          menu_vec_.clear();
-        }
+        case 'g':
+          SetupGotoMenu();
+          state = GOTO_MENU;
+          break;
+        default:
+          flushinp();
+          break;
       }
-    }
+
+      break;
+
+    case RETARD:
+      flushinp();
+      RetardHandler(key_in, top_bar_window_);
+      if (key_in == 'R') {
+        state = STANDARD;
+      }
+      break;
+
+    case TRIG_MENU:
+      if (TrigMenuHandler(key_in)) {
+        state = STANDARD;
+      }
+      break;
+
+    case GOTO_MENU:
+      if (GotoMenuHandler(key_in)) {
+        state = STANDARD;
+      }
+      break;
   }
 
   refresh();
   wrefresh(top_bar_window_);
+  wrefresh(bottom_window_);
 }
 
 
 //}
 
+/* SetupTrigMenu() //{ */
 
-/* TriggerServiceHandler() //{ */
+void MrsStatus::SetupTrigMenu() {
 
-bool MrsStatus::TriggerServiceHandler(int line, int key) {
+  trig_menu_text_.clear();
 
-  if (key == KEY_ENT) {
-
-    std_srvs::Trigger trig;
-    service_vec_[line].service_client.call(trig);
-
-    return true;
+  for (unsigned long i = 0; i < service_vec_.size(); i++) {
+    trig_menu_text_.push_back(service_vec_[i].service_display_name);
   }
 
+  Menu menu(5, 3, trig_menu_text_);
+  menu_vec_.push_back(menu);
+}
+
+//}
+
+/* TrigMenuHandler() //{ */
+
+bool MrsStatus::TrigMenuHandler(int key_in) {
+
+  optional<tuple<int, int>> ret = menu_vec_[0].Iterate(trig_menu_text_, key_in);
+
+  if (ret.has_value()) {
+
+    if (get<0>(ret.value()) == 666 && get<1>(ret.value()) == 666) {
+
+      menu_vec_.clear();
+      return true;
+
+    } else if (get<1>(ret.value()) == KEY_ENT) {
+
+      std_srvs::Trigger trig;
+      service_vec_[get<0>(ret.value())].service_client.call(trig);
+      menu_vec_.clear();
+      return true;
+    }
+  }
   return false;
+}
+
+//}
+
+/* SetupGotoMenu() //{ */
+
+void MrsStatus::SetupGotoMenu() {
+
+  reference_.request.reference.position.x = 0.0;
+  reference_.request.reference.position.y = 0.0;
+  reference_.request.reference.position.z = 2.0;
+  reference_.request.reference.yaw        = 1.57;
+  reference_.request.header.frame_id      = uav_state_.header.frame_id;
+
+  vector<string> goto_menu_text_;
+  goto_menu_text_.push_back(" X:             ");
+  goto_menu_text_.push_back(" Y:             ");
+  goto_menu_text_.push_back(" Z:             ");
+  goto_menu_text_.push_back(" Yaw:           ");
+  goto_menu_text_.push_back(uav_state_.header.frame_id);
+
+  Menu menu(5, 3, goto_menu_text_);
+  menu_vec_.push_back(menu);
+
+  for (int i = 0; i < 4; i++) {
+    InputBox tmpbox(8, menu.GetWin());
+    goto_menu_inputs_.push_back(tmpbox);
+  }
+}
+
+//}
+
+/* GotoMenuHandler() //{ */
+
+bool MrsStatus::GotoMenuHandler(int key_in) {
+  optional<tuple<int, int>> ret = menu_vec_[0].Iterate(goto_menu_text_, key_in);
+
+  if (ret.has_value()) {
+
+    if (get<0>(ret.value()) == 666 && get<1>(ret.value()) == 666) {
+
+      menu_vec_.clear();
+      return true;
+
+    } else if (get<1>(ret.value()) == KEY_ENT) {
+
+      /* std_srvs::Trigger trig; */
+      /* service_vec_[get<0>(ret.value())].service_client.call(trig); */
+      /* menu_vec_.clear(); */
+      return true;
+    } else {
+      goto_menu_inputs_[get<0>(ret.value())].Process(get<1>(ret.value()));
+      for (unsigned long i = 0; i < goto_menu_inputs_.size() ; i++) {
+        goto_menu_inputs_[i].Print();
+      }
+    }
+  }
+
+
+  wrefresh(menu_vec_[0].GetWin());
 }
 
 //}
@@ -1049,11 +1165,13 @@ int main(int argc, char** argv) {
   cbreak();
   noecho();
   clear();
+  keypad(stdscr, true);
   timeout(0);
   curs_set(0);  // disable cursor
   use_default_colors();
 
   init_pair(NORMAL, COLOR_WHITE, BACKGROUND_DEFAULT);
+  init_pair(FIELD, COLOR_WHITE, 235);
   init_pair(RED, COLOR_NICE_RED, BACKGROUND_DEFAULT);
   init_pair(YELLOW, COLOR_NICE_YELLOW, BACKGROUND_DEFAULT);
   init_pair(GREEN, COLOR_NICE_GREEN, BACKGROUND_DEFAULT);
@@ -1064,7 +1182,7 @@ int main(int argc, char** argv) {
   /* DEBUG COLOR RAINBOW //{ */
 
   /* for (int j = 0; j < 256; j++) { */
-  /*   init_pair(j, j, BACKGROUND_DEFAULT); */
+  /*   init_pair(j, COLOR_WHITE, j); */
   /* } */
 
   /* int k = 0; */
@@ -1074,7 +1192,7 @@ int main(int argc, char** argv) {
   /*   k = int(j / 60); */
   /*   attroff(COLOR_PAIR(j)); */
   /* } */
-
+  /* refresh(); */
   //}
 
   MrsStatus status;

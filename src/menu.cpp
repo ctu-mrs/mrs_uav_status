@@ -17,6 +17,14 @@ Menu::Menu(int begin_y, int begin_x, std::vector<std::string>& text) {
 
 //}
 
+/* Menu() //{ */
+
+WINDOW* Menu::GetWin() {
+  return win_;
+}
+
+//}
+
 /* Iterate() //{ */
 
 // return tuple - int selected_menu_line, int pressed key
