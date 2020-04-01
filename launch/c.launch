@@ -37,6 +37,7 @@
 
         <!-- Services -->
       <remap from="~goto_fcu_out" to="control_manager/goto_fcu" />
+      <remap from="~reference_out" to="control_manager/reference" />
 
     </node>
 

@@ -15,7 +15,8 @@
 
   <group ns="$(arg UAV_NAME)">
 
-    <node name="mrs_status_c" pkg="mrs_status" type="mrs_status" output="screen" launch-prefix="valgrind --log-file='/tmp/shit.txt'">
+    <node name="mrs_status_c" pkg="mrs_status" type="mrs_status" output="screen" respawn="false" launch-prefix="debug_roslaunch" >
+    <!-- <node name="mrs_status_c" pkg="mrs_status" type="mrs_status" output="screen" respawn="true"> -->
 
       <param name="uav_name" value="$(arg UAV_NAME)" />
       <param name="uav_type" value="$(arg UAV_TYPE)" />
@@ -33,6 +34,9 @@
       <remap from="~control_manager_in" to="control_manager/diagnostics" />
       <remap from="~gain_manager_in" to="gain_manager/diagnostics" />
       <remap from="~constraint_manager_in" to="constraint_manager/diagnostics" />
+
+        <!-- Services -->
+      <remap from="~goto_fcu_out" to="control_manager/goto_fcu" />
 
     </node>
 

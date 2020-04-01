@@ -11,7 +11,7 @@ void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short 
 
   wattron(win_, A_BOLD);
 
-  box(win_, '|', '-');
+  box(win_, 0, 0);
 
   int tmp_color = RED;
   

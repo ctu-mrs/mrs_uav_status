@@ -157,9 +157,9 @@ private:
   vector<service> service_vec_;
   vector<string>  trig_menu_text_;
 
-  mrs_msgs::ReferenceStampedSrv reference_;
-  vector<string>                goto_menu_text_;
-  vector<InputBox>              goto_menu_inputs_;
+  vector<double>   goto_double_vec_;
+  vector<string>   goto_menu_text_;
+  vector<InputBox> goto_menu_inputs_;
 
   status_state state = STANDARD;
 };
@@ -181,10 +181,10 @@ MrsStatus::MrsStatus() {
   param_loader.load_param("pixgarm", _pixgarm_);
 
   if (!param_loader.loaded_successfully()) {
-    ROS_ERROR("[LidarFlier]: Could not load all parameters!");
+    ROS_ERROR("[MrsStatus]: Could not load all parameters!");
     ros::shutdown();
   } else {
-    ROS_INFO("[LidarFlier]: All params loaded!");
+    ROS_INFO("[MrsStatus]: All params loaded!");
   }
 
   // TIMERS
@@ -203,6 +203,10 @@ MrsStatus::MrsStatus() {
   service_goto_reference_ = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
   service_goto_fcu_       = nh_.serviceClient<mrs_msgs::Vec4>("goto_fcu_out");
 
+  goto_double_vec_.push_back(0.0);
+  goto_double_vec_.push_back(0.0);
+  goto_double_vec_.push_back(2.0);
+  goto_double_vec_.push_back(1.57);
 
   std::vector<string> service_input_vec_;
 
@@ -331,7 +335,7 @@ MrsStatus::MrsStatus() {
   bottom_window_  = newwin(20, 60, 20, 0);
 
   initialized_ = true;
-  ROS_INFO("[Mrs Status]: Node initialized!");
+  ROS_INFO("[MrsStatus]: Node initialized!");
 
   refresh();
 }
@@ -349,7 +353,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   general_info_window_->Redraw(&MrsStatus::GeneralInfoHandler, this);
 
   wclear(top_bar_window_);
-  wclear(bottom_window_);
+  /* wclear(bottom_window_); */
 
 
   int key_in = getch();
@@ -421,7 +425,7 @@ void MrsStatus::SetupTrigMenu() {
     trig_menu_text_.push_back(service_vec_[i].service_display_name);
   }
 
-  Menu menu(5, 3, trig_menu_text_);
+  Menu menu(2, 32, trig_menu_text_);
   menu_vec_.push_back(menu);
 }
 
@@ -431,7 +435,7 @@ void MrsStatus::SetupTrigMenu() {
 
 bool MrsStatus::TrigMenuHandler(int key_in) {
 
-  optional<tuple<int, int>> ret = menu_vec_[0].Iterate(trig_menu_text_, key_in);
+  optional<tuple<int, int>> ret = menu_vec_[0].iterate(trig_menu_text_, key_in, true);
 
   if (ret.has_value()) {
 
@@ -457,24 +461,20 @@ bool MrsStatus::TrigMenuHandler(int key_in) {
 
 void MrsStatus::SetupGotoMenu() {
 
-  reference_.request.reference.position.x = 0.0;
-  reference_.request.reference.position.y = 0.0;
-  reference_.request.reference.position.z = 2.0;
-  reference_.request.reference.yaw        = 1.57;
-  reference_.request.header.frame_id      = uav_state_.header.frame_id;
 
-  vector<string> goto_menu_text_;
-  goto_menu_text_.push_back(" X:             ");
-  goto_menu_text_.push_back(" Y:             ");
-  goto_menu_text_.push_back(" Z:             ");
-  goto_menu_text_.push_back(" Yaw:           ");
-  goto_menu_text_.push_back(uav_state_.header.frame_id);
+  goto_menu_text_.clear();
+  goto_menu_text_.push_back(" X:                ");
+  goto_menu_text_.push_back(" Y:                ");
+  goto_menu_text_.push_back(" Z:                ");
+  goto_menu_text_.push_back(" Yaw:              ");
+  goto_menu_text_.push_back(" " + uav_state_.header.frame_id + " ");
 
-  Menu menu(5, 3, goto_menu_text_);
+  Menu menu(2, 32, goto_menu_text_);
   menu_vec_.push_back(menu);
 
+
   for (int i = 0; i < 4; i++) {
-    InputBox tmpbox(8, menu.GetWin());
+    InputBox tmpbox(8, menu.getWin(), goto_double_vec_[i]);
     goto_menu_inputs_.push_back(tmpbox);
   }
 }
@@ -484,31 +484,48 @@ void MrsStatus::SetupGotoMenu() {
 /* GotoMenuHandler() //{ */
 
 bool MrsStatus::GotoMenuHandler(int key_in) {
-  optional<tuple<int, int>> ret = menu_vec_[0].Iterate(goto_menu_text_, key_in);
+
+  optional<tuple<int, int>> ret = menu_vec_[0].iterate(goto_menu_text_, key_in, false);
 
   if (ret.has_value()) {
+    int line = get<0>(ret.value());
+    int key  = get<1>(ret.value());
 
-    if (get<0>(ret.value()) == 666 && get<1>(ret.value()) == 666) {
+    if (line == 666 && key == 666) {
 
       menu_vec_.clear();
       return true;
 
-    } else if (get<1>(ret.value()) == KEY_ENT) {
+    } else if (key == KEY_ENT) {
 
-      /* std_srvs::Trigger trig; */
-      /* service_vec_[get<0>(ret.value())].service_client.call(trig); */
-      /* menu_vec_.clear(); */
+      mrs_msgs::ReferenceStampedSrv reference;
+
+      reference.request.reference.position.x = goto_menu_inputs_[0].getDouble();
+      reference.request.reference.position.y = goto_menu_inputs_[1].getDouble();
+      reference.request.reference.position.z = goto_menu_inputs_[2].getDouble();
+      reference.request.reference.yaw        = goto_menu_inputs_[3].getDouble();
+      reference.request.header.frame_id      = uav_state_.header.frame_id;
+      reference.request.header.stamp         = ros::Time::now();
+
+      service_goto_reference_.call(reference);
+
       return true;
-    } else {
-      goto_menu_inputs_[get<0>(ret.value())].Process(get<1>(ret.value()));
-      for (unsigned long i = 0; i < goto_menu_inputs_.size() ; i++) {
-        goto_menu_inputs_[i].Print();
-      }
+
+    } else if (line < goto_menu_inputs_.size()) {
+
+      goto_menu_inputs_[line].Process(key);
     }
   }
 
+  for (unsigned long i = 0; i < goto_menu_inputs_.size(); i++) {
+    if (i == menu_vec_[0].getLine()) {
+      goto_menu_inputs_[i].Print(i + 1, true);
+    } else {
+      goto_menu_inputs_[i].Print(i + 1, false);
+    }
+  }
 
-  wrefresh(menu_vec_[0].GetWin());
+  wrefresh(menu_vec_[0].getWin());
 }
 
 //}
