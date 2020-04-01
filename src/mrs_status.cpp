@@ -9,7 +9,6 @@
 
 #include <topic_tools/shape_shifter.h>  // for generic topic subscribers
 
-#include <mrs_msgs/TrackerPoint.h>
 #include <mrs_msgs/UavState.h>
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 #include <mrs_msgs/GainManagerDiagnostics.h>
@@ -29,7 +28,7 @@
 
 #include <mrs_lib/transformer.h>
 #include <mrs_lib/ParamLoader.h>
-
+#include <mrs_lib/attitude_converter.h>
 
 using namespace std;
 using topic_tools::ShapeShifter;
@@ -503,7 +502,7 @@ bool MrsStatus::GotoMenuHandler(int key_in) {
       reference.request.reference.position.x = goto_menu_inputs_[0].getDouble();
       reference.request.reference.position.y = goto_menu_inputs_[1].getDouble();
       reference.request.reference.position.z = goto_menu_inputs_[2].getDouble();
-      reference.request.reference.yaw        = goto_menu_inputs_[3].getDouble();
+      reference.request.reference.heading    = goto_menu_inputs_[3].getDouble();
       reference.request.header.frame_id      = uav_state_.header.frame_id;
       reference.request.header.stamp         = ros::Time::now();
 
@@ -634,16 +633,12 @@ void MrsStatus::UavStateHandler(WINDOW* win, double rate, short color, int topic
 
   } else {
 
-    double         roll, pitch, yaw;
-    tf::Quaternion quaternion_odometry;
-    quaternionMsgToTF(uav_state_.pose.orientation, quaternion_odometry);
-    tf::Matrix3x3 m(quaternion_odometry);
-    m.getRPY(roll, pitch, yaw);
+    double heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
 
     PrintLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
     PrintLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
     PrintLimitedDouble(win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000);
-    PrintLimitedDouble(win, 4, 2, "Yaw %5.2f", yaw, 1000);
+    PrintLimitedDouble(win, 4, 2, "Yaw %5.2f", heading, 1000);
 
     int pos = uav_state_.header.frame_id.find("/") + 1;
     PrintLimitedString(win, 1, 14, uav_state_.header.frame_id.substr(pos, uav_state_.header.frame_id.length()), 15);
@@ -742,8 +737,8 @@ void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int
 
   string controller;
   string tracker;
-  controller = control_manager_.controller_status.controller;
-  tracker    = control_manager_.tracker_status.tracker;
+  controller = control_manager_.active_controller;
+  tracker    = control_manager_.active_tracker;
 
   switch (topic) {
     case 0:  // mavros state
