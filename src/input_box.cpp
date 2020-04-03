@@ -1,6 +1,7 @@
 #include <input_box.h>
 
-/* Menu() //{ */
+/* InputBox() //{ */
+
 InputBox::InputBox(int size, WINDOW* win, double initial_value) {
   size_ = size;
   win_  = win;
@@ -12,7 +13,7 @@ InputBox::InputBox(int size, WINDOW* win, double initial_value) {
 
   sprintf(tmpbuffer, "%6.2f", initial_value);
   for (unsigned long i = 0; i < size_; i++) {
-    if (std::isdigit(tmpbuffer[i]) || tmpbuffer[i] == '.') {
+    if (std::isdigit(tmpbuffer[i]) || tmpbuffer[i] == '.' || tmpbuffer[i] == '-' ) {
       buffer_[i] = tmpbuffer[i];
     } else {
       buffer_[i] = ' ';
@@ -58,7 +59,7 @@ unsigned long InputBox::Process(int key) {
     default:
       if (InputBox::cursor_ < size_) {
 
-        if (std::isdigit(key) || key == '.') {
+        if (std::isdigit(key) || key == '.' || key == '-') {
           if (buffer_[size_ - 1] != ' ') {
             if (buffer_[0] == ' ') {
               buffer_.insert(buffer_.begin() + InputBox::cursor_, key);

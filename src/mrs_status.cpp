@@ -352,7 +352,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   general_info_window_->Redraw(&MrsStatus::GeneralInfoHandler, this);
 
   wclear(top_bar_window_);
-  /* wclear(bottom_window_); */
+  wclear(bottom_window_);
 
 
   int key_in = getch();
@@ -460,7 +460,7 @@ bool MrsStatus::TrigMenuHandler(int key_in) {
 
 void MrsStatus::SetupGotoMenu() {
 
-
+  goto_menu_inputs_.clear();
   goto_menu_text_.clear();
   goto_menu_text_.push_back(" X:                ");
   goto_menu_text_.push_back(" Y:                ");
@@ -497,17 +497,23 @@ bool MrsStatus::GotoMenuHandler(int key_in) {
 
     } else if (key == KEY_ENT) {
 
+      goto_double_vec_[0] = goto_menu_inputs_[0].getDouble();
+      goto_double_vec_[1] = goto_menu_inputs_[1].getDouble();
+      goto_double_vec_[2] = goto_menu_inputs_[2].getDouble();
+      goto_double_vec_[3] = goto_menu_inputs_[3].getDouble();
+
       mrs_msgs::ReferenceStampedSrv reference;
 
-      reference.request.reference.position.x = goto_menu_inputs_[0].getDouble();
-      reference.request.reference.position.y = goto_menu_inputs_[1].getDouble();
-      reference.request.reference.position.z = goto_menu_inputs_[2].getDouble();
-      reference.request.reference.heading    = goto_menu_inputs_[3].getDouble();
+      reference.request.reference.position.x = goto_double_vec_[0];
+      reference.request.reference.position.y = goto_double_vec_[1];
+      reference.request.reference.position.z = goto_double_vec_[2];
+      reference.request.reference.heading    = goto_double_vec_[3];
       reference.request.header.frame_id      = uav_state_.header.frame_id;
       reference.request.header.stamp         = ros::Time::now();
 
       service_goto_reference_.call(reference);
 
+      menu_vec_.clear();
       return true;
 
     } else if (line < goto_menu_inputs_.size()) {
@@ -515,6 +521,8 @@ bool MrsStatus::GotoMenuHandler(int key_in) {
       goto_menu_inputs_[line].Process(key);
     }
   }
+
+  mvwprintw(bottom_window_, 0, 20, "%i", goto_menu_inputs_.size());
 
   for (unsigned long i = 0; i < goto_menu_inputs_.size(); i++) {
     if (i == menu_vec_[0].getLine()) {
@@ -614,9 +622,10 @@ void MrsStatus::GeneralInfoHandler(WINDOW* win, double rate, short color, int to
 /* GenericTopicHandler() //{ */
 
 void MrsStatus::GenericTopicHandler(WINDOW* win, double rate, short color, int topic) {
-
-  PrintLimitedString(win, 1 + topic, 1, generic_topic_vec_[topic].topic_display_name, 19);
-  PrintLimitedDouble(win, 1 + topic, 21, "%5.1f Hz", rate, 1000);
+  if (!generic_topic_vec_.empty()) {
+    PrintLimitedString(win, 1 + topic, 1, generic_topic_vec_[topic].topic_display_name, 19);
+    PrintLimitedDouble(win, 1 + topic, 21, "%5.1f Hz", rate, 1000);
+  }
 }
 
 //}
