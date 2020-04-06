@@ -6,17 +6,23 @@
   <arg name="RUN_TYPE" default="$(env RUN_TYPE)"/>
   <arg name="PIXGARM" default="$(optenv PIXGARM false)"/>
 
+  <arg name="debug" default="false"/>
+
+  <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
+  <arg unless="$(arg debug)" name="launch_prefix" value="" />
+
   <arg name="config_file" default="$(find mrs_status)/config/status.yaml"/>
 
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 't650')" name="UAV_MASS" default="5.0" />
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f550')" name="UAV_MASS" default="3.0" />
   <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f450')" name="UAV_MASS" default="2.3" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f550')" name="UAV_MASS" default="3.0" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 't650')" name="UAV_MASS" default="5.0" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'm600')" name="UAV_MASS" default="10.0" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'eaglemk2')" name="UAV_MASS" default="10.0" />
   <arg if="$(eval arg('RUN_TYPE') == 'uav')" name="UAV_MASS" default="$(env UAV_MASS)" />
 
   <group ns="$(arg UAV_NAME)">
 
-    <node name="mrs_status_c" pkg="mrs_status" type="mrs_status" output="screen" respawn="false">
-    <!-- <node name="mrs_status_c" pkg="mrs_status" type="mrs_status" output="screen" respawn="true"> -->
+    <node name="mrs_status_c" pkg="mrs_status" type="mrs_status" output="screen" respawn="false" launch-prefix="$(arg launch_prefix)">
 
       <param name="uav_name" value="$(arg UAV_NAME)" />
       <param name="uav_type" value="$(arg UAV_TYPE)" />
