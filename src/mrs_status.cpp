@@ -17,6 +17,8 @@
 #include <mrs_msgs/ReferenceStampedSrv.h>
 #include <mrs_msgs/Vec4.h>
 
+#include <std_msgs/String.h>
+
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/AttitudeTarget.h>
 
@@ -64,6 +66,7 @@ private:
   void ControlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg);
   void GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
   void ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
+  void StringCallback(const ros::MessageEvent<std_msgs::String const>& event);
 
   void GenericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
 
@@ -86,6 +89,7 @@ private:
   void MavrosStateHandler(WINDOW* win, double rate, short color, int topic);
   void ControlManagerHandler(WINDOW* win, double rate, short color, int topic);
   void GeneralInfoHandler(WINDOW* win, double rate, short color, int topic);
+  void StringHandler(WINDOW* win, double rate, short color, int topic);
 
   void SetupTrigMenu();
   bool TrigMenuHandler(int key_in);
@@ -104,6 +108,8 @@ private:
   ros::Subscriber control_manager_subscriber_;
   ros::Subscriber gain_manager_subscriber_;
   ros::Subscriber constraint_manager_subscriber_;
+
+  ros::Subscriber string_subscriber_;
 
   ros::ServiceClient service_goto_reference_;
   ros::ServiceClient service_goto_fcu_;
@@ -141,6 +147,10 @@ private:
 
   StatusWindow* general_info_window_;
   vector<topic> general_info_topic_;
+
+  StatusWindow*  string_window_;
+  vector<string> string_vec_;
+  vector<topic>  string_topic_;
 
   WINDOW* top_bar_window_;
 
@@ -197,6 +207,7 @@ MrsStatus::MrsStatus() {
   control_manager_subscriber_    = nh_.subscribe("control_manager_in", 1, &MrsStatus::ControlManagerCallback, this, ros::TransportHints().tcpNoDelay());
   gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 1, &MrsStatus::GainManagerCallback, this, ros::TransportHints().tcpNoDelay());
   constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &MrsStatus::ConstraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  string_subscriber_             = nh_.subscribe("string_in", 1, &MrsStatus::StringCallback, this, ros::TransportHints().tcpNoDelay());
 
   // SERVICES
   service_goto_reference_ = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
@@ -217,6 +228,10 @@ MrsStatus::MrsStatus() {
 
     std::vector<std::string> results;
     boost::split(results, service_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
+
+    for (int j = 2; j < results.size(); j++) {
+      results[1] = results[1] + " " + results[j];
+    }
 
     string service_name = "/" + _uav_name_ + "/" + results[0];
 
@@ -330,6 +345,8 @@ MrsStatus::MrsStatus() {
 
   generic_topic_window_ = new StatusWindow(10, 30, 1, 61, generic_topic_vec_);
 
+  string_window_ = new StatusWindow(10, 60, 1, 91, string_topic_);
+
   top_bar_window_ = newwin(1, 60, 0, 0);
   bottom_window_  = newwin(20, 60, 20, 0);
 
@@ -350,6 +367,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   control_manager_window_->Redraw(&MrsStatus::ControlManagerHandler, this);
   generic_topic_window_->Redraw(&MrsStatus::GenericTopicHandler, this);
   general_info_window_->Redraw(&MrsStatus::GeneralInfoHandler, this);
+  string_window_->Redraw(&MrsStatus::StringHandler, this);
 
   wclear(top_bar_window_);
   wclear(bottom_window_);
@@ -388,7 +406,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
     case RETARD:
       flushinp();
       RetardHandler(key_in, top_bar_window_);
-      if (key_in == 'R') {
+      if (key_in == 'R' || key_in == KEY_ESC) {
         state = STANDARD;
       }
       break;
@@ -603,6 +621,17 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
       break;
   }
   wattroff(win, A_BOLD);
+}
+
+//}
+
+/* StringHandler() //{ */
+
+void MrsStatus::StringHandler(WINDOW* win, double rate, short color, int topic) {
+
+  for (unsigned long i = 0; i < string_vec_.size(); i++) {
+    PrintLimitedString(win, i, 0, string_vec_[i], 60);
+  }
 }
 
 //}
@@ -1166,6 +1195,22 @@ void MrsStatus::ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagn
 
 //}
 
+/* StringCallback() //{ */
+
+void MrsStatus::StringCallback(const ros::MessageEvent<std_msgs::String const>& event) {
+
+  const std::string& publisher_name = event.getPublisherName();
+  std::string        tmp            = event.getPublisherName();
+
+  const std_msgs::StringConstPtr& msg     = event.getMessage();
+  std::string                     msg_str = msg->data;
+
+  string_vec_.clear();
+  string_vec_.push_back(tmp);
+  string_vec_.push_back(msg_str);
+}
+//}
+
 /* GenericCallback() //{ */
 
 void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id) {
@@ -1186,9 +1231,11 @@ int main(int argc, char** argv) {
   cbreak();
   noecho();
   clear();
+  nodelay(stdscr, true);
   keypad(stdscr, true);
   timeout(0);
   curs_set(0);  // disable cursor
+  set_escdelay(0);
   use_default_colors();
 
   init_pair(NORMAL, COLOR_WHITE, BACKGROUND_DEFAULT);
