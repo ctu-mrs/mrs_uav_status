@@ -16,6 +16,7 @@
 
 #include <mrs_msgs/ReferenceStampedSrv.h>
 #include <mrs_msgs/Vec4.h>
+#include <mrs_msgs/String.h>
 
 #include <std_msgs/String.h>
 
@@ -114,6 +115,7 @@ private:
 
   ros::ServiceClient service_goto_reference_;
   ros::ServiceClient service_goto_fcu_;
+  ros::ServiceClient service_set_constraints_;
 
   string _uav_name_;
   string _uav_type_;
@@ -164,9 +166,13 @@ private:
   vector<ros::Subscriber> generic_subscriber_vec_;
 
   vector<Menu> menu_vec_;
+  vector<Menu> submenu_vec_;
 
   vector<service> service_vec_;
   vector<string>  main_menu_text_;
+  vector<string>  constraints_text_;
+  vector<string>  gains_text_;
+  vector<string>  controllers_text_;
 
   vector<double>   goto_double_vec_;
   vector<string>   goto_menu_text_;
@@ -212,8 +218,9 @@ MrsStatus::MrsStatus() {
   string_subscriber_             = nh_.subscribe("string_in", 1, &MrsStatus::StringCallback, this, ros::TransportHints().tcpNoDelay());
 
   // SERVICES
-  service_goto_reference_ = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
-  service_goto_fcu_       = nh_.serviceClient<mrs_msgs::Vec4>("goto_fcu_out");
+  service_goto_reference_  = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
+  service_goto_fcu_        = nh_.serviceClient<mrs_msgs::Vec4>("goto_fcu_out");
+  service_set_constraints_ = nh_.serviceClient<mrs_msgs::String>("set_constraints_out");
 
   goto_double_vec_.push_back(0.0);
   goto_double_vec_.push_back(0.0);
@@ -458,34 +465,88 @@ void MrsStatus::SetupMainMenu() {
 
 bool MrsStatus::MainMenuHandler(int key_in) {
 
-  optional<tuple<int, int>> ret = menu_vec_[0].iterate(main_menu_text_, key_in, true);
+  if (!submenu_vec_.empty()) {
+    // SUBMENU IS OPEN
+    PrintServiceResult(true, "submenu open");
 
-  if (ret.has_value()) {
+    switch (submenu_vec_[0].getId()) {
+      case 1:
+        // CONSTRAINTS
+        optional<tuple<int, int>> ret = submenu_vec_[0].iterate(constraints_text_, key_in, true);
 
-    if (get<0>(ret.value()) == 666 && get<1>(ret.value()) == 666) {
+        int line = get<0>(ret.value());
+        int key  = get<1>(ret.value());
 
-      menu_vec_.clear();
-      return true;
+        if (ret.has_value()) {
+          if (line == 666 && key == 666) {
 
-    } else if (get<1>(ret.value()) == KEY_ENT) {
+            menu_vec_.clear();
+            return true;
 
-      int line = get<0>(ret.value());
-      if (line < service_vec_.size()) {
+          } else if (key == KEY_ENT) {
 
-        std_srvs::Trigger trig;
-        service_vec_[line].service_client.call(trig);
-        PrintServiceResult(trig.response.success, trig.response.message);
-
-      } else {
-
-        PrintServiceResult(true, "overcall");
-      }
-
-      menu_vec_.clear();
-      return true;
+            mrs_msgs::String string_service;
+            string_service.request.value = constraints_text_[line];
+            service_set_constraints_.call(string_service);
+            PrintServiceResult(string_service.response.success, string_service.response.message);
+          }
+        }
     }
+
+    return false;
+  } else {
+    // NORMAL CASE - NO SUBMENU
+
+    optional<tuple<int, int>> ret = menu_vec_[0].iterate(main_menu_text_, key_in, true);
+
+    if (ret.has_value()) {
+      int line = get<0>(ret.value());
+      int key  = get<1>(ret.value());
+
+      if (line == 666 && key == 666) {
+
+        menu_vec_.clear();
+        return true;
+      } else if (key == KEY_ENT) {
+
+        if (line < service_vec_.size()) {
+
+          std_srvs::Trigger trig;
+          service_vec_[line].service_client.call(trig);
+          PrintServiceResult(trig.response.success, trig.response.message);
+
+          menu_vec_.clear();
+          return true;
+
+        } else if (line == main_menu_text_.size() - 3) {
+          // SET CONSTRAINTS
+
+          constraints_text_.clear();
+
+          for (unsigned long i = 0; i < constraint_manager_.available.size(); i++) {
+            constraints_text_.push_back(constraint_manager_.available[i]);
+          }
+
+          Menu menu(3, 33, constraints_text_, 1);
+          submenu_vec_.push_back(menu);
+
+        } else if (line == main_menu_text_.size() - 2) {
+          // SET GAINS
+
+          PrintServiceResult(true, "gains");
+
+        } else if (line == main_menu_text_.size() - 1) {
+          // SET CONTROLLER
+
+          PrintServiceResult(true, "controller");
+
+        } else {
+          PrintServiceResult(false, "undefined");
+        }
+      }
+    }
+    return false;
   }
-  return false;
 }
 
 //}

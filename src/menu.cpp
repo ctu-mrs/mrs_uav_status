@@ -11,7 +11,20 @@ Menu::Menu(int begin_y, int begin_x, std::vector<std::string>& text) {
       longest_string = text[line].length();
     }
   }
+  id_ = 0;
+  win_ = newwin(text.size() + 2, longest_string + 2, begin_y, begin_x);
+}
 
+Menu::Menu(int begin_y, int begin_x, std::vector<std::string>& text, int id) {
+
+  unsigned long longest_string = 0;
+
+  for (unsigned long line = 0; line < text.size(); line++) {
+    if (text[line].length() > longest_string) {
+      longest_string = text[line].length();
+    }
+  }
+  id_ = id;
   win_ = newwin(text.size() + 2, longest_string + 2, begin_y, begin_x);
 }
 
@@ -21,6 +34,14 @@ Menu::Menu(int begin_y, int begin_x, std::vector<std::string>& text) {
 
 WINDOW* Menu::getWin() {
   return win_;
+}
+
+//}
+
+/* getId() //{ */
+
+int Menu::getId() {
+  return id_;
 }
 
 //}
