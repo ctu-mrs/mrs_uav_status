@@ -22,7 +22,7 @@
 
   <group ns="$(arg UAV_NAME)">
 
-    <node name="mrs_status_c" pkg="mrs_status" type="mrs_status" output="screen" respawn="false" launch-prefix="$(arg launch_prefix)">
+    <node name="mrs_status" pkg="mrs_status" type="mrs_status" output="screen" respawn="false" launch-prefix="$(arg launch_prefix)">
 
       <param name="uav_name" value="$(arg UAV_NAME)" />
       <param name="uav_type" value="$(arg UAV_TYPE)" />
@@ -40,6 +40,7 @@
       <remap from="~control_manager_in" to="control_manager/diagnostics" />
       <remap from="~gain_manager_in" to="gain_manager/diagnostics" />
       <remap from="~constraint_manager_in" to="constraint_manager/diagnostics" />
+      <remap from="~string_in" to="~display_string" />
 
         <!-- Services -->
       <remap from="~goto_fcu_out" to="control_manager/goto_fcu" />

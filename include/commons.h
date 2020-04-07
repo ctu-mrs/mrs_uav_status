@@ -78,4 +78,17 @@ struct service
   }
 };
 
+struct string_info
+{
+  std::string publisher_name;
+  std::string display_string;
+  ros::Time   last_time;
+
+  string_info(std::string publisher_name_in, std::string display_string_in) {
+    publisher_name = publisher_name_in;
+    display_string = display_string_in;
+    last_time      = ros::Time::now();
+  }
+};
+
 #endif

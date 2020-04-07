@@ -41,7 +41,7 @@ typedef enum
 {
   STANDARD,
   RETARD,
-  TRIG_MENU,
+  MAIN_MENU,
   GOTO_MENU,
 } status_state;
 
@@ -75,6 +75,7 @@ private:
   void PrintLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit);
   void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
   void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
+  void PrintServiceResult(bool success, string msg);
 
   void PrintNoData(WINDOW* win, int y, int x);
   void PrintNoData(WINDOW* win, int y, int x, string text);
@@ -91,8 +92,8 @@ private:
   void GeneralInfoHandler(WINDOW* win, double rate, short color, int topic);
   void StringHandler(WINDOW* win, double rate, short color, int topic);
 
-  void SetupTrigMenu();
-  bool TrigMenuHandler(int key_in);
+  void SetupMainMenu();
+  bool MainMenuHandler(int key_in);
 
   void SetupGotoMenu();
   bool GotoMenuHandler(int key_in);
@@ -148,13 +149,14 @@ private:
   StatusWindow* general_info_window_;
   vector<topic> general_info_topic_;
 
-  StatusWindow*  string_window_;
-  vector<string> string_vec_;
-  vector<topic>  string_topic_;
+  StatusWindow*       string_window_;
+  vector<string_info> string_info_vec_;
+  vector<topic>       string_topic_;
 
   WINDOW* top_bar_window_;
 
-  WINDOW* bottom_window_;
+  WINDOW*   bottom_window_;
+  ros::Time bottom_window_clear_time_ = ros::Time::now();
 
   StatusWindow*           generic_topic_window_;
   vector<topic>           generic_topic_vec_;
@@ -164,7 +166,7 @@ private:
   vector<Menu> menu_vec_;
 
   vector<service> service_vec_;
-  vector<string>  trig_menu_text_;
+  vector<string>  main_menu_text_;
 
   vector<double>   goto_double_vec_;
   vector<string>   goto_menu_text_;
@@ -345,10 +347,10 @@ MrsStatus::MrsStatus() {
 
   generic_topic_window_ = new StatusWindow(10, 30, 1, 61, generic_topic_vec_);
 
-  string_window_ = new StatusWindow(10, 60, 1, 91, string_topic_);
+  string_window_ = new StatusWindow(10, 32, 1, 91, string_topic_);
 
-  top_bar_window_ = newwin(1, 60, 0, 0);
-  bottom_window_  = newwin(20, 60, 20, 0);
+  top_bar_window_ = newwin(1, 120, 0, 1);
+  bottom_window_  = newwin(1, 120, 11, 1);
 
   initialized_ = true;
   ROS_INFO("[MrsStatus]: Node initialized!");
@@ -370,12 +372,12 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   string_window_->Redraw(&MrsStatus::StringHandler, this);
 
   wclear(top_bar_window_);
-  wclear(bottom_window_);
 
+  if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
+    wclear(bottom_window_);
+  }
 
   int key_in = getch();
-
-  mvwprintw(top_bar_window_, 0, 0, "%i", key_in);
 
   switch (state) {
 
@@ -388,8 +390,8 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
           break;
 
         case 'm':
-          SetupTrigMenu();
-          state = TRIG_MENU;
+          SetupMainMenu();
+          state = MAIN_MENU;
           break;
 
         case 'g':
@@ -411,8 +413,8 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       }
       break;
 
-    case TRIG_MENU:
-      if (TrigMenuHandler(key_in)) {
+    case MAIN_MENU:
+      if (MainMenuHandler(key_in)) {
         state = STANDARD;
       }
       break;
@@ -432,27 +434,31 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 //}
 
-/* SetupTrigMenu() //{ */
+/* SetupMainMenu() //{ */
 
-void MrsStatus::SetupTrigMenu() {
+void MrsStatus::SetupMainMenu() {
 
-  trig_menu_text_.clear();
+  main_menu_text_.clear();
 
   for (unsigned long i = 0; i < service_vec_.size(); i++) {
-    trig_menu_text_.push_back(service_vec_[i].service_display_name);
+    main_menu_text_.push_back(service_vec_[i].service_display_name);
   }
 
-  Menu menu(2, 32, trig_menu_text_);
+  main_menu_text_.push_back("Set Constraints");
+  main_menu_text_.push_back("Set Gains");
+  main_menu_text_.push_back("Set Controller");
+
+  Menu menu(2, 32, main_menu_text_);
   menu_vec_.push_back(menu);
 }
 
 //}
 
-/* TrigMenuHandler() //{ */
+/* MainMenuHandler() //{ */
 
-bool MrsStatus::TrigMenuHandler(int key_in) {
+bool MrsStatus::MainMenuHandler(int key_in) {
 
-  optional<tuple<int, int>> ret = menu_vec_[0].iterate(trig_menu_text_, key_in, true);
+  optional<tuple<int, int>> ret = menu_vec_[0].iterate(main_menu_text_, key_in, true);
 
   if (ret.has_value()) {
 
@@ -463,8 +469,18 @@ bool MrsStatus::TrigMenuHandler(int key_in) {
 
     } else if (get<1>(ret.value()) == KEY_ENT) {
 
-      std_srvs::Trigger trig;
-      service_vec_[get<0>(ret.value())].service_client.call(trig);
+      int line = get<0>(ret.value());
+      if (line < service_vec_.size()) {
+
+        std_srvs::Trigger trig;
+        service_vec_[line].service_client.call(trig);
+        PrintServiceResult(trig.response.success, trig.response.message);
+
+      } else {
+
+        PrintServiceResult(true, "overcall");
+      }
+
       menu_vec_.clear();
       return true;
     }
@@ -531,6 +547,8 @@ bool MrsStatus::GotoMenuHandler(int key_in) {
 
       service_goto_reference_.call(reference);
 
+      PrintServiceResult(reference.response.success, reference.response.message);
+
       menu_vec_.clear();
       return true;
 
@@ -540,7 +558,6 @@ bool MrsStatus::GotoMenuHandler(int key_in) {
     }
   }
 
-  mvwprintw(bottom_window_, 0, 20, "%i", goto_menu_inputs_.size());
 
   for (unsigned long i = 0; i < goto_menu_inputs_.size(); i++) {
     if (i == menu_vec_[0].getLine()) {
@@ -573,51 +590,46 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
   switch (key) {
     case 'w':
     case 'k':
+    case KEY_UP:
       goal.request.goal[0] = 2.0;
       service_goto_fcu_.call(goal);
-      mvwprintw(win, 0, 0, " forward ");
       break;
     case 's':
     case 'j':
+    case KEY_DOWN:
       goal.request.goal[0] = -2.0;
       service_goto_fcu_.call(goal);
-      mvwprintw(win, 0, 0, " backward ");
       break;
     case 'a':
     case 'h':
+    case KEY_LEFT:
       goal.request.goal[1] = 2.0;
       service_goto_fcu_.call(goal);
-      mvwprintw(win, 0, 0, " left ");
       break;
     case 'd':
     case 'l':
+    case KEY_RIGHT:
       goal.request.goal[1] = -2.0;
       service_goto_fcu_.call(goal);
-      mvwprintw(win, 0, 0, " right ");
       break;
     case 'r':
       goal.request.goal[2] = 1.0;
       service_goto_fcu_.call(goal);
-      mvwprintw(win, 0, 0, " up ");
       break;
     case 'f':
       goal.request.goal[2] = -1.0;
       service_goto_fcu_.call(goal);
-      mvwprintw(win, 0, 0, " down ");
       break;
     case 'q':
       goal.request.goal[3] = 0.5;
       service_goto_fcu_.call(goal);
-      mvwprintw(win, 0, 0, " yaw left ");
       break;
     case 'e':
       goal.request.goal[3] = -0.5;
       service_goto_fcu_.call(goal);
-      mvwprintw(win, 0, 0, " yaw_right ");
       break;
 
     default:
-      mvwprintw(win, 0, 0, "%i", key);
       break;
   }
   wattroff(win, A_BOLD);
@@ -629,8 +641,44 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
 
 void MrsStatus::StringHandler(WINDOW* win, double rate, short color, int topic) {
 
-  for (unsigned long i = 0; i < string_vec_.size(); i++) {
-    PrintLimitedString(win, i, 0, string_vec_[i], 60);
+  if (string_info_vec_.empty()) {
+    wclear(win);
+  }
+
+  for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
+
+    if ((ros::Time::now() - string_info_vec_[i].last_time).toSec() > 10.0) {
+      string_info_vec_.erase(string_info_vec_.begin() + i);
+    } else {
+
+      PrintLimitedString(win, 1 + (3 * i), 1, string_info_vec_[i].publisher_name + ": ", 30);
+
+      int    tmp_color          = NORMAL;
+      string tmp_display_string = string_info_vec_[i].display_string;
+
+      if (tmp_display_string.at(0) == '-') {
+
+        if (tmp_display_string.at(1) == 'r') {
+          tmp_color = RED;
+        }
+
+        else if (tmp_display_string.at(1) == 'y') {
+          tmp_color = YELLOW;
+        }
+
+        else if (tmp_display_string.at(1) == 'g') {
+          tmp_color = GREEN;
+        }
+
+        if (tmp_color != NORMAL) {
+          tmp_display_string.erase(0, 3);
+        }
+      }
+
+      wattron(win, COLOR_PAIR(tmp_color));
+      PrintLimitedString(win, 2 + (3 * i), 1, tmp_display_string, 30);
+      wattroff(win, COLOR_PAIR(tmp_color));
+    }
   }
 }
 
@@ -651,9 +699,15 @@ void MrsStatus::GeneralInfoHandler(WINDOW* win, double rate, short color, int to
 /* GenericTopicHandler() //{ */
 
 void MrsStatus::GenericTopicHandler(WINDOW* win, double rate, short color, int topic) {
+
   if (!generic_topic_vec_.empty()) {
+
     PrintLimitedString(win, 1 + topic, 1, generic_topic_vec_[topic].topic_display_name, 19);
     PrintLimitedDouble(win, 1 + topic, 21, "%5.1f Hz", rate, 1000);
+
+  } else {
+
+    wclear(win);
   }
 }
 
@@ -1047,6 +1101,36 @@ void MrsStatus::PrintDiskSpace(WINDOW* win) {
 
 //}
 
+/* PrintServiceResult() //{ */
+
+void MrsStatus::PrintServiceResult(bool success, string msg) {
+
+  wclear(bottom_window_);
+
+  wattron(bottom_window_, A_BOLD);
+  wattron(bottom_window_, COLOR_PAIR(GREEN));
+
+  if (success) {
+
+    PrintLimitedString(bottom_window_, 0, 0, "Service call success: " + msg, 120);
+
+  } else {
+
+    wattron(bottom_window_, COLOR_PAIR(RED));
+
+    PrintLimitedString(bottom_window_, 0, 0, "Service call failed: " + msg, 120);
+
+    wattroff(bottom_window_, COLOR_PAIR(RED));
+  }
+
+  bottom_window_clear_time_ = ros::Time::now();
+
+  wattroff(bottom_window_, COLOR_PAIR(GREEN));
+  wattroff(bottom_window_, A_BOLD);
+}
+
+//}
+
 /* PrintLimitedInt() //{ */
 
 void MrsStatus::PrintLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit) {
@@ -1199,15 +1283,24 @@ void MrsStatus::ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagn
 
 void MrsStatus::StringCallback(const ros::MessageEvent<std_msgs::String const>& event) {
 
-  const std::string& publisher_name = event.getPublisherName();
-  std::string        tmp            = event.getPublisherName();
+  std::string pub_name = event.getPublisherName();
+  std::string msg_str  = event.getMessage()->data;
 
-  const std_msgs::StringConstPtr& msg     = event.getMessage();
-  std::string                     msg_str = msg->data;
+  bool contains = false;
 
-  string_vec_.clear();
-  string_vec_.push_back(tmp);
-  string_vec_.push_back(msg_str);
+  for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
+    if (string_info_vec_[i].publisher_name == pub_name) {
+      contains                           = true;
+      string_info_vec_[i].display_string = msg_str;
+      string_info_vec_[i].last_time      = ros::Time::now();
+      break;
+    }
+  }
+
+  if (!contains) {
+    string_info tmp(pub_name, msg_str);
+    string_info_vec_.push_back(tmp);
+  }
 }
 //}
 
