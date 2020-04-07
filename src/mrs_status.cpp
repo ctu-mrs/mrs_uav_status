@@ -467,20 +467,22 @@ bool MrsStatus::MainMenuHandler(int key_in) {
 
   if (!submenu_vec_.empty()) {
     // SUBMENU IS OPEN
-    PrintServiceResult(true, "submenu open");
+
+    menu_vec_[0].iterate(main_menu_text_, -1, true);
 
     switch (submenu_vec_[0].getId()) {
       case 1:
         // CONSTRAINTS
         optional<tuple<int, int>> ret = submenu_vec_[0].iterate(constraints_text_, key_in, true);
 
-        int line = get<0>(ret.value());
-        int key  = get<1>(ret.value());
-
         if (ret.has_value()) {
+
+          int line = get<0>(ret.value());
+          int key  = get<1>(ret.value());
+
           if (line == 666 && key == 666) {
 
-            menu_vec_.clear();
+            submenu_vec_.clear();
             return true;
 
           } else if (key == KEY_ENT) {
@@ -489,6 +491,9 @@ bool MrsStatus::MainMenuHandler(int key_in) {
             string_service.request.value = constraints_text_[line];
             service_set_constraints_.call(string_service);
             PrintServiceResult(string_service.response.success, string_service.response.message);
+
+            submenu_vec_.clear();
+            return true;
           }
         }
     }

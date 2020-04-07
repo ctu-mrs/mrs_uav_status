@@ -45,6 +45,7 @@
         <!-- Services -->
       <remap from="~goto_fcu_out" to="control_manager/goto_fcu" />
       <remap from="~reference_out" to="control_manager/reference" />
+      <remap from="~set_constraints_out" to="constraint_manager/set_constraints" />
 
     </node>
 
