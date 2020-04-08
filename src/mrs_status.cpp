@@ -5,7 +5,9 @@
 #include <input_box.h>
 #include <commons.h>
 
+#include <iostream>
 #include <fstream>
+#include <boost/filesystem.hpp>
 
 #include <topic_tools/shape_shifter.h>  // for generic topic subscribers
 
@@ -45,8 +47,6 @@ typedef enum
   MAIN_MENU,
   GOTO_MENU,
 } status_state;
-
-class MrsStatus;
 
 /* class MrsStatus //{ */
 
@@ -92,6 +92,8 @@ private:
   void ControlManagerHandler(WINDOW* win, double rate, short color, int topic);
   void GeneralInfoHandler(WINDOW* win, double rate, short color, int topic);
   void StringHandler(WINDOW* win, double rate, short color, int topic);
+
+  void flightTimeHandler(WINDOW* win);
 
   void SetupMainMenu();
   bool MainMenuHandler(int key_in);
@@ -188,6 +190,11 @@ private:
 
   string old_constraints;
 
+  bool              is_flying_ = false;
+  unsigned long     secs_flown = 0;
+  ros::Time         last_flight_time_;
+  const std::string _time_filename_ = "/tmp/mrs_status_flight_time.txt";
+
   status_state state = STANDARD;
 };
 
@@ -261,6 +268,20 @@ MrsStatus::MrsStatus() {
     tmp_service.service_client = nh_.serviceClient<std_srvs::Trigger>(service_name);
 
     service_vec_.push_back(tmp_service);
+  }
+
+  if (boost::filesystem::exists(_time_filename_)) {
+    ifstream file(_time_filename_);
+    string   line;
+    getline(file, line);
+
+    try {
+      secs_flown = stoi(line);
+    }
+    catch (const invalid_argument& e) {
+      secs_flown = 0;
+    }
+    file.close();
   }
 
   /* Generic topic definitions //{ */
@@ -386,18 +407,20 @@ MrsStatus::MrsStatus() {
 
 void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
+  wclear(top_bar_window_);
+
+  if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
+    wclear(bottom_window_);
+  }
+
+  flightTimeHandler(top_bar_window_);
+
   uav_state_window_->Redraw(&MrsStatus::UavStateHandler, this);
   mavros_state_window_->Redraw(&MrsStatus::MavrosStateHandler, this);
   control_manager_window_->Redraw(&MrsStatus::ControlManagerHandler, this);
   generic_topic_window_->Redraw(&MrsStatus::GenericTopicHandler, this);
   general_info_window_->Redraw(&MrsStatus::GeneralInfoHandler, this);
   string_window_->Redraw(&MrsStatus::StringHandler, this);
-
-  wclear(top_bar_window_);
-
-  if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
-    wclear(bottom_window_);
-  }
 
   int key_in = getch();
 
@@ -432,6 +455,16 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       flushinp();
       RetardHandler(key_in, top_bar_window_);
       if (key_in == 'R' || key_in == KEY_ESC) {
+
+        if (turbo_retard_) {
+
+          turbo_retard_ = false;
+          mrs_msgs::String string_service;
+          string_service.request.value = old_constraints;
+          service_set_constraints_.call(string_service);
+          PrintServiceResult(string_service.response.success, string_service.response.message);
+        }
+
         state = STANDARD;
       }
       break;
@@ -458,25 +491,8 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 //}
 
-/* SetupMainMenu() //{ */
+/* HANDLERS //{ */
 
-void MrsStatus::SetupMainMenu() {
-
-  main_menu_text_.clear();
-
-  for (unsigned long i = 0; i < service_vec_.size(); i++) {
-    main_menu_text_.push_back(service_vec_[i].service_display_name);
-  }
-
-  main_menu_text_.push_back("Set Constraints");
-  main_menu_text_.push_back("Set Gains");
-  main_menu_text_.push_back("Set Controller");
-
-  Menu menu(2, 32, main_menu_text_);
-  menu_vec_.push_back(menu);
-}
-
-//}
 
 /* MainMenuHandler() //{ */
 
@@ -676,30 +692,6 @@ bool MrsStatus::MainMenuHandler(int key_in) {
 
 //}
 
-/* SetupGotoMenu() //{ */
-
-void MrsStatus::SetupGotoMenu() {
-
-  goto_menu_inputs_.clear();
-  goto_menu_text_.clear();
-  goto_menu_text_.push_back(" X:                ");
-  goto_menu_text_.push_back(" Y:                ");
-  goto_menu_text_.push_back(" Z:                ");
-  goto_menu_text_.push_back(" Yaw:              ");
-  goto_menu_text_.push_back(" " + uav_state_.header.frame_id + " ");
-
-  Menu menu(2, 32, goto_menu_text_);
-  menu_vec_.push_back(menu);
-
-
-  for (int i = 0; i < 4; i++) {
-    InputBox tmpbox(8, menu.getWin(), goto_double_vec_[i]);
-    goto_menu_inputs_.push_back(tmpbox);
-  }
-}
-
-//}
-
 /* GotoMenuHandler() //{ */
 
 bool MrsStatus::GotoMenuHandler(int key_in) {
@@ -792,7 +784,7 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
       goal.request.goal[0] = 2.0;
 
       if (turbo_retard_) {
-        goal.request.goal[0] = 10.0;
+        goal.request.goal[0] = 5.0;
       }
 
       service_goto_fcu_.call(goal);
@@ -805,7 +797,7 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
       goal.request.goal[0] = -2.0;
 
       if (turbo_retard_) {
-        goal.request.goal[0] = -10.0;
+        goal.request.goal[0] = -5.0;
       }
 
       service_goto_fcu_.call(goal);
@@ -818,7 +810,7 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
       goal.request.goal[1] = 2.0;
 
       if (turbo_retard_) {
-        goal.request.goal[1] = 10.0;
+        goal.request.goal[1] = 5.0;
       }
 
       service_goto_fcu_.call(goal);
@@ -831,7 +823,7 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
       goal.request.goal[1] = -2.0;
 
       if (turbo_retard_) {
-        goal.request.goal[1] = -10.0;
+        goal.request.goal[1] = -5.0;
       }
 
       service_goto_fcu_.call(goal);
@@ -842,7 +834,7 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
       goal.request.goal[2] = 1.0;
 
       if (turbo_retard_) {
-        goal.request.goal[2] = 5.0;
+        goal.request.goal[2] = 2.0;
       }
 
       service_goto_fcu_.call(goal);
@@ -853,7 +845,7 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
       goal.request.goal[2] = -1.0;
 
       if (turbo_retard_) {
-        goal.request.goal[2] = -5.0;
+        goal.request.goal[2] = -2.0;
       }
 
       service_goto_fcu_.call(goal);
@@ -864,7 +856,7 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
       goal.request.goal[3] = 0.5;
 
       if (turbo_retard_) {
-        goal.request.goal[3] = 2.0;
+        goal.request.goal[3] = 1.0;
       }
 
       service_goto_fcu_.call(goal);
@@ -875,7 +867,7 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
       goal.request.goal[3] = -0.5;
 
       if (turbo_retard_) {
-        goal.request.goal[3] = -2.0;
+        goal.request.goal[3] = -1.0;
       }
 
       service_goto_fcu_.call(goal);
@@ -1182,16 +1174,115 @@ void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int
 
 //}
 
+/* flightTimeHandler() //{ */
+
+void MrsStatus::flightTimeHandler(WINDOW* win) {
+
+  if (control_manager_.active_tracker == "NullTracker") {
+
+    is_flying_ = false;
+
+  } else {
+
+
+    if (!is_flying_) {
+
+      is_flying_        = true;
+      last_flight_time_ = ros::Time::now();
+
+    } else {
+
+      int secs_passed = int((ros::Time::now() - last_flight_time_).toSec());
+
+      if (secs_passed > 0) {
+
+        secs_flown += secs_passed;
+        last_flight_time_ = last_flight_time_ + ros::Duration(secs_passed);
+
+        ofstream outputFile(_time_filename_);
+        outputFile << secs_flown;
+        outputFile.close();
+      }
+    }
+  }
+
+  wattron(win, A_BOLD);
+  PrintLimitedInt(win, 0, 0, "ToF: %i", secs_flown, 1000);
+
+  int mins = secs_flown / 60;
+  /* int tens_secs = ((secs_flown % 60) / 10) % 10; */
+  int secs = secs_flown % 60;
+
+  mvwprintw(win, 0, 0, "ToF: %i:%02i", mins, secs);
+  wattroff(win, A_BOLD);
+}
+
+//}
+
+
+//}
+
+/* MENU SETUP //{ */
+
+/* SetupMainMenu() //{ */
+
+void MrsStatus::SetupMainMenu() {
+
+  main_menu_text_.clear();
+
+  for (unsigned long i = 0; i < service_vec_.size(); i++) {
+    main_menu_text_.push_back(service_vec_[i].service_display_name);
+  }
+
+  main_menu_text_.push_back("Set Constraints");
+  main_menu_text_.push_back("Set Gains");
+  main_menu_text_.push_back("Set Controller");
+
+  Menu menu(2, 32, main_menu_text_);
+  menu_vec_.push_back(menu);
+}
+
+//}
+
+/* SetupGotoMenu() //{ */
+
+void MrsStatus::SetupGotoMenu() {
+
+  goto_menu_inputs_.clear();
+  goto_menu_text_.clear();
+  goto_menu_text_.push_back(" X:                ");
+  goto_menu_text_.push_back(" Y:                ");
+  goto_menu_text_.push_back(" Z:                ");
+  goto_menu_text_.push_back(" Yaw:              ");
+  goto_menu_text_.push_back(" " + uav_state_.header.frame_id + " ");
+
+  Menu menu(2, 32, goto_menu_text_);
+  menu_vec_.push_back(menu);
+
+
+  for (int i = 0; i < 4; i++) {
+    InputBox tmpbox(8, menu.getWin(), goto_double_vec_[i]);
+    goto_menu_inputs_.push_back(tmpbox);
+  }
+}
+
+//}
+
+//}
+
+/* PRINT FUNCTIONS //{ */
+
 /* PrintMemLoad() //{ */
 
 void MrsStatus::PrintMemLoad(WINDOW* win) {
 
-  ifstream fileStat("/proc/meminfo");
+  ifstream file("/proc/meminfo");
   string   line1, line2, line3, line4;
-  getline(fileStat, line1);
-  getline(fileStat, line2);
-  getline(fileStat, line3);
-  getline(fileStat, line4);
+  getline(file, line1);
+  getline(file, line2);
+  getline(file, line3);
+  getline(file, line4);
+  file.close();
 
   vector<string> results;
   boost::split(results, line1, [](char c) { return c == ' '; });
@@ -1265,9 +1356,10 @@ void MrsStatus::PrintMemLoad(WINDOW* win) {
 
 void MrsStatus::PrintCpuLoad(WINDOW* win) {
 
-  ifstream fileStat("/proc/stat");
+  ifstream file("/proc/stat");
   string   line;
-  getline(fileStat, line);
+  getline(file, line);
+  file.close();
 
   vector<string> results;
   boost::split(results, line, [](char c) { return c == ' '; });
@@ -1313,9 +1405,10 @@ void MrsStatus::PrintCpuLoad(WINDOW* win) {
 
 void MrsStatus::PrintCpuFreq(WINDOW* win) {
 
-  ifstream fileStat("/sys/devices/system/cpu/online");
+  ifstream file("/sys/devices/system/cpu/online");
   string   line;
-  getline(fileStat, line);
+  getline(file, line);
+  file.close();
 
   vector<string> results;
   boost::split(results, line, [](char c) { return c == '-'; });
@@ -1333,8 +1426,9 @@ void MrsStatus::PrintCpuFreq(WINDOW* win) {
 
   for (int i = 0; i < num_cores; i++) {
     string   filename = "/sys/devices/system/cpu/cpu" + to_string(i) + "/cpufreq/scaling_cur_freq";
-    ifstream fileStat(filename.c_str());
-    getline(fileStat, line);
+    ifstream file(filename.c_str());
+    getline(file, line);
+    file.close();
     try {
       cpu_freq += stol(line);
     }
@@ -1481,10 +1575,6 @@ void MrsStatus::PrintNoData(WINDOW* win, int y, int x) {
   wattroff(win, A_BLINK);
 }
 
-//}
-
-/* PrintNoData() //{ */
-
 void MrsStatus::PrintNoData(WINDOW* win, int y, int x, string text) {
 
   wattron(win, COLOR_PAIR(RED));
@@ -1493,6 +1583,10 @@ void MrsStatus::PrintNoData(WINDOW* win, int y, int x, string text) {
 }
 
 //}
+
+//}
+
+/* CALLBACKS //{ */
 
 /* UavStateCallback() //{ */
 
@@ -1590,6 +1684,7 @@ void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const string&
 
 //}
 
+//}
 
 /* main() //{ */
 
