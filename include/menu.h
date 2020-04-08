@@ -16,4 +16,8 @@ private:
   WINDOW *win_;
   int     line = 0;
   int     id_;
+  int     y;
+  int     x;
+  int     rows;
+  int     cols;
 };

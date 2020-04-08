@@ -46,6 +46,8 @@
       <remap from="~goto_fcu_out" to="control_manager/goto_fcu" />
       <remap from="~reference_out" to="control_manager/reference" />
       <remap from="~set_constraints_out" to="constraint_manager/set_constraints" />
+      <remap from="~set_gains_out" to="gain_manager/set_gains" />
+      <remap from="~set_controller_out" to="control_manager/switch_controller" />
 
     </node>
 

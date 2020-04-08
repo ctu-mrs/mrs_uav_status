@@ -116,6 +116,8 @@ private:
   ros::ServiceClient service_goto_reference_;
   ros::ServiceClient service_goto_fcu_;
   ros::ServiceClient service_set_constraints_;
+  ros::ServiceClient service_set_gains_;
+  ros::ServiceClient service_set_controller_;
 
   string _uav_name_;
   string _uav_type_;
@@ -159,6 +161,8 @@ private:
 
   WINDOW*   bottom_window_;
   ros::Time bottom_window_clear_time_ = ros::Time::now();
+
+  WINDOW* tmp_window_;
 
   StatusWindow*           generic_topic_window_;
   vector<topic>           generic_topic_vec_;
@@ -221,6 +225,8 @@ MrsStatus::MrsStatus() {
   service_goto_reference_  = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
   service_goto_fcu_        = nh_.serviceClient<mrs_msgs::Vec4>("goto_fcu_out");
   service_set_constraints_ = nh_.serviceClient<mrs_msgs::String>("set_constraints_out");
+  service_set_gains_       = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
+  service_set_controller_       = nh_.serviceClient<mrs_msgs::String>("set_controller_out");
 
   goto_double_vec_.push_back(0.0);
   goto_double_vec_.push_back(0.0);
@@ -359,6 +365,8 @@ MrsStatus::MrsStatus() {
   top_bar_window_ = newwin(1, 120, 0, 1);
   bottom_window_  = newwin(1, 120, 11, 1);
 
+  tmp_window_ = newwin(10, 120, 12, 1);
+
   initialized_ = true;
   ROS_INFO("[MrsStatus]: Node initialized!");
 
@@ -436,6 +444,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   refresh();
   wrefresh(top_bar_window_);
   wrefresh(bottom_window_);
+  wrefresh(tmp_window_);
 }
 
 
@@ -469,11 +478,12 @@ bool MrsStatus::MainMenuHandler(int key_in) {
     // SUBMENU IS OPEN
 
     menu_vec_[0].iterate(main_menu_text_, -1, true);
+    optional<tuple<int, int>> ret;
 
     switch (submenu_vec_[0].getId()) {
       case 1:
         // CONSTRAINTS
-        optional<tuple<int, int>> ret = submenu_vec_[0].iterate(constraints_text_, key_in, true);
+        ret = submenu_vec_[0].iterate(constraints_text_, key_in, true);
 
         if (ret.has_value()) {
 
@@ -483,7 +493,7 @@ bool MrsStatus::MainMenuHandler(int key_in) {
           if (line == 666 && key == 666) {
 
             submenu_vec_.clear();
-            return true;
+            return false;
 
           } else if (key == KEY_ENT) {
 
@@ -496,6 +506,61 @@ bool MrsStatus::MainMenuHandler(int key_in) {
             return true;
           }
         }
+        break;
+
+      case 2:
+        // GAINS
+        ret = submenu_vec_[0].iterate(gains_text_, key_in, true);
+
+        if (ret.has_value()) {
+
+          int line = get<0>(ret.value());
+          int key  = get<1>(ret.value());
+
+          if (line == 666 && key == 666) {
+
+            submenu_vec_.clear();
+            return false;
+
+          } else if (key == KEY_ENT) {
+
+            mrs_msgs::String string_service;
+            string_service.request.value = gains_text_[line];
+            service_set_gains_.call(string_service);
+            PrintServiceResult(string_service.response.success, string_service.response.message);
+
+            submenu_vec_.clear();
+            return true;
+          }
+        }
+        break;
+
+      case 3:
+        // CONTROLLERS
+        ret = submenu_vec_[0].iterate(controllers_text_, key_in, true);
+
+        if (ret.has_value()) {
+
+          int line = get<0>(ret.value());
+          int key  = get<1>(ret.value());
+
+          if (line == 666 && key == 666) {
+
+            submenu_vec_.clear();
+            return false;
+
+          } else if (key == KEY_ENT) {
+
+            mrs_msgs::String string_service;
+            string_service.request.value = controllers_text_[line];
+            service_set_controller_.call(string_service);
+            PrintServiceResult(string_service.response.success, string_service.response.message);
+
+            submenu_vec_.clear();
+            return true;
+          }
+        }
+        break;
     }
 
     return false;
@@ -505,6 +570,7 @@ bool MrsStatus::MainMenuHandler(int key_in) {
     optional<tuple<int, int>> ret = menu_vec_[0].iterate(main_menu_text_, key_in, true);
 
     if (ret.has_value()) {
+
       int line = get<0>(ret.value());
       int key  = get<1>(ret.value());
 
@@ -512,6 +578,7 @@ bool MrsStatus::MainMenuHandler(int key_in) {
 
         menu_vec_.clear();
         return true;
+
       } else if (key == KEY_ENT) {
 
         if (line < service_vec_.size()) {
@@ -532,18 +599,54 @@ bool MrsStatus::MainMenuHandler(int key_in) {
             constraints_text_.push_back(constraint_manager_.available[i]);
           }
 
-          Menu menu(3, 33, constraints_text_, 1);
+          int x;
+          int y;
+          int rows;
+          int cols;
+
+          getyx(menu_vec_[0].getWin(), x, y);
+          getmaxyx(menu_vec_[0].getWin(), rows, cols);
+
+          Menu menu(1 + x, 31 + cols, constraints_text_, 1);
           submenu_vec_.push_back(menu);
 
         } else if (line == main_menu_text_.size() - 2) {
           // SET GAINS
 
-          PrintServiceResult(true, "gains");
+          gains_text_.clear();
+
+          for (unsigned long i = 0; i < gain_manager_.available.size(); i++) {
+            gains_text_.push_back(gain_manager_.available[i]);
+          }
+
+          int x;
+          int y;
+          int rows;
+          int cols;
+
+          getyx(menu_vec_[0].getWin(), x, y);
+          getmaxyx(menu_vec_[0].getWin(), rows, cols);
+
+          Menu menu(1 + x, 31 + cols, gains_text_, 2);
+          submenu_vec_.push_back(menu);
 
         } else if (line == main_menu_text_.size() - 1) {
           // SET CONTROLLER
 
-          PrintServiceResult(true, "controller");
+          controllers_text_.clear();
+          controllers_text_.push_back("So3Controller");
+          controllers_text_.push_back("MpcController");
+
+          int x;
+          int y;
+          int rows;
+          int cols;
+
+          getyx(menu_vec_[0].getWin(), x, y);
+          getmaxyx(menu_vec_[0].getWin(), rows, cols);
+
+          Menu menu(1 + x, 31 + cols, controllers_text_, 3);
+          submenu_vec_.push_back(menu);
 
         } else {
           PrintServiceResult(false, "undefined");
