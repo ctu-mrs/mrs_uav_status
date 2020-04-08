@@ -184,6 +184,9 @@ private:
   vector<InputBox> goto_menu_inputs_;
 
   bool retard_hover_ = false;
+  bool turbo_retard_ = false;
+
+  string old_constraints;
 
   status_state state = STANDARD;
 };
@@ -762,9 +765,20 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
   wattron(win, A_BOLD);
   wattron(win, COLOR_PAIR(RED));
   mvwprintw(win, 0, 20, "RETARD MODE IS ACTIVE, YOU HAVE CONTROL");
+
+  if (turbo_retard_) {
+    wattron(win, A_BLINK);
+    mvwprintw(win, 0, 12, "!TURBO!");
+    mvwprintw(win, 0, 60, "!TURBO!");
+    wattroff(win, A_BLINK);
+  }
+
   wattroff(win, COLOR_PAIR(RED));
 
-  mrs_msgs::Vec4 goal;
+  mrs_msgs::Vec4    goal;
+  mrs_msgs::String  string_service;
+  std_srvs::Trigger trig;
+
   goal.request.goal[0] = 0.0;
   goal.request.goal[1] = 0.0;
   goal.request.goal[2] = 0.0;
@@ -776,6 +790,11 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
     case 'k':
     case KEY_UP:
       goal.request.goal[0] = 2.0;
+
+      if (turbo_retard_) {
+        goal.request.goal[0] = 10.0;
+      }
+
       service_goto_fcu_.call(goal);
       retard_hover_ = true;
       break;
@@ -784,6 +803,11 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
     case 'j':
     case KEY_DOWN:
       goal.request.goal[0] = -2.0;
+
+      if (turbo_retard_) {
+        goal.request.goal[0] = -10.0;
+      }
+
       service_goto_fcu_.call(goal);
       retard_hover_ = true;
       break;
@@ -792,6 +816,11 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
     case 'h':
     case KEY_LEFT:
       goal.request.goal[1] = 2.0;
+
+      if (turbo_retard_) {
+        goal.request.goal[1] = 10.0;
+      }
+
       service_goto_fcu_.call(goal);
       retard_hover_ = true;
       break;
@@ -800,42 +829,84 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
     case 'l':
     case KEY_RIGHT:
       goal.request.goal[1] = -2.0;
+
+      if (turbo_retard_) {
+        goal.request.goal[1] = -10.0;
+      }
+
       service_goto_fcu_.call(goal);
       retard_hover_ = true;
       break;
 
     case 'r':
       goal.request.goal[2] = 1.0;
+
+      if (turbo_retard_) {
+        goal.request.goal[2] = 5.0;
+      }
+
       service_goto_fcu_.call(goal);
       retard_hover_ = true;
       break;
 
     case 'f':
       goal.request.goal[2] = -1.0;
+
+      if (turbo_retard_) {
+        goal.request.goal[2] = -5.0;
+      }
+
       service_goto_fcu_.call(goal);
       retard_hover_ = true;
       break;
 
     case 'q':
       goal.request.goal[3] = 0.5;
+
+      if (turbo_retard_) {
+        goal.request.goal[3] = 2.0;
+      }
+
       service_goto_fcu_.call(goal);
       retard_hover_ = true;
       break;
 
     case 'e':
       goal.request.goal[3] = -0.5;
+
+      if (turbo_retard_) {
+        goal.request.goal[3] = -2.0;
+      }
+
       service_goto_fcu_.call(goal);
       retard_hover_ = true;
+      break;
+
+    case 'T':
+
+      if (turbo_retard_) {
+
+        turbo_retard_                = false;
+        string_service.request.value = old_constraints;
+        service_set_constraints_.call(string_service);
+        PrintServiceResult(string_service.response.success, string_service.response.message);
+
+      } else {
+
+        turbo_retard_                = true;
+        old_constraints              = constraint_manager_.current_name;
+        string_service.request.value = constraint_manager_.available[constraint_manager_.available.size() - 1];
+        service_set_constraints_.call(string_service);
+        PrintServiceResult(string_service.response.success, string_service.response.message);
+      }
+
       break;
 
     default:
       if (retard_hover_) {
 
-        std_srvs::Trigger trig;
         service_hover_.call(trig);
-        PrintServiceResult(trig.response.success, trig.response.message);
         retard_hover_ = false;
-
       }
       break;
   }
