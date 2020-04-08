@@ -118,6 +118,7 @@ private:
   ros::ServiceClient service_set_constraints_;
   ros::ServiceClient service_set_gains_;
   ros::ServiceClient service_set_controller_;
+  ros::ServiceClient service_hover_;
 
   string _uav_name_;
   string _uav_type_;
@@ -182,6 +183,8 @@ private:
   vector<string>   goto_menu_text_;
   vector<InputBox> goto_menu_inputs_;
 
+  bool retard_hover_ = false;
+
   status_state state = STANDARD;
 };
 
@@ -226,7 +229,8 @@ MrsStatus::MrsStatus() {
   service_goto_fcu_        = nh_.serviceClient<mrs_msgs::Vec4>("goto_fcu_out");
   service_set_constraints_ = nh_.serviceClient<mrs_msgs::String>("set_constraints_out");
   service_set_gains_       = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
-  service_set_controller_       = nh_.serviceClient<mrs_msgs::String>("set_controller_out");
+  service_set_controller_  = nh_.serviceClient<mrs_msgs::String>("set_controller_out");
+  service_hover_           = nh_.serviceClient<std_srvs::Trigger>("hover_out");
 
   goto_double_vec_.push_back(0.0);
   goto_double_vec_.push_back(0.0);
@@ -401,7 +405,8 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       switch (key_in) {
 
         case 'R':
-          state = RETARD;
+          retard_hover_ = false;
+          state         = RETARD;
           break;
 
         case 'm':
@@ -473,6 +478,8 @@ void MrsStatus::SetupMainMenu() {
 /* MainMenuHandler() //{ */
 
 bool MrsStatus::MainMenuHandler(int key_in) {
+
+  /* SUBMENU IS OPEN //{ */
 
   if (!submenu_vec_.empty()) {
     // SUBMENU IS OPEN
@@ -564,6 +571,11 @@ bool MrsStatus::MainMenuHandler(int key_in) {
     }
 
     return false;
+
+    //}
+
+    /* NORMAL CASE //{ */
+
   } else {
     // NORMAL CASE - NO SUBMENU
 
@@ -655,6 +667,8 @@ bool MrsStatus::MainMenuHandler(int key_in) {
     }
     return false;
   }
+
+  //}
 }
 
 //}
@@ -757,48 +771,72 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
   goal.request.goal[3] = 0.0;
 
   switch (key) {
+
     case 'w':
     case 'k':
     case KEY_UP:
       goal.request.goal[0] = 2.0;
       service_goto_fcu_.call(goal);
+      retard_hover_ = true;
       break;
+
     case 's':
     case 'j':
     case KEY_DOWN:
       goal.request.goal[0] = -2.0;
       service_goto_fcu_.call(goal);
+      retard_hover_ = true;
       break;
+
     case 'a':
     case 'h':
     case KEY_LEFT:
       goal.request.goal[1] = 2.0;
       service_goto_fcu_.call(goal);
+      retard_hover_ = true;
       break;
+
     case 'd':
     case 'l':
     case KEY_RIGHT:
       goal.request.goal[1] = -2.0;
       service_goto_fcu_.call(goal);
+      retard_hover_ = true;
       break;
+
     case 'r':
       goal.request.goal[2] = 1.0;
       service_goto_fcu_.call(goal);
+      retard_hover_ = true;
       break;
+
     case 'f':
       goal.request.goal[2] = -1.0;
       service_goto_fcu_.call(goal);
+      retard_hover_ = true;
       break;
+
     case 'q':
       goal.request.goal[3] = 0.5;
       service_goto_fcu_.call(goal);
+      retard_hover_ = true;
       break;
+
     case 'e':
       goal.request.goal[3] = -0.5;
       service_goto_fcu_.call(goal);
+      retard_hover_ = true;
       break;
 
     default:
+      if (retard_hover_) {
+
+        std_srvs::Trigger trig;
+        service_hover_.call(trig);
+        PrintServiceResult(trig.response.success, trig.response.message);
+        retard_hover_ = false;
+
+      }
       break;
   }
   wattroff(win, A_BOLD);
