@@ -41,6 +41,7 @@
       <remap from="~gain_manager_in" to="gain_manager/diagnostics" />
       <remap from="~constraint_manager_in" to="constraint_manager/diagnostics" />
       <remap from="~string_in" to="~display_string" />
+      <remap from="~set_service_in" to="~set_trigger_service" />
 
         <!-- Services -->
       <remap from="~goto_fcu_out" to="control_manager/goto_fcu" />

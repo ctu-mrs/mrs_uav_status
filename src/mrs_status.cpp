@@ -68,6 +68,7 @@ private:
   void GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
   void ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
   void StringCallback(const ros::MessageEvent<std_msgs::String const>& event);
+  void SetServiceCallback(const std_msgs::String& msg);
 
   void GenericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
 
@@ -114,6 +115,7 @@ private:
   ros::Subscriber constraint_manager_subscriber_;
 
   ros::Subscriber string_subscriber_;
+  ros::Subscriber set_service_subscriber_;
 
   ros::ServiceClient service_goto_reference_;
   ros::ServiceClient service_goto_fcu_;
@@ -176,6 +178,7 @@ private:
   vector<Menu> submenu_vec_;
 
   vector<service> service_vec_;
+  vector<string>  service_input_vec_;
   vector<string>  main_menu_text_;
   vector<string>  constraints_text_;
   vector<string>  gains_text_;
@@ -190,10 +193,13 @@ private:
 
   string old_constraints;
 
-  bool              is_flying_ = false;
+  bool is_flying_   = false;
+  bool NullTracker_ = true;
+
   unsigned long     secs_flown = 0;
   ros::Time         last_flight_time_;
   const std::string _time_filename_ = "/tmp/mrs_status_flight_time.txt";
+
 
   status_state state = STANDARD;
 };
@@ -233,6 +239,7 @@ MrsStatus::MrsStatus() {
   gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 1, &MrsStatus::GainManagerCallback, this, ros::TransportHints().tcpNoDelay());
   constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &MrsStatus::ConstraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
   string_subscriber_             = nh_.subscribe("string_in", 1, &MrsStatus::StringCallback, this, ros::TransportHints().tcpNoDelay());
+  set_service_subscriber_        = nh_.subscribe("set_service_in", 1, &MrsStatus::SetServiceCallback, this, ros::TransportHints().tcpNoDelay());
 
   // SERVICES
   service_goto_reference_  = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
@@ -247,28 +254,10 @@ MrsStatus::MrsStatus() {
   goto_double_vec_.push_back(2.0);
   goto_double_vec_.push_back(1.57);
 
-  std::vector<string> service_input_vec_;
 
   service_input_vec_.push_back("uav_manager/land Land");
   service_input_vec_.push_back("uav_manager/land_home Land Home");
   service_input_vec_.push_back("uav_manager/takeoff Takeoff");
-
-  for (unsigned long i = 0; i < service_input_vec_.size(); i++) {
-
-    std::vector<std::string> results;
-    boost::split(results, service_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
-
-    for (int j = 2; j < results.size(); j++) {
-      results[1] = results[1] + " " + results[j];
-    }
-
-    string service_name = "/" + _uav_name_ + "/" + results[0];
-
-    service tmp_service(service_name, results[1]);
-    tmp_service.service_client = nh_.serviceClient<std_srvs::Trigger>(service_name);
-
-    service_vec_.push_back(tmp_service);
-  }
 
   if (boost::filesystem::exists(_time_filename_)) {
     ifstream file(_time_filename_);
@@ -323,22 +312,6 @@ MrsStatus::MrsStatus() {
     } else if (results[i] == "rplidar") {
       generic_topic_input_vec_.push_back("rplidar/scan Rplidar 10+");
     }
-
-    /* if str(self.PIXGARM) == "true": */
-    /*             self.param_list.insert(0, "mavros/distance_sensor/garmin Garmin_pix 80+") */
-
-    /*         if str(self.PIXGARM) == "false" and 'garmin_down' in self.sensor_list: */
-    /*             self.param_list.insert(0, "garmin/range Garmin_Down 80+") */
-
-
-    /*         if str(self.BLUEFOX_UV_LEFT) != "": */
-    /*             self.param_list.insert(0, "uvdar_bluefox/left/camera_info Bluefox_UV_left 70+") */
-
-    /*         if str(self.BLUEFOX_UV_RIGHT) != "": */
-    /*             self.param_list.insert(0, "uvdar_bluefox/right/camera_info Bluefox_UV_right 70+") */
-
-    /*         if str(self.ODOMETRY_TYPE) == "gps": */
-    /*             self.param_list.insert(0, "mavros/global_position/global PX4 GPS 100") */
   }
 
   boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;  // generic callback
@@ -638,7 +611,7 @@ bool MrsStatus::MainMenuHandler(int key_in) {
           getyx(menu_vec_[0].getWin(), x, y);
           getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
-          Menu menu(1 + x, 31 + cols, constraints_text_, 1);
+          Menu menu(x, 31 + cols, constraints_text_, 1);
           submenu_vec_.push_back(menu);
 
         } else if (line == main_menu_text_.size() - 2) {
@@ -658,7 +631,7 @@ bool MrsStatus::MainMenuHandler(int key_in) {
           getyx(menu_vec_[0].getWin(), x, y);
           getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
-          Menu menu(1 + x, 31 + cols, gains_text_, 2);
+          Menu menu(x, 31 + cols, gains_text_, 2);
           submenu_vec_.push_back(menu);
 
         } else if (line == main_menu_text_.size() - 1) {
@@ -676,7 +649,7 @@ bool MrsStatus::MainMenuHandler(int key_in) {
           getyx(menu_vec_[0].getWin(), x, y);
           getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
-          Menu menu(1 + x, 31 + cols, controllers_text_, 3);
+          Menu menu(x, 31 + cols, controllers_text_, 3);
           submenu_vec_.push_back(menu);
 
         } else {
@@ -1178,12 +1151,11 @@ void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int
 
 void MrsStatus::flightTimeHandler(WINDOW* win) {
 
-  if (control_manager_.active_tracker == "NullTracker") {
+  if (NullTracker_) {
 
     is_flying_ = false;
 
   } else {
-
 
     if (!is_flying_) {
 
@@ -1228,6 +1200,41 @@ void MrsStatus::flightTimeHandler(WINDOW* win) {
 
 void MrsStatus::SetupMainMenu() {
 
+  service_vec_.clear();
+
+  for (unsigned long i = 0; i < service_input_vec_.size(); i++) {
+
+    if (NullTracker_ && (i == 0 || i == 1)) {
+      continue;  // disable land and land home if we are not flying
+    }
+
+    if (!NullTracker_ && i == 2) {
+
+      continue;  // disable takeoff if flying
+    }
+
+    std::vector<std::string> results;
+    boost::split(results, service_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
+
+    for (int j = 2; j < results.size(); j++) {
+      results[1] = results[1] + " " + results[j];
+    }
+
+    string service_name;
+
+    if (results[0].at(0) == '/') {
+      service_name = results[0];
+
+    } else {
+      service_name = "/" + _uav_name_ + "/" + results[0];
+    }
+
+    service tmp_service(service_name, results[1]);
+    tmp_service.service_client = nh_.serviceClient<std_srvs::Trigger>(service_name);
+
+    service_vec_.push_back(tmp_service);
+  }
+
   main_menu_text_.clear();
 
   for (unsigned long i = 0; i < service_vec_.size(); i++) {
@@ -1238,7 +1245,7 @@ void MrsStatus::SetupMainMenu() {
   main_menu_text_.push_back("Set Gains");
   main_menu_text_.push_back("Set Controller");
 
-  Menu menu(2, 32, main_menu_text_);
+  Menu menu(1, 32, main_menu_text_);
   menu_vec_.push_back(menu);
 }
 
@@ -1256,7 +1263,7 @@ void MrsStatus::SetupGotoMenu() {
   goto_menu_text_.push_back(" Yaw:              ");
   goto_menu_text_.push_back(" " + uav_state_.header.frame_id + " ");
 
-  Menu menu(2, 32, goto_menu_text_);
+  Menu menu(1, 32, goto_menu_text_);
   menu_vec_.push_back(menu);
 
 
@@ -1628,7 +1635,8 @@ void MrsStatus::MavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr
 
 void MrsStatus::ControlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
   control_manager_topic_[0].counter++;
-  control_manager_ = *msg;
+  control_manager_                                                = *msg;
+  control_manager_.active_tracker == "NullTracker" ? NullTracker_ = true : NullTracker_ = false;
 }
 
 //}
@@ -1649,6 +1657,16 @@ void MrsStatus::ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagn
   constraint_manager_ = *msg;
 }
 
+//}
+
+/* SetServiceCallback() //{ */
+
+void MrsStatus::SetServiceCallback(const std_msgs::String& msg) {
+
+  if (std::find(service_input_vec_.begin(), service_input_vec_.end(), msg.data) == service_input_vec_.end()) {
+    service_input_vec_.push_back(msg.data);
+  }
+}
 //}
 
 /* StringCallback() //{ */
