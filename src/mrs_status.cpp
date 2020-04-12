@@ -32,7 +32,7 @@
 #include <sensor_msgs/BatteryState.h>
 
 #include <mrs_lib/transformer.h>
-#include <mrs_lib/ParamLoader.h>
+#include <mrs_lib/param_loader.h>
 #include <mrs_lib/attitude_converter.h>
 
 using namespace std;
@@ -215,12 +215,12 @@ MrsStatus::MrsStatus() {
 
   mrs_lib::ParamLoader param_loader(nh_, "MrsStatus");
 
-  param_loader.load_param("uav_name", _uav_name_);
-  param_loader.load_param("uav_type", _uav_type_);
-  param_loader.load_param("sensors", _sensors_);
-  param_loader.load_param("pixgarm", _pixgarm_);
+  param_loader.loadParam("uav_name", _uav_name_);
+  param_loader.loadParam("uav_type", _uav_type_);
+  param_loader.loadParam("sensors", _sensors_);
+  param_loader.loadParam("pixgarm", _pixgarm_);
 
-  if (!param_loader.loaded_successfully()) {
+  if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[MrsStatus]: Could not load all parameters!");
     ros::shutdown();
   } else {
