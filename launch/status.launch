@@ -42,6 +42,7 @@
       <remap from="~constraint_manager_in" to="constraint_manager/diagnostics" />
       <remap from="~string_in" to="~display_string" />
       <remap from="~set_service_in" to="~set_trigger_service" />
+      <remap from="~tf_static_in" to="/tf_static" />
 
         <!-- Services -->
       <remap from="~goto_fcu_out" to="control_manager/goto_fcu" />

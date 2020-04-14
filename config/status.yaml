@@ -9,3 +9,9 @@ want_hz: [
       # "bluefox/image_raw Bluefox 100",
       # "mavros/setpoint_raw/attitude mavros setpoint 100",
       ]
+
+tf_static_list: [
+      "garmin garmin/range Garmin 50",
+      "bluefox_optflow bluefox_optflow/camera_info Bfox Optflow 50",
+      "rs_d435/link rs_d435/camera_info Realsense 30"
+      ]

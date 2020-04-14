@@ -35,6 +35,8 @@
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/attitude_converter.h>
 
+#include <tf2_msgs/TFMessage.h>
+
 using namespace std;
 using topic_tools::ShapeShifter;
 
@@ -69,6 +71,7 @@ private:
   void ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
   void StringCallback(const ros::MessageEvent<std_msgs::String const>& event);
   void SetServiceCallback(const std_msgs::String& msg);
+  void tfStaticCallback(const tf2_msgs::TFMessage& msg);
 
   void GenericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
 
@@ -78,6 +81,8 @@ private:
   void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
   void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
   void PrintServiceResult(bool success, string msg);
+  void PrintDebug(string msg);
+  void PrintHelp();
 
   void PrintNoData(WINDOW* win, int y, int x);
   void PrintNoData(WINDOW* win, int y, int x, string text);
@@ -95,6 +100,8 @@ private:
   void StringHandler(WINDOW* win, double rate, short color, int topic);
 
   void flightTimeHandler(WINDOW* win);
+
+  void SetupGenericCallbacks();
 
   void SetupMainMenu();
   bool MainMenuHandler(int key_in);
@@ -116,6 +123,8 @@ private:
 
   ros::Subscriber string_subscriber_;
   ros::Subscriber set_service_subscriber_;
+
+  ros::Subscriber tf_static_subscriber_;
 
   ros::ServiceClient service_goto_reference_;
   ros::ServiceClient service_goto_fcu_;
@@ -167,7 +176,8 @@ private:
   WINDOW*   bottom_window_;
   ros::Time bottom_window_clear_time_ = ros::Time::now();
 
-  WINDOW* tmp_window_;
+  bool    help_active_ = false;
+  WINDOW* debug_window_;
 
   StatusWindow*           generic_topic_window_;
   vector<topic>           generic_topic_vec_;
@@ -200,6 +210,8 @@ private:
   ros::Time         last_flight_time_;
   const std::string _time_filename_ = "/tmp/mrs_status_flight_time.txt";
 
+  vector<string> tf_static_list_compare_;
+  vector<string> tf_static_list_add_;
 
   status_state state = STANDARD;
 };
@@ -220,11 +232,24 @@ MrsStatus::MrsStatus() {
   param_loader.loadParam("sensors", _sensors_);
   param_loader.loadParam("pixgarm", _pixgarm_);
 
+  std::vector<string> tf_static_list;
+  param_loader.loadParam("tf_static_list", tf_static_list);
+
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[MrsStatus]: Could not load all parameters!");
     ros::shutdown();
   } else {
     ROS_INFO("[MrsStatus]: All params loaded!");
+  }
+
+  for (unsigned long i = 0; i < tf_static_list.size(); i++) {
+
+    // this splits the loaded tf_static list into two parts, the first part is intended to be compared with the incoming static tfs, the second one
+    // is added to the list of topics if the static tf is present
+
+    std::string::size_type pos = tf_static_list[i].find(' ');
+    tf_static_list_compare_.push_back(tf_static_list[i].substr(0, pos));
+    tf_static_list_add_.push_back(tf_static_list[i].substr(pos + 1));
   }
 
   // TIMERS
@@ -240,6 +265,7 @@ MrsStatus::MrsStatus() {
   constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &MrsStatus::ConstraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
   string_subscriber_             = nh_.subscribe("string_in", 1, &MrsStatus::StringCallback, this, ros::TransportHints().tcpNoDelay());
   set_service_subscriber_        = nh_.subscribe("set_service_in", 1, &MrsStatus::SetServiceCallback, this, ros::TransportHints().tcpNoDelay());
+  tf_static_subscriber_          = nh_.subscribe("tf_static_in", 1, &MrsStatus::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
 
   // SERVICES
   service_goto_reference_  = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
@@ -278,8 +304,6 @@ MrsStatus::MrsStatus() {
   vector<string> results;
   split(results, _sensors_, boost::is_any_of(", "), boost::token_compress_on);
 
-  vector<string> generic_topic_input_vec_;
-
   if (_pixgarm_) {
     generic_topic_input_vec_.push_back("mavros/distance_sensor/garmin Garmin_pix 80+");
   }
@@ -314,29 +338,7 @@ MrsStatus::MrsStatus() {
     }
   }
 
-  boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;  // generic callback
-
-  for (unsigned long i = 0; i < generic_topic_input_vec_.size(); i++) {
-
-    vector<string> results;
-    boost::split(results, generic_topic_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
-    if (results[2].back() == '+') {
-      // TODO handle the + sign
-      results[2].pop_back();
-    }
-
-    topic tmp_topic(results[0], results[1], stoi(results[2]));
-
-    generic_topic_vec_.push_back(tmp_topic);
-
-    int    id         = i;  // id to identify which topic called the generic callback
-    string topic_name = "/" + _uav_name_ + "/" + generic_topic_vec_[i].topic_name;
-
-    callback                       = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name, id); };
-    ros::Subscriber tmp_subscriber = nh_.subscribe(topic_name, 1, callback);
-
-    generic_subscriber_vec_.push_back(tmp_subscriber);
-  }
+  SetupGenericCallbacks();
 
   //}
 
@@ -366,7 +368,7 @@ MrsStatus::MrsStatus() {
   top_bar_window_ = newwin(1, 120, 0, 1);
   bottom_window_  = newwin(1, 120, 11, 1);
 
-  tmp_window_ = newwin(10, 120, 12, 1);
+  debug_window_ = newwin(20, 120, 12, 1);
 
   initialized_ = true;
   ROS_INFO("[MrsStatus]: Node initialized!");
@@ -395,6 +397,11 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   general_info_window_->Redraw(&MrsStatus::GeneralInfoHandler, this);
   string_window_->Redraw(&MrsStatus::StringHandler, this);
 
+  /* PrintHelp(); */
+
+  wrefresh(top_bar_window_);
+  wrefresh(bottom_window_);
+
   int key_in = getch();
 
   switch (state) {
@@ -417,6 +424,11 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
           SetupGotoMenu();
           state = GOTO_MENU;
           break;
+
+        case 'h':
+          help_active_ = !help_active_;
+          break;
+
         default:
           flushinp();
           break;
@@ -443,12 +455,14 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       break;
 
     case MAIN_MENU:
+      flushinp();
       if (MainMenuHandler(key_in)) {
         state = STANDARD;
       }
       break;
 
     case GOTO_MENU:
+      flushinp();
       if (GotoMenuHandler(key_in)) {
         state = STANDARD;
       }
@@ -456,9 +470,6 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   }
 
   refresh();
-  wrefresh(top_bar_window_);
-  wrefresh(bottom_window_);
-  wrefresh(tmp_window_);
 }
 
 
@@ -1194,6 +1205,40 @@ void MrsStatus::flightTimeHandler(WINDOW* win) {
 
 //}
 
+/* SetupGenericCallbacks() //{ */
+
+void MrsStatus::SetupGenericCallbacks() {
+
+  generic_topic_vec_.clear();
+  generic_subscriber_vec_.clear();
+
+  boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;  // generic callback
+
+  for (unsigned long i = 0; i < generic_topic_input_vec_.size(); i++) {
+
+    vector<string> results;
+    boost::split(results, generic_topic_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
+    if (results[2].back() == '+') {
+      // TODO handle the + sign
+      results[2].pop_back();
+    }
+
+    topic tmp_topic(results[0], results[1], stoi(results[2]));
+
+    generic_topic_vec_.push_back(tmp_topic);
+
+    int    id         = i;  // id to identify which topic called the generic callback
+    string topic_name = "/" + _uav_name_ + "/" + generic_topic_vec_[i].topic_name;
+
+    callback                       = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name, id); };
+    ros::Subscriber tmp_subscriber = nh_.subscribe(topic_name, 1, callback);
+
+    generic_subscriber_vec_.push_back(tmp_subscriber);
+  }
+}
+
+//}
+
 /* MENU SETUP //{ */
 
 /* SetupMainMenu() //{ */
@@ -1591,6 +1636,52 @@ void MrsStatus::PrintNoData(WINDOW* win, int y, int x, string text) {
 
 //}
 
+/* PrintDebug() //{ */
+
+void MrsStatus::PrintDebug(string msg) {
+
+  wclear(debug_window_);
+
+  PrintLimitedString(debug_window_, 0, 0, msg, 120);
+
+  wrefresh(debug_window_);
+}
+
+//}
+
+/* PrintHelp() //{ */
+
+void MrsStatus::PrintHelp() {
+
+  wclear(debug_window_);
+
+  if (help_active_) {
+
+    PrintLimitedString(debug_window_, 1, 0, "How to use mrs_status:", 120);
+    PrintLimitedString(debug_window_, 2, 0, "Press the 'm' key to enter a services menu", 120);
+    PrintLimitedString(debug_window_, 3, 0, "Press the 'g' key to set a goto reference", 120);
+    PrintLimitedString(debug_window_, 4, 0, "Press the 'R' key to enter 'remote' mode to take direct control of the uav with your keyboad", 120);
+    PrintLimitedString(debug_window_, 5, 0, "   In remote mode, use these keys to control the drone:", 120);
+    PrintLimitedString(debug_window_, 6, 0, "      'w','s','a','d' to control pitch and roll ('h','j','k','l' works too)", 120);
+    PrintLimitedString(debug_window_, 7, 0, "      'q','e'         to control heading", 120);
+    PrintLimitedString(debug_window_, 8, 0, "      'r','f'         to control altitude", 120);
+    PrintLimitedString(debug_window_, 10, 0, "You can also use topics provided by mrs_status to display info from your node, and to control it:", 120);
+    PrintLimitedString(debug_window_, 12, 0, "   topic mrs_status/display_string (std_msgs::String)", 120);
+    PrintLimitedString(debug_window_, 13, 0, "      Publish any string to this topic and it will show up in mrs_status", 120);
+    PrintLimitedString(debug_window_, 15, 0, "   topic mrs_status/set_trigger_service (std_msgs::String)", 120);
+    PrintLimitedString(debug_window_, 16, 0, "      If your node has a std_srvs:Trigger service, you can add it to the mrs_status services menu", 120);
+    PrintLimitedString(debug_window_, 17, 0, "      Publish a String in this format: 'node_name/service_name display_name' and it will show in the menu", 120);
+    PrintLimitedString(debug_window_, 19, 0, "Press 'h' to hide help", 120);
+
+  } else {
+    PrintLimitedString(debug_window_, 1, 0, "Press 'h' key for help", 120);
+  }
+
+  wrefresh(debug_window_);
+}
+
+//}
+
 //}
 
 /* CALLBACKS //{ */
@@ -1666,6 +1757,29 @@ void MrsStatus::SetServiceCallback(const std_msgs::String& msg) {
   if (std::find(service_input_vec_.begin(), service_input_vec_.end(), msg.data) == service_input_vec_.end()) {
     service_input_vec_.push_back(msg.data);
   }
+}
+//}
+
+/* tfStaticCallback() //{ */
+
+void MrsStatus::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
+
+  for (unsigned long i = 0; i < msg.transforms.size(); i++) {
+
+    std::string tmp = msg.transforms[i].child_frame_id;
+    std::size_t pos = tmp.find("/");        // find the / int uav1/something
+    tmp             = tmp.substr(pos + 1);  // cut off the uav1/ from the tf_static name
+
+    for (unsigned long j = 0; j < tf_static_list_compare_.size(); j++) {
+      if (tf_static_list_compare_[j] == tmp) {
+        generic_topic_input_vec_.push_back(tf_static_list_add_[j]);
+        ROS_INFO_STREAM("pes: " << j << "   " << tf_static_list_add_[j]);
+      }
+    }
+    PrintDebug(tmp);
+  }
+
+  SetupGenericCallbacks();
 }
 //}
 
