@@ -43,7 +43,7 @@ using topic_tools::ShapeShifter;
 typedef enum
 {
   STANDARD,
-  RETARD,
+  REMOTE,
   MAIN_MENU,
   GOTO_MENU,
 } status_state;
@@ -102,7 +102,7 @@ private:
   void SetupGotoMenu();
   bool GotoMenuHandler(int key_in);
 
-  void RetardHandler(int key, WINDOW* win);
+  void RemoteHandler(int key, WINDOW* win);
 
   ros::Subscriber uav_state_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
@@ -188,8 +188,8 @@ private:
   vector<string>   goto_menu_text_;
   vector<InputBox> goto_menu_inputs_;
 
-  bool retard_hover_ = false;
-  bool turbo_retard_ = false;
+  bool remote_hover_ = false;
+  bool turbo_remote_ = false;
 
   string old_constraints;
 
@@ -404,8 +404,8 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       switch (key_in) {
 
         case 'R':
-          retard_hover_ = false;
-          state         = RETARD;
+          remote_hover_ = false;
+          state         = REMOTE;
           break;
 
         case 'm':
@@ -424,14 +424,14 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
       break;
 
-    case RETARD:
+    case REMOTE:
       flushinp();
-      RetardHandler(key_in, top_bar_window_);
+      RemoteHandler(key_in, top_bar_window_);
       if (key_in == 'R' || key_in == KEY_ESC) {
 
-        if (turbo_retard_) {
+        if (turbo_remote_) {
 
-          turbo_retard_ = false;
+          turbo_remote_ = false;
           mrs_msgs::String string_service;
           string_service.request.value = old_constraints;
           service_set_constraints_.call(string_service);
@@ -723,15 +723,15 @@ bool MrsStatus::GotoMenuHandler(int key_in) {
 
 //}
 
-/* RetardHandler() //{ */
+/* RemoteHandler() //{ */
 
-void MrsStatus::RetardHandler(int key, WINDOW* win) {
+void MrsStatus::RemoteHandler(int key, WINDOW* win) {
 
   wattron(win, A_BOLD);
   wattron(win, COLOR_PAIR(RED));
-  mvwprintw(win, 0, 20, "RETARD MODE IS ACTIVE, YOU HAVE CONTROL");
+  mvwprintw(win, 0, 20, "REMOTE MODE IS ACTIVE, YOU HAVE CONTROL");
 
-  if (turbo_retard_) {
+  if (turbo_remote_) {
     wattron(win, A_BLINK);
     mvwprintw(win, 0, 12, "!TURBO!");
     mvwprintw(win, 0, 60, "!TURBO!");
@@ -756,12 +756,12 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
     case KEY_UP:
       goal.request.goal[0] = 2.0;
 
-      if (turbo_retard_) {
+      if (turbo_remote_) {
         goal.request.goal[0] = 5.0;
       }
 
       service_goto_fcu_.call(goal);
-      retard_hover_ = true;
+      remote_hover_ = true;
       break;
 
     case 's':
@@ -769,12 +769,12 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
     case KEY_DOWN:
       goal.request.goal[0] = -2.0;
 
-      if (turbo_retard_) {
+      if (turbo_remote_) {
         goal.request.goal[0] = -5.0;
       }
 
       service_goto_fcu_.call(goal);
-      retard_hover_ = true;
+      remote_hover_ = true;
       break;
 
     case 'a':
@@ -782,12 +782,12 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
     case KEY_LEFT:
       goal.request.goal[1] = 2.0;
 
-      if (turbo_retard_) {
+      if (turbo_remote_) {
         goal.request.goal[1] = 5.0;
       }
 
       service_goto_fcu_.call(goal);
-      retard_hover_ = true;
+      remote_hover_ = true;
       break;
 
     case 'd':
@@ -795,70 +795,70 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
     case KEY_RIGHT:
       goal.request.goal[1] = -2.0;
 
-      if (turbo_retard_) {
+      if (turbo_remote_) {
         goal.request.goal[1] = -5.0;
       }
 
       service_goto_fcu_.call(goal);
-      retard_hover_ = true;
+      remote_hover_ = true;
       break;
 
     case 'r':
       goal.request.goal[2] = 1.0;
 
-      if (turbo_retard_) {
+      if (turbo_remote_) {
         goal.request.goal[2] = 2.0;
       }
 
       service_goto_fcu_.call(goal);
-      retard_hover_ = true;
+      remote_hover_ = true;
       break;
 
     case 'f':
       goal.request.goal[2] = -1.0;
 
-      if (turbo_retard_) {
+      if (turbo_remote_) {
         goal.request.goal[2] = -2.0;
       }
 
       service_goto_fcu_.call(goal);
-      retard_hover_ = true;
+      remote_hover_ = true;
       break;
 
     case 'q':
       goal.request.goal[3] = 0.5;
 
-      if (turbo_retard_) {
+      if (turbo_remote_) {
         goal.request.goal[3] = 1.0;
       }
 
       service_goto_fcu_.call(goal);
-      retard_hover_ = true;
+      remote_hover_ = true;
       break;
 
     case 'e':
       goal.request.goal[3] = -0.5;
 
-      if (turbo_retard_) {
+      if (turbo_remote_) {
         goal.request.goal[3] = -1.0;
       }
 
       service_goto_fcu_.call(goal);
-      retard_hover_ = true;
+      remote_hover_ = true;
       break;
 
     case 'T':
 
-      if (turbo_retard_) {
+      if (turbo_remote_) {
 
-        turbo_retard_                = false;
+        turbo_remote_                = false;
         string_service.request.value = old_constraints;
         service_set_constraints_.call(string_service);
         PrintServiceResult(string_service.response.success, string_service.response.message);
 
       } else {
 
-        turbo_retard_                = true;
+        turbo_remote_                = true;
         old_constraints              = constraint_manager_.current_name;
         string_service.request.value = constraint_manager_.available[constraint_manager_.available.size() - 1];
         service_set_constraints_.call(string_service);
@@ -868,10 +868,10 @@ void MrsStatus::RetardHandler(int key, WINDOW* win) {
       break;
 
     default:
-      if (retard_hover_) {
+      if (remote_hover_) {
 
         service_hover_.call(trig);
-        retard_hover_ = false;
+        remote_hover_ = false;
       }
       break;
   }
