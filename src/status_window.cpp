@@ -4,70 +4,60 @@
 
 void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short color, int topic), MrsStatus* obj) {
 
-  wclear(win_);
-
   double interval = (ros::Time::now() - last_time_).toSec();
-  last_time_      = ros::Time::now();
 
-  wattron(win_, A_BOLD);
+  if (interval >= 1 / window_rate_) {
+    wclear(win_);
 
-  box(win_, 0, 0);
+    last_time_ = ros::Time::now();
 
-  int tmp_color = RED;
-  
-  if (topics_.size() == 0) {
-    (obj->*fp)(win_, 0, NORMAL, 0);
-  }
+    wattron(win_, A_BOLD);
 
-  for (unsigned long i = 0; i < topics_.size(); i++) {
+    box(win_, 0, 0);
 
-    topics_[i].interval += interval;
+    int tmp_color = RED;
 
-    /* if (false) { */
-    if (topics_[i].interval >= 1 / topics_[i].desired_rate) {
+    if (topics_.size() == 0) {
+      (obj->*fp)(win_, 0, NORMAL, 0);
+    }
 
-      double alpha           = 0.1;
-      double rate_difference = (1 - (topics_[i].rate / topics_[i].desired_rate));
+    for (unsigned long i = 0; i < topics_.size(); i++) {
 
-      if (rate_difference > 0.75) {
-        alpha = 0.5;
-      } else if (rate_difference > 0.1) {
-        alpha = 0.25;
-      }
-
-      double new_rate = topics_[i].counter / (topics_[i].interval);
-
-      (topics_[i].counter == 0) ? (topics_[i].zero_counter++) : (topics_[i].zero_counter = 0);
-
-      topics_[i].interval = 0.0;
+      double avg_rate    = 0.0;
+      avg_rate           = topics_[i].counter / interval;
       topics_[i].counter = 0;
 
-      if (topics_[i].zero_counter >= 2) {
-        topics_[i].rate = 0.0;
-      } else {
-        topics_[i].rate = (alpha * new_rate) + (1.0 - alpha) * topics_[i].rate;
+      topics_[i].rates[topics_[i].rates_iterator] = avg_rate;
+      topics_[i].rates_iterator++;
+
+      if (topics_[i].rates_iterator >= topics_[i].rates.size()) {
+        topics_[i].rates_iterator = 0;
       }
+
+      avg_rate = 0;
+
+      for (unsigned long j = 0; j < topics_[i].rates.size(); j++) {
+        avg_rate += topics_[i].rates[j];
+      }
+      avg_rate = avg_rate / topics_[i].rates.size();
+
+      tmp_color = RED;
+      if (avg_rate > 0.9 * topics_[i].desired_rate) {
+        tmp_color = GREEN;
+      } else if (avg_rate > 0.5 * topics_[i].desired_rate) {
+        tmp_color = YELLOW;
+      }
+
+      wattron(win_, COLOR_PAIR(tmp_color));
+
+      (obj->*fp)(win_, avg_rate, tmp_color, i);
     }
 
-    tmp_color = RED;
-    if (topics_[i].rate > 0.9 * topics_[i].desired_rate) {
-      tmp_color = GREEN;
-    } else if (topics_[i].rate > 0.5 * topics_[i].desired_rate) {
-      tmp_color = YELLOW;
-    }
+    wattroff(win_, COLOR_PAIR(tmp_color));
+    wattroff(win_, A_BOLD);
 
-    wattron(win_, COLOR_PAIR(tmp_color));
-
-    if (!isfinite(topics_[i].rate) || topics_[i].rate < 0.05 || topics_[i].rate > 10000) {
-      topics_[i].rate = 0;
-    }
-    (obj->*fp)(win_, topics_[i].rate, tmp_color, i);
+    wrefresh(win_);
   }
-
-  wattroff(win_, COLOR_PAIR(tmp_color));
-  wattroff(win_, A_BOLD);
-
-  wrefresh(win_);
 }
 
 //}

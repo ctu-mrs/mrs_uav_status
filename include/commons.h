@@ -35,34 +35,37 @@
 #define COLOR_NICE_BLUE 33
 #define COLOR_NICE_YELLOW 220
 
+#define BUFFER_SECS_LEN 4
+
 struct topic
 {
   std::string topic_name;
   std::string topic_display_name;
   int         counter;
-  double      rate;
-  double      interval;
   double      desired_rate;
   int         zero_counter;
 
-  topic(double desired_rate_in) {
+  unsigned long       rates_iterator;
+  std::vector<double> rates;
+
+  topic(double desired_rate_in, int window_rate) {
     topic_name         = "NOT DEFINED";
     topic_display_name = "NOT DEFINED";
     desired_rate       = desired_rate_in;
     counter            = 0;
-    rate               = 0.0;
-    interval           = 0.0;
     zero_counter       = 0;
+    rates_iterator     = 0;
+    rates.resize(BUFFER_SECS_LEN * window_rate);
   }
 
-  topic(std::string topic_name_in, std::string topic_display_name_in, double desired_rate_in) {
+  topic(std::string topic_name_in, std::string topic_display_name_in, double desired_rate_in, int window_rate) {
     topic_name         = topic_name_in;
     topic_display_name = topic_display_name_in;
     desired_rate       = desired_rate_in;
     counter            = 0;
-    rate               = 0.0;
-    interval           = 0.0;
     zero_counter       = 0;
+    rates_iterator     = 0;
+    rates.resize(BUFFER_SECS_LEN * window_rate);
   }
 };
 

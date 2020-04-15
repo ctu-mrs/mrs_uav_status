@@ -342,28 +342,30 @@ MrsStatus::MrsStatus() {
 
   //}
 
+  int uav_state_window_rate = 10;
+  uav_state_topic_.push_back(topic{100.0, uav_state_window_rate});
 
-  uav_state_topic_.push_back(topic{100.0});
+  uav_state_window_ = new StatusWindow(6, 30, 5, 1, uav_state_topic_, uav_state_window_rate);
 
-  uav_state_window_ = new StatusWindow(6, 30, 5, 1, uav_state_topic_);
+  int control_manager_window_rate = 1;
+  control_manager_topic_.push_back(topic{10.0, control_manager_window_rate});
+  control_manager_topic_.push_back(topic{1.0, control_manager_window_rate});
+  control_manager_topic_.push_back(topic{1.0, control_manager_window_rate});
 
-  control_manager_topic_.push_back(topic{10.0});
-  control_manager_topic_.push_back(topic{1.0});
-  control_manager_topic_.push_back(topic{1.0});
+  control_manager_window_ = new StatusWindow(4, 30, 1, 1, control_manager_topic_, control_manager_window_rate);
 
-  control_manager_window_ = new StatusWindow(4, 30, 1, 1, control_manager_topic_);
+  int mavros_state_window_rate = 1;
+  mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate});
+  mavros_state_topic_.push_back(topic{1.0, mavros_state_window_rate});
+  mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate});
 
-  mavros_state_topic_.push_back(topic{100.0});
-  mavros_state_topic_.push_back(topic{1.0});
-  mavros_state_topic_.push_back(topic{100.0});
+  mavros_state_window_ = new StatusWindow(6, 30, 5, 31, mavros_state_topic_, mavros_state_window_rate);
 
-  mavros_state_window_ = new StatusWindow(6, 30, 5, 31, mavros_state_topic_);
+  general_info_window_ = new StatusWindow(4, 30, 1, 31, general_info_topic_, 1);
 
-  general_info_window_ = new StatusWindow(4, 30, 1, 31, general_info_topic_);
+  generic_topic_window_ = new StatusWindow(10, 30, 1, 61, generic_topic_vec_, 1);
 
-  generic_topic_window_ = new StatusWindow(10, 30, 1, 61, generic_topic_vec_);
-
-  string_window_ = new StatusWindow(10, 32, 1, 91, string_topic_);
+  string_window_ = new StatusWindow(10, 32, 1, 91, string_topic_, 100);
 
   top_bar_window_ = newwin(1, 120, 0, 1);
   bottom_window_  = newwin(1, 120, 11, 1);
@@ -1228,12 +1230,21 @@ void MrsStatus::SetupGenericCallbacks() {
       tmp_string = tmp_string + " " + results[j];
     }
 
-    topic tmp_topic(results[0], tmp_string, stoi(results[results.size() - 1]));
+    topic tmp_topic(results[0], tmp_string, stoi(results[results.size() - 1]), 1);
 
     generic_topic_vec_.push_back(tmp_topic);
 
-    int    id         = i;  // id to identify which topic called the generic callback
-    string topic_name = "/" + _uav_name_ + "/" + generic_topic_vec_[i].topic_name;
+    int    id = i;  // id to identify which topic called the generic callback
+    string topic_name;
+
+    if (generic_topic_vec_[i].topic_name.at(0) == '/') {
+
+      topic_name = generic_topic_vec_[i].topic_name;
+
+    } else {
+
+      topic_name = "/" + _uav_name_ + "/" + generic_topic_vec_[i].topic_name;
+    }
 
     callback                       = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name, id); };
     ros::Subscriber tmp_subscriber = nh_.subscribe(topic_name, 1, callback);
