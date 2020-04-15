@@ -265,7 +265,7 @@ MrsStatus::MrsStatus() {
   constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &MrsStatus::ConstraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
   string_subscriber_             = nh_.subscribe("string_in", 1, &MrsStatus::StringCallback, this, ros::TransportHints().tcpNoDelay());
   set_service_subscriber_        = nh_.subscribe("set_service_in", 1, &MrsStatus::SetServiceCallback, this, ros::TransportHints().tcpNoDelay());
-  tf_static_subscriber_          = nh_.subscribe("tf_static_in", 1, &MrsStatus::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
+  tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &MrsStatus::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
 
   // SERVICES
   service_goto_reference_  = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
@@ -1223,7 +1223,12 @@ void MrsStatus::SetupGenericCallbacks() {
       results[2].pop_back();
     }
 
-    topic tmp_topic(results[0], results[1], stoi(results[2]));
+    string tmp_string = results[1];
+    for (unsigned long j = 2; j < results.size() - 1; j++) {
+      tmp_string = tmp_string + " " + results[j];
+    }
+
+    topic tmp_topic(results[0], tmp_string, stoi(results[results.size() - 1]));
 
     generic_topic_vec_.push_back(tmp_topic);
 
@@ -1640,8 +1645,6 @@ void MrsStatus::PrintNoData(WINDOW* win, int y, int x, string text) {
 
 void MrsStatus::PrintDebug(string msg) {
 
-  wclear(debug_window_);
-
   PrintLimitedString(debug_window_, 0, 0, msg, 120);
 
   wrefresh(debug_window_);
@@ -1773,12 +1776,9 @@ void MrsStatus::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
     for (unsigned long j = 0; j < tf_static_list_compare_.size(); j++) {
       if (tf_static_list_compare_[j] == tmp) {
         generic_topic_input_vec_.push_back(tf_static_list_add_[j]);
-        ROS_INFO_STREAM("pes: " << j << "   " << tf_static_list_add_[j]);
       }
     }
-    PrintDebug(tmp);
   }
-
   SetupGenericCallbacks();
 }
 //}

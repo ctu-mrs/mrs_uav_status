@@ -12,6 +12,8 @@ want_hz: [
 
 tf_static_list: [
       "garmin garmin/range Garmin 50",
-      "bluefox_optflow bluefox_optflow/camera_info Bfox Optflow 50",
-      "rs_d435/link rs_d435/camera_info Realsense 30"
+      "bluefox_optflow bluefox_optflow/camera_info BlueFox Optflow 50",
+      "bluefox_optflow optic_flow/velocity Optflow Velocity 50",
+      "rs_d435/link rs_d435/camera_info Realsense 30",
+      "rplidar rplidar/scan RPlidar 10"
       ]
