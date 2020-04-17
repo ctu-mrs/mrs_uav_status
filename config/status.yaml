@@ -1,4 +1,5 @@
 colorblind_mode: True # Set True to change green color to blue
+enable_profiler: True # Set True to change green color to blue
 
 # List of topics to monitor, format is:
 # topic_name Displayed name (can be multiple words) expected_frequency

@@ -48,7 +48,7 @@ struct topic
   unsigned long       rates_iterator;
   std::vector<double> rates;
 
-  topic(double desired_rate_in, int window_rate) {
+  topic(double desired_rate_in, double window_rate) {
     topic_name         = "NOT DEFINED";
     topic_display_name = "NOT DEFINED";
     desired_rate       = desired_rate_in;
@@ -58,7 +58,7 @@ struct topic
     rates.resize(BUFFER_SECS_LEN * window_rate);
   }
 
-  topic(std::string topic_name_in, std::string topic_display_name_in, double desired_rate_in, int window_rate) {
+  topic(std::string topic_name_in, std::string topic_display_name_in, double desired_rate_in, double window_rate) {
     topic_name         = topic_name_in;
     topic_display_name = topic_display_name_in;
     desired_rate       = desired_rate_in;

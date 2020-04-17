@@ -6,7 +6,7 @@ class MrsStatus;  // forward declaration
 class StatusWindow {
 
 public:
-  StatusWindow(int lines, int cols, int begin_y, int begin_x, std::vector<topic>& topics, int window_rate) : topics_(topics) {
+  StatusWindow(int lines, int cols, int begin_y, int begin_x, std::vector<topic>& topics, double window_rate) : topics_(topics) {
     win_         = newwin(lines, cols, begin_y, begin_x);
     window_rate_ = window_rate;
   };
@@ -14,7 +14,7 @@ public:
 
 private:
   WINDOW*             win_;
-  int                 window_rate_;
+  double              window_rate_;
   std::vector<topic>& topics_;
   ros::Time           last_time_ = ros::Time::now();
 };

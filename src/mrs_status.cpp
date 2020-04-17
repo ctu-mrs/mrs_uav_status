@@ -4,6 +4,7 @@
 #include <menu.h>
 #include <input_box.h>
 #include <commons.h>
+#include <mrs_lib/profiler.h>
 
 #include <iostream>
 #include <fstream>
@@ -61,6 +62,7 @@ private:
   ros::NodeHandle nh_;
 
   ros::Timer status_timer_;
+  ros::Timer redraw_timer_;
 
   void UavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
   void MavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
@@ -76,6 +78,7 @@ private:
   void GenericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
 
   void statusTimer(const ros::TimerEvent& event);
+  void redrawTimer(const ros::TimerEvent& event);
 
   void PrintLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit);
   void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
@@ -110,6 +113,9 @@ private:
   bool GotoMenuHandler(int key_in);
 
   void RemoteHandler(int key, WINDOW* win);
+
+  mrs_lib::Profiler profiler_;
+  bool              _profiler_enabled_ = false;
 
   ros::Subscriber uav_state_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
@@ -154,6 +160,12 @@ private:
   mrs_msgs::ControlManagerDiagnostics    control_manager_;
   mrs_msgs::GainManagerDiagnostics       gain_manager_;
   mrs_msgs::ConstraintManagerDiagnostics constraint_manager_;
+
+  double uav_state_window_rate_       = 10;
+  double control_manager_window_rate_ = 1;
+  double mavros_state_window_rate_    = 1;
+  double general_info_window_rate_    = 1;
+  double generic_topic_window_rate_   = 1;
 
   StatusWindow* uav_state_window_;
   vector<topic> uav_state_topic_;
@@ -232,6 +244,8 @@ MrsStatus::MrsStatus() {
   param_loader.loadParam("sensors", _sensors_);
   param_loader.loadParam("pixgarm", _pixgarm_);
 
+  param_loader.loadParam("enable_profiler", _profiler_enabled_);
+
   std::vector<string> tf_static_list;
   param_loader.loadParam("tf_static_list", tf_static_list);
 
@@ -254,6 +268,7 @@ MrsStatus::MrsStatus() {
 
   // TIMERS
   status_timer_ = nh_.createTimer(ros::Rate(10), &MrsStatus::statusTimer, this);
+  redraw_timer_ = nh_.createTimer(ros::Rate(100), &MrsStatus::redrawTimer, this);
 
   // SUBSCRIBERS
   uav_state_subscriber_          = nh_.subscribe("uav_state_in", 1, &MrsStatus::UavStateCallback, this, ros::TransportHints().tcpNoDelay());
@@ -274,6 +289,8 @@ MrsStatus::MrsStatus() {
   service_set_gains_       = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
   service_set_controller_  = nh_.serviceClient<mrs_msgs::String>("set_controller_out");
   service_hover_           = nh_.serviceClient<std_srvs::Trigger>("hover_out");
+
+  profiler_ = mrs_lib::Profiler(nh_, "MrsStatus", _profiler_enabled_);
 
   goto_double_vec_.push_back(0.0);
   goto_double_vec_.push_back(0.0);
@@ -342,30 +359,27 @@ MrsStatus::MrsStatus() {
 
   //}
 
-  int uav_state_window_rate = 10;
-  uav_state_topic_.push_back(topic{100.0, uav_state_window_rate});
+  uav_state_topic_.push_back(topic{100.0, uav_state_window_rate_});
 
-  uav_state_window_ = new StatusWindow(6, 30, 5, 1, uav_state_topic_, uav_state_window_rate);
+  uav_state_window_ = new StatusWindow(6, 30, 5, 1, uav_state_topic_, uav_state_window_rate_);
 
-  int control_manager_window_rate = 1;
-  control_manager_topic_.push_back(topic{10.0, control_manager_window_rate});
-  control_manager_topic_.push_back(topic{1.0, control_manager_window_rate});
-  control_manager_topic_.push_back(topic{1.0, control_manager_window_rate});
+  control_manager_topic_.push_back(topic{10.0, control_manager_window_rate_});
+  control_manager_topic_.push_back(topic{1.0, control_manager_window_rate_});
+  control_manager_topic_.push_back(topic{1.0, control_manager_window_rate_});
 
-  control_manager_window_ = new StatusWindow(4, 30, 1, 1, control_manager_topic_, control_manager_window_rate);
+  control_manager_window_ = new StatusWindow(4, 30, 1, 1, control_manager_topic_, control_manager_window_rate_);
 
-  int mavros_state_window_rate = 1;
-  mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate});
-  mavros_state_topic_.push_back(topic{1.0, mavros_state_window_rate});
-  mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate});
+  mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
+  mavros_state_topic_.push_back(topic{1.0, mavros_state_window_rate_});
+  mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
 
-  mavros_state_window_ = new StatusWindow(6, 30, 5, 31, mavros_state_topic_, mavros_state_window_rate);
+  mavros_state_window_ = new StatusWindow(6, 30, 5, 31, mavros_state_topic_, mavros_state_window_rate_);
 
-  general_info_window_ = new StatusWindow(4, 30, 1, 31, general_info_topic_, 1);
+  general_info_window_ = new StatusWindow(4, 30, 1, 31, general_info_topic_, general_info_window_rate_);
 
-  generic_topic_window_ = new StatusWindow(10, 30, 1, 61, generic_topic_vec_, 1);
+  generic_topic_window_ = new StatusWindow(10, 30, 1, 61, generic_topic_vec_, generic_topic_window_rate_);
 
-  string_window_ = new StatusWindow(10, 32, 1, 91, string_topic_, 100);
+  string_window_ = new StatusWindow(10, 32, 1, 91, string_topic_, generic_topic_window_rate_);
 
   top_bar_window_ = newwin(1, 120, 0, 1);
   bottom_window_  = newwin(1, 120, 11, 1);
@@ -374,9 +388,40 @@ MrsStatus::MrsStatus() {
 
   initialized_ = true;
   ROS_INFO("[MrsStatus]: Node initialized!");
-
-  refresh();
 }
+
+//}
+
+/* redrawTimer //{ */
+
+void MrsStatus::redrawTimer([[maybe_unused]] const ros::TimerEvent& event) {
+
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("UavStateHandler");
+    uav_state_window_->Redraw(&MrsStatus::UavStateHandler, this);
+  }
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("MavrosStateHandler");
+    mavros_state_window_->Redraw(&MrsStatus::MavrosStateHandler, this);
+  }
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("ControlManagerHandler");
+    control_manager_window_->Redraw(&MrsStatus::ControlManagerHandler, this);
+  }
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("GenericTopicHandler");
+    generic_topic_window_->Redraw(&MrsStatus::GenericTopicHandler, this);
+  }
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("GeneralInfoHandler");
+    general_info_window_->Redraw(&MrsStatus::GeneralInfoHandler, this);
+  }
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("StringHandler");
+    string_window_->Redraw(&MrsStatus::StringHandler, this);
+  }
+}
+
 
 //}
 
@@ -392,17 +437,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   flightTimeHandler(top_bar_window_);
 
-  uav_state_window_->Redraw(&MrsStatus::UavStateHandler, this);
-  mavros_state_window_->Redraw(&MrsStatus::MavrosStateHandler, this);
-  control_manager_window_->Redraw(&MrsStatus::ControlManagerHandler, this);
-  generic_topic_window_->Redraw(&MrsStatus::GenericTopicHandler, this);
-  general_info_window_->Redraw(&MrsStatus::GeneralInfoHandler, this);
-  string_window_->Redraw(&MrsStatus::StringHandler, this);
-
   /* PrintHelp(); */
-
-  wrefresh(top_bar_window_);
-  wrefresh(bottom_window_);
 
   int key_in = getch();
 
@@ -471,6 +506,8 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       break;
   }
 
+  wrefresh(top_bar_window_);
+  wrefresh(bottom_window_);
   refresh();
 }
 
@@ -1230,7 +1267,7 @@ void MrsStatus::SetupGenericCallbacks() {
       tmp_string = tmp_string + " " + results[j];
     }
 
-    topic tmp_topic(results[0], tmp_string, stoi(results[results.size() - 1]), 1);
+    topic tmp_topic(results[0], tmp_string, stoi(results[results.size() - 1]), generic_topic_window_rate_);
 
     generic_topic_vec_.push_back(tmp_topic);
 
@@ -1364,7 +1401,7 @@ void MrsStatus::PrintMemLoad(WINDOW* win) {
 
     if (isdigit(results[i].front())) {
       try {
-        ram_total = double(stol(results[i])) / 1000000;
+        ram_total = double(stol(results[i])) / 1048576;
       }
       catch (const invalid_argument& e) {
         ram_total = 0.0;
@@ -1379,7 +1416,7 @@ void MrsStatus::PrintMemLoad(WINDOW* win) {
 
     if (isdigit(results[i].front())) {
       try {
-        ram_free = double(stol(results[i])) / 1000000;
+        ram_free = double(stol(results[i])) / 1048576;
       }
       catch (const invalid_argument& e) {
         ram_free = 0.0;
@@ -1394,7 +1431,7 @@ void MrsStatus::PrintMemLoad(WINDOW* win) {
 
     if (isdigit(results[i].front())) {
       try {
-        buffers = double(stol(results[i])) / 1000000;
+        buffers = double(stol(results[i])) / 1048576;
       }
       catch (const invalid_argument& e) {
         buffers = 0.0;
@@ -1505,7 +1542,7 @@ void MrsStatus::PrintCpuFreq(WINDOW* win) {
     }
   }
 
-  double avg_cpu_ghz = double(cpu_freq / num_cores) / 1000000;
+  double avg_cpu_ghz = double(cpu_freq / num_cores) / 1048576;
 
 
   wattron(win, COLOR_PAIR(GREEN));
@@ -1520,7 +1557,7 @@ void MrsStatus::PrintDiskSpace(WINDOW* win) {
 
   boost::filesystem::space_info si = boost::filesystem::space(".");
 
-  int gigas = round(si.available / 100000000);
+  int gigas = round(si.available / 104857600);
 
   wattron(win, COLOR_PAIR(GREEN));
   if (gigas < 200 || gigas != last_gigas_) {
@@ -1780,12 +1817,13 @@ void MrsStatus::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
 
   for (unsigned long i = 0; i < msg.transforms.size(); i++) {
 
-    std::string tmp = msg.transforms[i].child_frame_id;
-    std::size_t pos = tmp.find("/");        // find the / int uav1/something
-    tmp             = tmp.substr(pos + 1);  // cut off the uav1/ from the tf_static name
+    std::string tmp        = msg.transforms[i].child_frame_id;
+    std::size_t pos        = tmp.find("/");        // find the / in uav1/something
+    std::string uav_name   = tmp.substr(0, pos);   // cut out the uav name, so we can discard tfs from other drones (mostly for simulation)
+    std::string frame_name = tmp.substr(pos + 1);  // cut off the uav1/ from the tf_static name
 
     for (unsigned long j = 0; j < tf_static_list_compare_.size(); j++) {
-      if (tf_static_list_compare_[j] == tmp) {
+      if (tf_static_list_compare_[j] == frame_name && uav_name == _uav_name_) {
         generic_topic_input_vec_.push_back(tf_static_list_add_[j]);
       }
     }
