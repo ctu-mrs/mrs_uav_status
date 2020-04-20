@@ -63,6 +63,7 @@ private:
 
   ros::Timer status_timer_;
   ros::Timer redraw_timer_;
+  ros::Timer resize_timer_;
 
   void UavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
   void MavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
@@ -79,6 +80,7 @@ private:
 
   void statusTimer(const ros::TimerEvent& event);
   void redrawTimer(const ros::TimerEvent& event);
+  void resizeTimer(const ros::TimerEvent& event);
 
   void PrintLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit);
   void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
@@ -113,6 +115,8 @@ private:
   bool GotoMenuHandler(int key_in);
 
   void RemoteHandler(int key, WINDOW* win);
+
+  std::string callTerminal(const char* cmd);
 
   mrs_lib::Profiler profiler_;
   bool              _profiler_enabled_ = false;
@@ -269,6 +273,7 @@ MrsStatus::MrsStatus() {
   // TIMERS
   status_timer_ = nh_.createTimer(ros::Rate(10), &MrsStatus::statusTimer, this);
   redraw_timer_ = nh_.createTimer(ros::Rate(100), &MrsStatus::redrawTimer, this);
+  resize_timer_ = nh_.createTimer(ros::Rate(1), &MrsStatus::resizeTimer, this);
 
   // SUBSCRIBERS
   uav_state_subscriber_          = nh_.subscribe("uav_state_in", 1, &MrsStatus::UavStateCallback, this, ros::TransportHints().tcpNoDelay());
@@ -392,6 +397,33 @@ MrsStatus::MrsStatus() {
 
 //}
 
+/* resizeTimer //{ */
+
+void MrsStatus::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
+  return;  // TODO fix this
+  /* char                     command[50] = "tmux list-panes -F '#{pane_width}x#{pane_height}'"; */
+  /* std::string              response    = callTerminal(command); */
+  /* std::vector<std::string> results; */
+  /* boost::split(results, response, [](char c) { return c == 'x'; }); */
+
+  /* int cols, lines; */
+
+  /* try { */
+  /*   cols  = stoi(results[0]); */
+  /*   lines = stoi(results[1]); */
+  /* } */
+
+  /* catch (const invalid_argument& e) { */
+  /*   cols  = 0; */
+  /*   lines = 0; */
+  /* } */
+
+  /* resize_term(lines, cols); */
+}
+
+
+//}
+
 /* redrawTimer //{ */
 
 void MrsStatus::redrawTimer([[maybe_unused]] const ros::TimerEvent& event) {
@@ -440,6 +472,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   /* PrintHelp(); */
 
   int key_in = getch();
+  PrintDebug(to_string(key_in));
 
   switch (state) {
 
@@ -1267,9 +1300,13 @@ void MrsStatus::SetupGenericCallbacks() {
       tmp_string = tmp_string + " " + results[j];
     }
 
-    topic tmp_topic(results[0], tmp_string, stoi(results[results.size() - 1]), generic_topic_window_rate_);
+    try {
+      topic tmp_topic(results[0], tmp_string, stoi(results[results.size() - 1]), generic_topic_window_rate_);
+      generic_topic_vec_.push_back(tmp_topic);
+    }
+    catch (const invalid_argument& e) {
+    }
 
-    generic_topic_vec_.push_back(tmp_topic);
 
     int    id = i;  // id to identify which topic called the generic callback
     string topic_name;
@@ -1866,6 +1903,19 @@ void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const string&
 //}
 
 //}
+
+std::string MrsStatus::callTerminal(const char* cmd) {
+  std::array<char, 128>                    buffer;
+  std::string                              result;
+  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+  if (!pipe) {
+    throw std::runtime_error("popen() failed!");
+  }
+  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+    result += buffer.data();
+  }
+  return result;
+}
 
 /* main() //{ */
 
