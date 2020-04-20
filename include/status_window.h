@@ -10,7 +10,9 @@ public:
     win_         = newwin(lines, cols, begin_y, begin_x);
     window_rate_ = window_rate;
   };
+
   void Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short color, int topic), MrsStatus* obj);
+  WINDOW* getWindow();
 
 private:
   WINDOW*             win_;

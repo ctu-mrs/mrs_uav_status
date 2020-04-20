@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <thread>
 #include <boost/filesystem.hpp>
 
 #include <topic_tools/shape_shifter.h>  // for generic topic subscribers
@@ -102,8 +103,9 @@ private:
   void uavStateHandler(WINDOW* win, double rate, short color, int topic);
   void mavrosStateHandler(WINDOW* win, double rate, short color, int topic);
   void controlManagerHandler(WINDOW* win, double rate, short color, int topic);
-  void generalInfoHandler(WINDOW* win, double rate, short color, int topic);
   void stringHandler(WINDOW* win, double rate, short color, int topic);
+
+  void generalInfoThread();
 
   void flightTimeHandler(WINDOW* win);
 
@@ -181,20 +183,18 @@ private:
   StatusWindow* control_manager_window_;
   vector<topic> control_manager_topic_;
 
-  StatusWindow* general_info_window_;
-  vector<topic> general_info_topic_;
-
   StatusWindow*       string_window_;
   vector<string_info> string_info_vec_;
   vector<topic>       string_topic_;
 
   WINDOW* top_bar_window_;
+  WINDOW* bottom_window_;
+  WINDOW* general_info_window_;
+  WINDOW* debug_window_;
 
-  WINDOW*   bottom_window_;
   ros::Time bottom_window_clear_time_ = ros::Time::now();
 
-  bool    help_active_ = false;
-  WINDOW* debug_window_;
+  bool help_active_ = false;
 
   StatusWindow*           generic_topic_window_;
   vector<topic>           generic_topic_vec_;
@@ -232,6 +232,9 @@ private:
 
   status_state state = STANDARD;
   int          cols_, lines_;
+
+  std::thread general_info_thread_;
+  bool        run_thread_ = true;
 };
 
 //}
@@ -382,11 +385,11 @@ MrsStatus::MrsStatus() {
 
   mavros_state_window_ = new StatusWindow(6, 30, 5, 31, mavros_state_topic_, mavros_state_window_rate_);
 
-  general_info_window_ = new StatusWindow(4, 30, 1, 31, general_info_topic_, general_info_window_rate_);
-
   generic_topic_window_ = new StatusWindow(10, 30, 1, 61, generic_topic_vec_, generic_topic_window_rate_);
 
   string_window_ = new StatusWindow(10, 32, 1, 91, string_topic_, generic_topic_window_rate_);
+
+  general_info_window_ = newwin(4, 30, 1, 31);
 
   top_bar_window_ = newwin(1, 120, 0, 1);
   bottom_window_  = newwin(1, 120, 11, 1);
@@ -395,6 +398,8 @@ MrsStatus::MrsStatus() {
 
   initialized_ = true;
   ROS_INFO("[MrsStatus]: Node initialized!");
+
+  general_info_thread_ = std::thread{&MrsStatus::generalInfoThread, this};
 }
 
 //}
@@ -451,10 +456,6 @@ void MrsStatus::redrawTimer([[maybe_unused]] const ros::TimerEvent& event) {
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
     generic_topic_window_->Redraw(&MrsStatus::genericTopicHandler, this);
-  }
-  {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("generalInfoHandler");
-    general_info_window_->Redraw(&MrsStatus::generalInfoHandler, this);
   }
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
@@ -1017,16 +1018,6 @@ void MrsStatus::stringHandler(WINDOW* win, double rate, short color, int topic) 
 
 //}
 
-/* generalInfoHandler() //{ */
-
-void MrsStatus::generalInfoHandler(WINDOW* win, double rate, short color, int topic) {
-
-  printCpuLoad(win);
-  printMemLoad(win);
-  printCpuFreq(win);
-  printDiskSpace(win);
-}
-
 //}
 
 /* genericTopicHandler() //{ */
@@ -1281,6 +1272,41 @@ void MrsStatus::flightTimeHandler(WINDOW* win) {
 
 //}
 
+
+//}
+
+
+/* generalInfoThread() //{ */
+
+void MrsStatus::generalInfoThread() {
+
+  ros::Time last_time;
+
+
+  while (true) {
+
+    double interval = (ros::Time::now() - last_time).toSec();
+
+    if (interval >= 1.0 / double(general_info_window_rate_)) {
+
+      last_time = ros::Time::now();
+
+      werase(general_info_window_);
+
+      wattron(general_info_window_, A_BOLD);
+      wattroff(general_info_window_, COLOR_PAIR(NORMAL));
+      box(general_info_window_, 0, 0);
+
+      printCpuLoad(general_info_window_);
+      printMemLoad(general_info_window_);
+      printCpuFreq(general_info_window_);
+      printDiskSpace(general_info_window_);
+      wrefresh(general_info_window_);
+    }
+
+    sleep(general_info_window_rate_ / 10);
+  }
+}
 
 //}
 
@@ -1626,7 +1652,7 @@ void MrsStatus::printDiskSpace(WINDOW* win) {
 
 void MrsStatus::printServiceResult(bool success, string msg) {
 
-  wclear(bottom_window_);
+  werase(bottom_window_);
 
   wattron(bottom_window_, A_BOLD);
   wattron(bottom_window_, COLOR_PAIR(GREEN));
@@ -1748,7 +1774,7 @@ void MrsStatus::printDebug(string msg) {
 
 void MrsStatus::printHelp() {
 
-  wclear(debug_window_);
+  werase(debug_window_);
 
   if (help_active_) {
 
@@ -1875,7 +1901,6 @@ void MrsStatus::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
   }
 
   setupGenericCallbacks();
-
 }
 //}
 
@@ -1914,6 +1939,8 @@ void MrsStatus::genericCallback(const ShapeShifter::ConstPtr& msg, const string&
 
 //}
 
+/* callTerminal //{ */
+
 std::string MrsStatus::callTerminal(const char* cmd) {
   std::array<char, 128>                    buffer;
   std::string                              result;
@@ -1926,6 +1953,8 @@ std::string MrsStatus::callTerminal(const char* cmd) {
   }
   return result;
 }
+
+//}
 
 /* main() //{ */
 

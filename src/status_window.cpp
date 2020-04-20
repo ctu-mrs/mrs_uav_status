@@ -6,14 +6,10 @@ void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short 
 
   double interval = (ros::Time::now() - last_time_).toSec();
 
-  /* wclear(win_); */
-  /* box(win_, 0, 0); */
-  /* mvwprintw(win_, 0, 0, "%5.3f  %5.3f", interval, 1.0 / double(window_rate_)); */
-
   wrefresh(win_);
   if (interval >= 1.0 / double(window_rate_)) {
 
-    wclear(win_);
+    werase(win_);
 
     last_time_ = ros::Time::now();
 
@@ -68,3 +64,10 @@ void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short 
 
 //}
 
+/* getWindow //{ */
+
+WINDOW* StatusWindow::getWindow() {
+  return win_;
+}
+
+//}
