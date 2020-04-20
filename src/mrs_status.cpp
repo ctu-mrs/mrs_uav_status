@@ -65,56 +65,57 @@ private:
   ros::Timer redraw_timer_;
   ros::Timer resize_timer_;
 
-  void UavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
-  void MavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
-  void MavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg);
-  void BatteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
-  void ControlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg);
-  void GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
-  void ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
-  void StringCallback(const ros::MessageEvent<std_msgs::String const>& event);
-  void SetServiceCallback(const std_msgs::String& msg);
+  void uavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
+  void mavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
+  void mavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg);
+  void batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
+
+  void controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg);
+  void gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
+  void constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
+  void stringCallback(const ros::MessageEvent<std_msgs::String const>& event);
+  void setServiceCallback(const std_msgs::String& msg);
   void tfStaticCallback(const tf2_msgs::TFMessage& msg);
 
-  void GenericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
+  void genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
 
   void statusTimer(const ros::TimerEvent& event);
   void redrawTimer(const ros::TimerEvent& event);
   void resizeTimer(const ros::TimerEvent& event);
 
-  void PrintLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit);
-  void PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
-  void PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
-  void PrintServiceResult(bool success, string msg);
-  void PrintDebug(string msg);
-  void PrintHelp();
+  void printLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit);
+  void printLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
+  void printLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
+  void printServiceResult(bool success, string msg);
+  void printDebug(string msg);
+  void printHelp();
 
-  void PrintNoData(WINDOW* win, int y, int x);
-  void PrintNoData(WINDOW* win, int y, int x, string text);
+  void printNoData(WINDOW* win, int y, int x);
+  void printNoData(WINDOW* win, int y, int x, string text);
 
-  void PrintCpuLoad(WINDOW* win);
-  void PrintCpuFreq(WINDOW* win);
-  void PrintMemLoad(WINDOW* win);
-  void PrintDiskSpace(WINDOW* win);
+  void printCpuLoad(WINDOW* win);
+  void printCpuFreq(WINDOW* win);
+  void printMemLoad(WINDOW* win);
+  void printDiskSpace(WINDOW* win);
 
-  void GenericTopicHandler(WINDOW* win, double rate, short color, int topic);
-  void UavStateHandler(WINDOW* win, double rate, short color, int topic);
-  void MavrosStateHandler(WINDOW* win, double rate, short color, int topic);
-  void ControlManagerHandler(WINDOW* win, double rate, short color, int topic);
-  void GeneralInfoHandler(WINDOW* win, double rate, short color, int topic);
-  void StringHandler(WINDOW* win, double rate, short color, int topic);
+  void genericTopicHandler(WINDOW* win, double rate, short color, int topic);
+  void uavStateHandler(WINDOW* win, double rate, short color, int topic);
+  void mavrosStateHandler(WINDOW* win, double rate, short color, int topic);
+  void controlManagerHandler(WINDOW* win, double rate, short color, int topic);
+  void generalInfoHandler(WINDOW* win, double rate, short color, int topic);
+  void stringHandler(WINDOW* win, double rate, short color, int topic);
 
   void flightTimeHandler(WINDOW* win);
 
-  void SetupGenericCallbacks();
+  void setupGenericCallbacks();
 
-  void SetupMainMenu();
-  bool MainMenuHandler(int key_in);
+  void setupMainMenu();
+  bool mainMenuHandler(int key_in);
 
-  void SetupGotoMenu();
-  bool GotoMenuHandler(int key_in);
+  void setupGotoMenu();
+  bool gotoMenuHandler(int key_in);
 
-  void RemoteHandler(int key, WINDOW* win);
+  void remoteHandler(int key, WINDOW* win);
 
   std::string callTerminal(const char* cmd);
 
@@ -230,6 +231,7 @@ private:
   vector<string> tf_static_list_add_;
 
   status_state state = STANDARD;
+  int          cols_, lines_;
 };
 
 //}
@@ -276,15 +278,15 @@ MrsStatus::MrsStatus() {
   resize_timer_ = nh_.createTimer(ros::Rate(1), &MrsStatus::resizeTimer, this);
 
   // SUBSCRIBERS
-  uav_state_subscriber_          = nh_.subscribe("uav_state_in", 1, &MrsStatus::UavStateCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 1, &MrsStatus::MavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_attitude_subscriber_    = nh_.subscribe("mavros_attitude_in", 1, &MrsStatus::MavrosAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
-  battery_subscriber_            = nh_.subscribe("battery_in", 1, &MrsStatus::BatteryCallback, this, ros::TransportHints().tcpNoDelay());
-  control_manager_subscriber_    = nh_.subscribe("control_manager_in", 1, &MrsStatus::ControlManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 1, &MrsStatus::GainManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &MrsStatus::ConstraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  string_subscriber_             = nh_.subscribe("string_in", 1, &MrsStatus::StringCallback, this, ros::TransportHints().tcpNoDelay());
-  set_service_subscriber_        = nh_.subscribe("set_service_in", 1, &MrsStatus::SetServiceCallback, this, ros::TransportHints().tcpNoDelay());
+  uav_state_subscriber_          = nh_.subscribe("uav_state_in", 1, &MrsStatus::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 1, &MrsStatus::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_attitude_subscriber_    = nh_.subscribe("mavros_attitude_in", 1, &MrsStatus::mavrosAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
+  battery_subscriber_            = nh_.subscribe("battery_in", 1, &MrsStatus::batteryCallback, this, ros::TransportHints().tcpNoDelay());
+  control_manager_subscriber_    = nh_.subscribe("control_manager_in", 1, &MrsStatus::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 1, &MrsStatus::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &MrsStatus::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  string_subscriber_             = nh_.subscribe("string_in", 1, &MrsStatus::stringCallback, this, ros::TransportHints().tcpNoDelay());
+  set_service_subscriber_        = nh_.subscribe("set_service_in", 1, &MrsStatus::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
   tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &MrsStatus::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
 
   // SERVICES
@@ -360,7 +362,7 @@ MrsStatus::MrsStatus() {
     }
   }
 
-  SetupGenericCallbacks();
+  setupGenericCallbacks();
 
   //}
 
@@ -400,25 +402,31 @@ MrsStatus::MrsStatus() {
 /* resizeTimer //{ */
 
 void MrsStatus::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
-  return;  // TODO fix this
-  /* char                     command[50] = "tmux list-panes -F '#{pane_width}x#{pane_height}'"; */
-  /* std::string              response    = callTerminal(command); */
-  /* std::vector<std::string> results; */
-  /* boost::split(results, response, [](char c) { return c == 'x'; }); */
 
-  /* int cols, lines; */
+  // TODO resizing causes screen flicker, should be called just before general refresh.
+  // TODO display breaks when screen is resized to very small number of cols
 
-  /* try { */
-  /*   cols  = stoi(results[0]); */
-  /*   lines = stoi(results[1]); */
-  /* } */
+  char                     command[50] = "tmux list-panes -F '#{pane_width}x#{pane_height}'";
+  std::string              response    = callTerminal(command);
+  std::vector<std::string> results;
+  boost::split(results, response, [](char c) { return c == 'x'; });
 
-  /* catch (const invalid_argument& e) { */
-  /*   cols  = 0; */
-  /*   lines = 0; */
-  /* } */
+  int cols, lines;
 
-  /* resize_term(lines, cols); */
+  try {
+    cols  = stoi(results[0]);
+    lines = stoi(results[1]);
+  }
+
+  catch (const invalid_argument& e) {
+    cols  = 0;
+    lines = 0;
+  }
+  if (cols_ != cols || lines_ != lines) {
+    lines_ = lines;
+    cols_  = cols;
+    resize_term(lines_, cols_);
+  }
 }
 
 
@@ -429,28 +437,28 @@ void MrsStatus::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
 void MrsStatus::redrawTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("UavStateHandler");
-    uav_state_window_->Redraw(&MrsStatus::UavStateHandler, this);
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
+    uav_state_window_->Redraw(&MrsStatus::uavStateHandler, this);
   }
   {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("MavrosStateHandler");
-    mavros_state_window_->Redraw(&MrsStatus::MavrosStateHandler, this);
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
+    mavros_state_window_->Redraw(&MrsStatus::mavrosStateHandler, this);
   }
   {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("ControlManagerHandler");
-    control_manager_window_->Redraw(&MrsStatus::ControlManagerHandler, this);
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
+    control_manager_window_->Redraw(&MrsStatus::controlManagerHandler, this);
   }
   {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("GenericTopicHandler");
-    generic_topic_window_->Redraw(&MrsStatus::GenericTopicHandler, this);
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
+    generic_topic_window_->Redraw(&MrsStatus::genericTopicHandler, this);
   }
   {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("GeneralInfoHandler");
-    general_info_window_->Redraw(&MrsStatus::GeneralInfoHandler, this);
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("generalInfoHandler");
+    general_info_window_->Redraw(&MrsStatus::generalInfoHandler, this);
   }
   {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("StringHandler");
-    string_window_->Redraw(&MrsStatus::StringHandler, this);
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
+    string_window_->Redraw(&MrsStatus::stringHandler, this);
   }
 }
 
@@ -469,10 +477,9 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   flightTimeHandler(top_bar_window_);
 
-  /* PrintHelp(); */
+  printHelp();
 
   int key_in = getch();
-  PrintDebug(to_string(key_in));
 
   switch (state) {
 
@@ -486,12 +493,12 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
           break;
 
         case 'm':
-          SetupMainMenu();
+          setupMainMenu();
           state = MAIN_MENU;
           break;
 
         case 'g':
-          SetupGotoMenu();
+          setupGotoMenu();
           state = GOTO_MENU;
           break;
 
@@ -508,7 +515,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
     case REMOTE:
       flushinp();
-      RemoteHandler(key_in, top_bar_window_);
+      remoteHandler(key_in, top_bar_window_);
       if (key_in == 'R' || key_in == KEY_ESC) {
 
         if (turbo_remote_) {
@@ -517,7 +524,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
           mrs_msgs::String string_service;
           string_service.request.value = old_constraints;
           service_set_constraints_.call(string_service);
-          PrintServiceResult(string_service.response.success, string_service.response.message);
+          printServiceResult(string_service.response.success, string_service.response.message);
         }
 
         state = STANDARD;
@@ -526,14 +533,14 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
     case MAIN_MENU:
       flushinp();
-      if (MainMenuHandler(key_in)) {
+      if (mainMenuHandler(key_in)) {
         state = STANDARD;
       }
       break;
 
     case GOTO_MENU:
       flushinp();
-      if (GotoMenuHandler(key_in)) {
+      if (gotoMenuHandler(key_in)) {
         state = STANDARD;
       }
       break;
@@ -550,9 +557,9 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 /* HANDLERS //{ */
 
 
-/* MainMenuHandler() //{ */
+/* mainMenuHandler() //{ */
 
-bool MrsStatus::MainMenuHandler(int key_in) {
+bool MrsStatus::mainMenuHandler(int key_in) {
 
   /* SUBMENU IS OPEN //{ */
 
@@ -582,7 +589,7 @@ bool MrsStatus::MainMenuHandler(int key_in) {
             mrs_msgs::String string_service;
             string_service.request.value = constraints_text_[line];
             service_set_constraints_.call(string_service);
-            PrintServiceResult(string_service.response.success, string_service.response.message);
+            printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
             return true;
@@ -609,7 +616,7 @@ bool MrsStatus::MainMenuHandler(int key_in) {
             mrs_msgs::String string_service;
             string_service.request.value = gains_text_[line];
             service_set_gains_.call(string_service);
-            PrintServiceResult(string_service.response.success, string_service.response.message);
+            printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
             return true;
@@ -636,7 +643,7 @@ bool MrsStatus::MainMenuHandler(int key_in) {
             mrs_msgs::String string_service;
             string_service.request.value = controllers_text_[line];
             service_set_controller_.call(string_service);
-            PrintServiceResult(string_service.response.success, string_service.response.message);
+            printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
             return true;
@@ -672,7 +679,7 @@ bool MrsStatus::MainMenuHandler(int key_in) {
 
           std_srvs::Trigger trig;
           service_vec_[line].service_client.call(trig);
-          PrintServiceResult(trig.response.success, trig.response.message);
+          printServiceResult(trig.response.success, trig.response.message);
 
           menu_vec_.clear();
           return true;
@@ -736,7 +743,7 @@ bool MrsStatus::MainMenuHandler(int key_in) {
           submenu_vec_.push_back(menu);
 
         } else {
-          PrintServiceResult(false, "undefined");
+          printServiceResult(false, "undefined");
         }
       }
     }
@@ -748,9 +755,9 @@ bool MrsStatus::MainMenuHandler(int key_in) {
 
 //}
 
-/* GotoMenuHandler() //{ */
+/* gotoMenuHandler() //{ */
 
-bool MrsStatus::GotoMenuHandler(int key_in) {
+bool MrsStatus::gotoMenuHandler(int key_in) {
 
   optional<tuple<int, int>> ret = menu_vec_[0].iterate(goto_menu_text_, key_in, false);
 
@@ -781,7 +788,7 @@ bool MrsStatus::GotoMenuHandler(int key_in) {
 
       service_goto_reference_.call(reference);
 
-      PrintServiceResult(reference.response.success, reference.response.message);
+      printServiceResult(reference.response.success, reference.response.message);
 
       menu_vec_.clear();
       return true;
@@ -806,9 +813,9 @@ bool MrsStatus::GotoMenuHandler(int key_in) {
 
 //}
 
-/* RemoteHandler() //{ */
+/* remoteHandler() //{ */
 
-void MrsStatus::RemoteHandler(int key, WINDOW* win) {
+void MrsStatus::remoteHandler(int key, WINDOW* win) {
 
   wattron(win, A_BOLD);
   wattron(win, COLOR_PAIR(RED));
@@ -937,7 +944,7 @@ void MrsStatus::RemoteHandler(int key, WINDOW* win) {
         turbo_remote_                = false;
         string_service.request.value = old_constraints;
         service_set_constraints_.call(string_service);
-        PrintServiceResult(string_service.response.success, string_service.response.message);
+        printServiceResult(string_service.response.success, string_service.response.message);
 
       } else {
 
@@ -945,7 +952,7 @@ void MrsStatus::RemoteHandler(int key, WINDOW* win) {
         old_constraints              = constraint_manager_.current_name;
         string_service.request.value = constraint_manager_.available[constraint_manager_.available.size() - 1];
         service_set_constraints_.call(string_service);
-        PrintServiceResult(string_service.response.success, string_service.response.message);
+        printServiceResult(string_service.response.success, string_service.response.message);
       }
 
       break;
@@ -963,9 +970,9 @@ void MrsStatus::RemoteHandler(int key, WINDOW* win) {
 
 //}
 
-/* StringHandler() //{ */
+/* stringHandler() //{ */
 
-void MrsStatus::StringHandler(WINDOW* win, double rate, short color, int topic) {
+void MrsStatus::stringHandler(WINDOW* win, double rate, short color, int topic) {
 
   if (string_info_vec_.empty()) {
     wclear(win);
@@ -977,7 +984,7 @@ void MrsStatus::StringHandler(WINDOW* win, double rate, short color, int topic) 
       string_info_vec_.erase(string_info_vec_.begin() + i);
     } else {
 
-      PrintLimitedString(win, 1 + (3 * i), 1, string_info_vec_[i].publisher_name + ": ", 30);
+      printLimitedString(win, 1 + (3 * i), 1, string_info_vec_[i].publisher_name + ": ", 30);
 
       int    tmp_color          = NORMAL;
       string tmp_display_string = string_info_vec_[i].display_string;
@@ -1002,7 +1009,7 @@ void MrsStatus::StringHandler(WINDOW* win, double rate, short color, int topic) 
       }
 
       wattron(win, COLOR_PAIR(tmp_color));
-      PrintLimitedString(win, 2 + (3 * i), 1, tmp_display_string, 30);
+      printLimitedString(win, 2 + (3 * i), 1, tmp_display_string, 30);
       wattroff(win, COLOR_PAIR(tmp_color));
     }
   }
@@ -1010,26 +1017,26 @@ void MrsStatus::StringHandler(WINDOW* win, double rate, short color, int topic) 
 
 //}
 
-/* GeneralInfoHandler() //{ */
+/* generalInfoHandler() //{ */
 
-void MrsStatus::GeneralInfoHandler(WINDOW* win, double rate, short color, int topic) {
+void MrsStatus::generalInfoHandler(WINDOW* win, double rate, short color, int topic) {
 
-  PrintCpuLoad(win);
-  PrintMemLoad(win);
-  PrintCpuFreq(win);
-  PrintDiskSpace(win);
+  printCpuLoad(win);
+  printMemLoad(win);
+  printCpuFreq(win);
+  printDiskSpace(win);
 }
 
 //}
 
-/* GenericTopicHandler() //{ */
+/* genericTopicHandler() //{ */
 
-void MrsStatus::GenericTopicHandler(WINDOW* win, double rate, short color, int topic) {
+void MrsStatus::genericTopicHandler(WINDOW* win, double rate, short color, int topic) {
 
   if (!generic_topic_vec_.empty()) {
 
-    PrintLimitedString(win, 1 + topic, 1, generic_topic_vec_[topic].topic_display_name, 19);
-    PrintLimitedDouble(win, 1 + topic, 21, "%5.1f Hz", rate, 1000);
+    printLimitedString(win, 1 + topic, 1, generic_topic_vec_[topic].topic_display_name, 19);
+    printLimitedDouble(win, 1 + topic, 21, "%5.1f Hz", rate, 1000);
 
   } else {
 
@@ -1039,49 +1046,49 @@ void MrsStatus::GenericTopicHandler(WINDOW* win, double rate, short color, int t
 
 //}
 
-/* UavStateHandler() //{ */
+/* uavStateHandler() //{ */
 
-void MrsStatus::UavStateHandler(WINDOW* win, double rate, short color, int topic) {
+void MrsStatus::uavStateHandler(WINDOW* win, double rate, short color, int topic) {
 
-  PrintLimitedDouble(win, 0, 16, "Odom %5.1f Hz", rate, 1000);
+  printLimitedDouble(win, 0, 16, "Odom %5.1f Hz", rate, 1000);
 
   if (rate == 0) {
 
-    PrintNoData(win, 0, 1);
+    printNoData(win, 0, 1);
 
   } else {
 
     double heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
 
-    PrintLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
-    PrintLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
-    PrintLimitedDouble(win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000);
-    PrintLimitedDouble(win, 4, 2, "Yaw %5.2f", heading, 1000);
+    printLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
+    printLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
+    printLimitedDouble(win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000);
+    printLimitedDouble(win, 4, 2, "Yaw %5.2f", heading, 1000);
 
     int pos = uav_state_.header.frame_id.find("/") + 1;
-    PrintLimitedString(win, 1, 14, uav_state_.header.frame_id.substr(pos, uav_state_.header.frame_id.length()), 15);
+    printLimitedString(win, 1, 14, uav_state_.header.frame_id.substr(pos, uav_state_.header.frame_id.length()), 15);
 
-    PrintLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 15);
-    PrintLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 15);
-    PrintLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 15);
+    printLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 15);
+    printLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 15);
+    printLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 15);
   }
 }
 
 //}
 
-/* MavrosStateHandler() //{ */
+/* mavrosStateHandler() //{ */
 
-void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color, int topic) {
+void MrsStatus::mavrosStateHandler(WINDOW* win, double rate, short color, int topic) {
 
   string tmp_string;
 
   switch (topic) {
     case 0:  // mavros state
-      PrintLimitedDouble(win, 0, 14, "Mavros %5.1f Hz", rate, 1000);
+      printLimitedDouble(win, 0, 14, "Mavros %5.1f Hz", rate, 1000);
 
       if (rate == 0) {
 
-        PrintNoData(win, 0, 1);
+        printNoData(win, 0, 1);
 
       } else {
 
@@ -1092,14 +1099,14 @@ void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color, int to
           wattron(win, COLOR_PAIR(RED));
         }
 
-        PrintLimitedString(win, 1, 1, "State: " + tmp_string, 15);
+        printLimitedString(win, 1, 1, "State: " + tmp_string, 15);
         wattron(win, COLOR_PAIR(color));
 
         if (mavros_state_.mode != "OFFBOARD") {
           wattron(win, COLOR_PAIR(RED));
         }
 
-        PrintLimitedString(win, 2, 1, "Mode:  " + mavros_state_.mode, 15);
+        printLimitedString(win, 2, 1, "Mode:  " + mavros_state_.mode, 15);
         wattron(win, COLOR_PAIR(color));
       }
 
@@ -1108,7 +1115,7 @@ void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color, int to
     case 1:  // battery
       if (rate == 0) {
 
-        PrintNoData(win, 3, 1, "Batt:  ");
+        printNoData(win, 3, 1, "Batt:  ");
 
       } else {
 
@@ -1121,17 +1128,17 @@ void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color, int to
           wattron(win, COLOR_PAIR(YELLOW));
         }
 
-        PrintLimitedDouble(win, 3, 1, "Batt:  %4.2f V", voltage, 10);
+        printLimitedDouble(win, 3, 1, "Batt:  %4.2f V", voltage, 10);
         wattron(win, COLOR_PAIR(color));
 
-        PrintLimitedDouble(win, 3, 15, "%5.2f A", battery_.current, 100);
+        printLimitedDouble(win, 3, 15, "%5.2f A", battery_.current, 100);
       }
       break;
 
     case 2:  // mavros attitude
       if (rate == 0) {
 
-        PrintNoData(win, 4, 1, "Thrst: ");
+        printNoData(win, 4, 1, "Thrst: ");
 
       } else {
 
@@ -1140,7 +1147,7 @@ void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color, int to
         } else if (mavros_attitude_.thrust > 0.65 && color != RED) {
           wattron(win, COLOR_PAIR(YELLOW));
         }
-        PrintLimitedDouble(win, 4, 1, "Thrst: %4.2f", mavros_attitude_.thrust, 1.01);
+        printLimitedDouble(win, 4, 1, "Thrst: %4.2f", mavros_attitude_.thrust, 1.01);
         wattron(win, COLOR_PAIR(color));
       }
       break;
@@ -1149,9 +1156,9 @@ void MrsStatus::MavrosStateHandler(WINDOW* win, double rate, short color, int to
 
 //}
 
-/* ControlManagerHandler() //{ */
+/* controlManagerHandler() //{ */
 
-void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int topic) {
+void MrsStatus::controlManagerHandler(WINDOW* win, double rate, short color, int topic) {
 
   string controller;
   string tracker;
@@ -1160,11 +1167,11 @@ void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int
 
   switch (topic) {
     case 0:  // mavros state
-      PrintLimitedString(win, 0, 14, "Control Manager", 15);
+      printLimitedString(win, 0, 14, "Control Manager", 15);
 
       if (rate == 0) {
 
-        PrintNoData(win, 0, 1);
+        printNoData(win, 0, 1);
 
         wattron(win, COLOR_PAIR(RED));
         mvwprintw(win, 1, 1, "NO_CONTROLLER");
@@ -1176,7 +1183,7 @@ void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int
           if (controller != "MpcController") {
             wattron(win, COLOR_PAIR(RED));
           }
-          PrintLimitedString(win, 1, 1, controller, 29);
+          printLimitedString(win, 1, 1, controller, 29);
         } else {
           mvwprintw(win, 1, 1, controller.c_str());
           wattron(win, COLOR_PAIR(NORMAL));
@@ -1192,7 +1199,7 @@ void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int
             wattron(win, COLOR_PAIR(RED));
           }
 
-          PrintLimitedString(win, 2, 1, tracker, 29);
+          printLimitedString(win, 2, 1, tracker, 29);
 
         } else {
           mvwprintw(win, 2, 1, tracker.c_str());
@@ -1208,9 +1215,9 @@ void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int
       if (controller == "So3Controller") {
 
         if (rate == 0) {
-          PrintNoData(win, 1, 2 + controller.length());
+          printNoData(win, 1, 2 + controller.length());
         } else {
-          PrintLimitedString(win, 1, 2 + controller.length(), gain_manager_.current_name, 10);
+          printLimitedString(win, 1, 2 + controller.length(), gain_manager_.current_name, 10);
         }
       }
       break;
@@ -1219,9 +1226,9 @@ void MrsStatus::ControlManagerHandler(WINDOW* win, double rate, short color, int
 
       if (tracker == "MpcTracker") {
         if (rate == 0) {
-          PrintNoData(win, 2, 2 + tracker.length());
+          printNoData(win, 2, 2 + tracker.length());
         } else {
-          PrintLimitedString(win, 2, 2 + tracker.length(), constraint_manager_.current_name, 10);
+          printLimitedString(win, 2, 2 + tracker.length(), constraint_manager_.current_name, 10);
         }
       }
       break;
@@ -1262,7 +1269,7 @@ void MrsStatus::flightTimeHandler(WINDOW* win) {
   }
 
   wattron(win, A_BOLD);
-  PrintLimitedInt(win, 0, 0, "ToF: %i", secs_flown, 1000);
+  printLimitedInt(win, 0, 0, "ToF: %i", secs_flown, 1000);
 
   int mins = secs_flown / 60;
   /* int tens_secs = ((secs_flown % 60) / 10) % 10; */
@@ -1277,9 +1284,9 @@ void MrsStatus::flightTimeHandler(WINDOW* win) {
 
 //}
 
-/* SetupGenericCallbacks() //{ */
+/* setupGenericCallbacks() //{ */
 
-void MrsStatus::SetupGenericCallbacks() {
+void MrsStatus::setupGenericCallbacks() {
 
   generic_topic_vec_.clear();
   generic_subscriber_vec_.clear();
@@ -1320,7 +1327,7 @@ void MrsStatus::SetupGenericCallbacks() {
       topic_name = "/" + _uav_name_ + "/" + generic_topic_vec_[i].topic_name;
     }
 
-    callback                       = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { GenericCallback(msg, topic_name, id); };
+    callback                       = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { genericCallback(msg, topic_name, id); };
     ros::Subscriber tmp_subscriber = nh_.subscribe(topic_name, 1, callback);
 
     generic_subscriber_vec_.push_back(tmp_subscriber);
@@ -1331,9 +1338,9 @@ void MrsStatus::SetupGenericCallbacks() {
 
 /* MENU SETUP //{ */
 
-/* SetupMainMenu() //{ */
+/* setupMainMenu() //{ */
 
-void MrsStatus::SetupMainMenu() {
+void MrsStatus::setupMainMenu() {
 
   service_vec_.clear();
 
@@ -1386,9 +1393,9 @@ void MrsStatus::SetupMainMenu() {
 
 //}
 
-/* SetupGotoMenu() //{ */
+/* setupGotoMenu() //{ */
 
-void MrsStatus::SetupGotoMenu() {
+void MrsStatus::setupGotoMenu() {
 
   goto_menu_inputs_.clear();
   goto_menu_text_.clear();
@@ -1414,9 +1421,9 @@ void MrsStatus::SetupGotoMenu() {
 
 /* PRINT FUNCTIONS //{ */
 
-/* PrintMemLoad() //{ */
+/* printMemLoad() //{ */
 
-void MrsStatus::PrintMemLoad(WINDOW* win) {
+void MrsStatus::printMemLoad(WINDOW* win) {
 
   ifstream file("/proc/meminfo");
   string   line1, line2, line3, line4;
@@ -1489,14 +1496,14 @@ void MrsStatus::PrintMemLoad(WINDOW* win) {
 
   wattron(win, COLOR_PAIR(tmp_color));
 
-  PrintLimitedDouble(win, 2, 1, "RAM free: %4.1f G", (ram_free + buffers), 100);
+  printLimitedDouble(win, 2, 1, "RAM free: %4.1f G", (ram_free + buffers), 100);
 }
 
 //}
 
-/* PrintCpuLoad() //{ */
+/* printCpuLoad() //{ */
 
-void MrsStatus::PrintCpuLoad(WINDOW* win) {
+void MrsStatus::printCpuLoad(WINDOW* win) {
 
   ifstream file("/proc/stat");
   string   line;
@@ -1538,14 +1545,14 @@ void MrsStatus::PrintCpuLoad(WINDOW* win) {
 
   wattron(win, COLOR_PAIR(tmp_color));
 
-  PrintLimitedDouble(win, 1, 1, "CPU load: %4.1f %%", cpu_load, 99.9);
+  printLimitedDouble(win, 1, 1, "CPU load: %4.1f %%", cpu_load, 99.9);
 }
 
 //}
 
-/* PrintCpuFreq() //{ */
+/* printCpuFreq() //{ */
 
-void MrsStatus::PrintCpuFreq(WINDOW* win) {
+void MrsStatus::printCpuFreq(WINDOW* win) {
 
   ifstream file("/sys/devices/system/cpu/online");
   string   line;
@@ -1583,14 +1590,14 @@ void MrsStatus::PrintCpuFreq(WINDOW* win) {
 
 
   wattron(win, COLOR_PAIR(GREEN));
-  PrintLimitedDouble(win, 1, 21, "%4.2f GHz", avg_cpu_ghz, 10);
+  printLimitedDouble(win, 1, 21, "%4.2f GHz", avg_cpu_ghz, 10);
 }
 
 //}
 
-/* PrintDiskSpace() //{ */
+/* printDiskSpace() //{ */
 
-void MrsStatus::PrintDiskSpace(WINDOW* win) {
+void MrsStatus::printDiskSpace(WINDOW* win) {
 
   boost::filesystem::space_info si = boost::filesystem::space(".");
 
@@ -1602,12 +1609,12 @@ void MrsStatus::PrintDiskSpace(WINDOW* win) {
   }
   if (gigas < 100) {
     wattron(win, COLOR_PAIR(RED));
-    PrintLimitedDouble(win, 2, 19, "HDD: %3.1f G", double(gigas) / 10, 10);
+    printLimitedDouble(win, 2, 19, "HDD: %3.1f G", double(gigas) / 10, 10);
   } else {
     if (gigas < 1000) {
-      PrintLimitedInt(win, 2, 19, "HDD:  %i G", gigas / 10, 1000);
+      printLimitedInt(win, 2, 19, "HDD:  %i G", gigas / 10, 1000);
     } else {
-      PrintLimitedInt(win, 2, 19, "HDD: %i G", gigas / 10, 1000);
+      printLimitedInt(win, 2, 19, "HDD: %i G", gigas / 10, 1000);
     }
   }
   last_gigas_ = gigas;
@@ -1615,9 +1622,9 @@ void MrsStatus::PrintDiskSpace(WINDOW* win) {
 
 //}
 
-/* PrintServiceResult() //{ */
+/* printServiceResult() //{ */
 
-void MrsStatus::PrintServiceResult(bool success, string msg) {
+void MrsStatus::printServiceResult(bool success, string msg) {
 
   wclear(bottom_window_);
 
@@ -1626,13 +1633,13 @@ void MrsStatus::PrintServiceResult(bool success, string msg) {
 
   if (success) {
 
-    PrintLimitedString(bottom_window_, 0, 0, "Service call success: " + msg, 120);
+    printLimitedString(bottom_window_, 0, 0, "Service call success: " + msg, 120);
 
   } else {
 
     wattron(bottom_window_, COLOR_PAIR(RED));
 
-    PrintLimitedString(bottom_window_, 0, 0, "Service call failed: " + msg, 120);
+    printLimitedString(bottom_window_, 0, 0, "Service call failed: " + msg, 120);
 
     wattroff(bottom_window_, COLOR_PAIR(RED));
   }
@@ -1645,9 +1652,9 @@ void MrsStatus::PrintServiceResult(bool success, string msg) {
 
 //}
 
-/* PrintLimitedInt() //{ */
+/* printLimitedInt() //{ */
 
-void MrsStatus::PrintLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit) {
+void MrsStatus::printLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit) {
 
   if (abs(num) > limit) {
 
@@ -1668,9 +1675,9 @@ void MrsStatus::PrintLimitedInt(WINDOW* win, int y, int x, string str_in, int nu
 
 //}
 
-/* PrintLimitedDouble() //{ */
+/* printLimitedDouble() //{ */
 
-void MrsStatus::PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit) {
+void MrsStatus::printLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit) {
 
   if (fabs(num) > limit) {
 
@@ -1691,9 +1698,9 @@ void MrsStatus::PrintLimitedDouble(WINDOW* win, int y, int x, string str_in, dou
 
 //}
 
-/* PrintLimitedString() //{ */
+/* printLimitedString() //{ */
 
-void MrsStatus::PrintLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit) {
+void MrsStatus::printLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit) {
 
   if (str_in.length() > limit) {
     str_in.resize(limit);
@@ -1706,9 +1713,9 @@ void MrsStatus::PrintLimitedString(WINDOW* win, int y, int x, string str_in, uns
 
 //}
 
-/* PrintNoData() //{ */
+/* printNoData() //{ */
 
-void MrsStatus::PrintNoData(WINDOW* win, int y, int x) {
+void MrsStatus::printNoData(WINDOW* win, int y, int x) {
 
   wattron(win, A_BLINK);
   wattron(win, COLOR_PAIR(RED));
@@ -1717,52 +1724,52 @@ void MrsStatus::PrintNoData(WINDOW* win, int y, int x) {
   wattroff(win, A_BLINK);
 }
 
-void MrsStatus::PrintNoData(WINDOW* win, int y, int x, string text) {
+void MrsStatus::printNoData(WINDOW* win, int y, int x, string text) {
 
   wattron(win, COLOR_PAIR(RED));
   mvwprintw(win, y, x, text.c_str());
-  PrintNoData(win, y, x + text.length());
+  printNoData(win, y, x + text.length());
 }
 
 //}
 
-/* PrintDebug() //{ */
+/* printDebug() //{ */
 
-void MrsStatus::PrintDebug(string msg) {
+void MrsStatus::printDebug(string msg) {
 
-  PrintLimitedString(debug_window_, 0, 0, msg, 120);
+  printLimitedString(debug_window_, 0, 0, msg, 120);
 
   wrefresh(debug_window_);
 }
 
 //}
 
-/* PrintHelp() //{ */
+/* printHelp() //{ */
 
-void MrsStatus::PrintHelp() {
+void MrsStatus::printHelp() {
 
   wclear(debug_window_);
 
   if (help_active_) {
 
-    PrintLimitedString(debug_window_, 1, 0, "How to use mrs_status:", 120);
-    PrintLimitedString(debug_window_, 2, 0, "Press the 'm' key to enter a services menu", 120);
-    PrintLimitedString(debug_window_, 3, 0, "Press the 'g' key to set a goto reference", 120);
-    PrintLimitedString(debug_window_, 4, 0, "Press the 'R' key to enter 'remote' mode to take direct control of the uav with your keyboad", 120);
-    PrintLimitedString(debug_window_, 5, 0, "   In remote mode, use these keys to control the drone:", 120);
-    PrintLimitedString(debug_window_, 6, 0, "      'w','s','a','d' to control pitch and roll ('h','j','k','l' works too)", 120);
-    PrintLimitedString(debug_window_, 7, 0, "      'q','e'         to control heading", 120);
-    PrintLimitedString(debug_window_, 8, 0, "      'r','f'         to control altitude", 120);
-    PrintLimitedString(debug_window_, 10, 0, "You can also use topics provided by mrs_status to display info from your node, and to control it:", 120);
-    PrintLimitedString(debug_window_, 12, 0, "   topic mrs_status/display_string (std_msgs::String)", 120);
-    PrintLimitedString(debug_window_, 13, 0, "      Publish any string to this topic and it will show up in mrs_status", 120);
-    PrintLimitedString(debug_window_, 15, 0, "   topic mrs_status/set_trigger_service (std_msgs::String)", 120);
-    PrintLimitedString(debug_window_, 16, 0, "      If your node has a std_srvs:Trigger service, you can add it to the mrs_status services menu", 120);
-    PrintLimitedString(debug_window_, 17, 0, "      Publish a String in this format: 'node_name/service_name display_name' and it will show in the menu", 120);
-    PrintLimitedString(debug_window_, 19, 0, "Press 'h' to hide help", 120);
+    printLimitedString(debug_window_, 1, 0, "How to use mrs_status:", 120);
+    printLimitedString(debug_window_, 2, 0, "Press the 'm' key to enter a services menu", 120);
+    printLimitedString(debug_window_, 3, 0, "Press the 'g' key to set a goto reference", 120);
+    printLimitedString(debug_window_, 4, 0, "Press the 'R' key to enter 'remote' mode to take direct control of the uav with your keyboad", 120);
+    printLimitedString(debug_window_, 5, 0, "   In remote mode, use these keys to control the drone:", 120);
+    printLimitedString(debug_window_, 6, 0, "      'w','s','a','d' to control pitch and roll ('h','j','k','l' works too)", 120);
+    printLimitedString(debug_window_, 7, 0, "      'q','e'         to control heading", 120);
+    printLimitedString(debug_window_, 8, 0, "      'r','f'         to control altitude", 120);
+    printLimitedString(debug_window_, 10, 0, "You can also use topics provided by mrs_status to display info from your node, and to control it:", 120);
+    printLimitedString(debug_window_, 12, 0, "   topic mrs_status/display_string (std_msgs::String)", 120);
+    printLimitedString(debug_window_, 13, 0, "      Publish any string to this topic and it will show up in mrs_status", 120);
+    printLimitedString(debug_window_, 15, 0, "   topic mrs_status/set_trigger_service (std_msgs::String)", 120);
+    printLimitedString(debug_window_, 16, 0, "      If your node has a std_srvs:Trigger service, you can add it to the mrs_status services menu", 120);
+    printLimitedString(debug_window_, 17, 0, "      Publish a String in this format: 'node_name/service_name display_name' and it will show in the menu", 120);
+    printLimitedString(debug_window_, 19, 0, "Press 'h' to hide help", 120);
 
   } else {
-    PrintLimitedString(debug_window_, 1, 0, "Press 'h' key for help", 120);
+    printLimitedString(debug_window_, 1, 0, "Press 'h' key for help", 120);
   }
 
   wrefresh(debug_window_);
@@ -1774,45 +1781,45 @@ void MrsStatus::PrintHelp() {
 
 /* CALLBACKS //{ */
 
-/* UavStateCallback() //{ */
+/* uavStateCallback() //{ */
 
-void MrsStatus::UavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
+void MrsStatus::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
   uav_state_topic_[0].counter++;
   uav_state_ = *msg;
 }
 
 //}
 
-/* MavrosStateCallback() //{ */
+/* mavrosStateCallback() //{ */
 
-void MrsStatus::MavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
+void MrsStatus::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
   mavros_state_topic_[0].counter++;
   mavros_state_ = *msg;
 }
 
 //}
 
-/* BatteryCallback() //{ */
+/* batteryCallback() //{ */
 
-void MrsStatus::BatteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
+void MrsStatus::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
   mavros_state_topic_[1].counter++;
   battery_ = *msg;
 }
 
 //}
 
-/* MavrosAttitudeCallback() //{ */
+/* mavrosAttitudeCallback() //{ */
 
-void MrsStatus::MavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg) {
+void MrsStatus::mavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg) {
   mavros_state_topic_[2].counter++;
   mavros_attitude_ = *msg;
 }
 
 //}
 
-/* ControlManagerCallback() //{ */
+/* controlManagerCallback() //{ */
 
-void MrsStatus::ControlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
+void MrsStatus::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
   control_manager_topic_[0].counter++;
   control_manager_                                                = *msg;
   control_manager_.active_tracker == "NullTracker" ? NullTracker_ = true : NullTracker_ = false;
@@ -1820,27 +1827,27 @@ void MrsStatus::ControlManagerCallback(const mrs_msgs::ControlManagerDiagnostics
 
 //}
 
-/* GainManagerCallback() //{ */
+/* gainManagerCallback() //{ */
 
-void MrsStatus::GainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
+void MrsStatus::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
   control_manager_topic_[1].counter++;
   gain_manager_ = *msg;
 }
 
 //}
 
-/* ConstraintManagerCallback() //{ */
+/* constraintManagerCallback() //{ */
 
-void MrsStatus::ConstraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
+void MrsStatus::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
   control_manager_topic_[2].counter++;
   constraint_manager_ = *msg;
 }
 
 //}
 
-/* SetServiceCallback() //{ */
+/* setServiceCallback() //{ */
 
-void MrsStatus::SetServiceCallback(const std_msgs::String& msg) {
+void MrsStatus::setServiceCallback(const std_msgs::String& msg) {
 
   if (std::find(service_input_vec_.begin(), service_input_vec_.end(), msg.data) == service_input_vec_.end()) {
     service_input_vec_.push_back(msg.data);
@@ -1861,17 +1868,20 @@ void MrsStatus::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
 
     for (unsigned long j = 0; j < tf_static_list_compare_.size(); j++) {
       if (tf_static_list_compare_[j] == frame_name && uav_name == _uav_name_) {
-        generic_topic_input_vec_.push_back(tf_static_list_add_[j]);
+        if (std::find(generic_topic_input_vec_.begin(), generic_topic_input_vec_.end(), tf_static_list_add_[j]) == generic_topic_input_vec_.end())
+          generic_topic_input_vec_.push_back(tf_static_list_add_[j]);
       }
     }
   }
-  SetupGenericCallbacks();
+
+  setupGenericCallbacks();
+
 }
 //}
 
-/* StringCallback() //{ */
+/* stringCallback() //{ */
 
-void MrsStatus::StringCallback(const ros::MessageEvent<std_msgs::String const>& event) {
+void MrsStatus::stringCallback(const ros::MessageEvent<std_msgs::String const>& event) {
 
   std::string pub_name = event.getPublisherName();
   std::string msg_str  = event.getMessage()->data;
@@ -1894,9 +1904,9 @@ void MrsStatus::StringCallback(const ros::MessageEvent<std_msgs::String const>& 
 }
 //}
 
-/* GenericCallback() //{ */
+/* genericCallback() //{ */
 
-void MrsStatus::GenericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id) {
+void MrsStatus::genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id) {
   generic_topic_vec_[id].counter++;
 }
 
