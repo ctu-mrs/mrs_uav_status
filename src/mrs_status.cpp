@@ -63,7 +63,6 @@ private:
   ros::NodeHandle nh_;
 
   ros::Timer status_timer_;
-  ros::Timer redraw_timer_;
   ros::Timer resize_timer_;
 
   void uavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
@@ -81,7 +80,8 @@ private:
   void genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
 
   void statusTimer(const ros::TimerEvent& event);
-  void redrawTimer(const ros::TimerEvent& event);
+  void redrawTimer1Hz(const ros::TimerEvent& event);
+  void redrawTimer10Hz(const ros::TimerEvent& event);
   void resizeTimer(const ros::TimerEvent& event);
 
   void printLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit);
@@ -156,6 +156,8 @@ private:
   long last_idle_  = 0;
   long last_total_ = 0;
   long last_gigas_ = 0;
+
+  int hz_counter_ = 0;
 
   mrs_msgs::UavState uav_state_;
   /* shared_ptr<int> uav_state_counter_ptr_ = make_shared<int>(0); */
@@ -277,7 +279,6 @@ MrsStatus::MrsStatus() {
 
   // TIMERS
   status_timer_ = nh_.createTimer(ros::Rate(10), &MrsStatus::statusTimer, this);
-  redraw_timer_ = nh_.createTimer(ros::Rate(100), &MrsStatus::redrawTimer, this);
   resize_timer_ = nh_.createTimer(ros::Rate(1), &MrsStatus::resizeTimer, this);
 
   // SUBSCRIBERS
@@ -437,38 +438,38 @@ void MrsStatus::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 //}
 
-/* redrawTimer //{ */
+/* statusTimer //{ */
 
-void MrsStatus::redrawTimer([[maybe_unused]] const ros::TimerEvent& event) {
+void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
     uav_state_window_->Redraw(&MrsStatus::uavStateHandler, this);
   }
-  {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
-    mavros_state_window_->Redraw(&MrsStatus::mavrosStateHandler, this);
-  }
-  {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
-    control_manager_window_->Redraw(&MrsStatus::controlManagerHandler, this);
-  }
-  {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
-    generic_topic_window_->Redraw(&MrsStatus::genericTopicHandler, this);
-  }
-  {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
-    string_window_->Redraw(&MrsStatus::stringHandler, this);
-  }
-}
 
+  hz_counter_++;
 
-//}
+  if (hz_counter_ == 10) {
 
-/* statusTimer //{ */
+    hz_counter_ = 0;
 
-void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
+    {
+      mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
+      mavros_state_window_->Redraw(&MrsStatus::mavrosStateHandler, this);
+    }
+    {
+      mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
+      control_manager_window_->Redraw(&MrsStatus::controlManagerHandler, this);
+    }
+    {
+      mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
+      generic_topic_window_->Redraw(&MrsStatus::genericTopicHandler, this);
+    }
+    {
+      mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
+      string_window_->Redraw(&MrsStatus::stringHandler, this);
+    }
+  }
 
   wclear(top_bar_window_);
 
