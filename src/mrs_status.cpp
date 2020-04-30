@@ -62,14 +62,20 @@ public:
 private:
   ros::NodeHandle nh_;
 
+  // | ------------------------- Timers ------------------------- |
+
   ros::Timer status_timer_;
   ros::Timer resize_timer_;
+
+  void statusTimer(const ros::TimerEvent& event);
+  void resizeTimer(const ros::TimerEvent& event);
+
+  // | ------------------------ Callbacks ----------------------- |
 
   void uavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
   void mavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
   void mavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg);
   void batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
-
   void controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg);
   void gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
   void constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
@@ -77,12 +83,10 @@ private:
   void setServiceCallback(const std_msgs::String& msg);
   void tfStaticCallback(const tf2_msgs::TFMessage& msg);
 
+  // generic callback, for any topic, to monitor its rate
   void genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
 
-  void statusTimer(const ros::TimerEvent& event);
-  void redrawTimer1Hz(const ros::TimerEvent& event);
-  void redrawTimer10Hz(const ros::TimerEvent& event);
-  void resizeTimer(const ros::TimerEvent& event);
+  // | --------------------- Print routines --------------------- |
 
   void printLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit);
   void printLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
@@ -94,10 +98,8 @@ private:
   void printNoData(WINDOW* win, int y, int x);
   void printNoData(WINDOW* win, int y, int x, string text);
 
-  void printCpuLoad(WINDOW* win);
-  void printCpuFreq(WINDOW* win);
-  void printMemLoad(WINDOW* win);
-  void printDiskSpace(WINDOW* win);
+
+  // | ------------------------- Windows ------------------------ |
 
   void genericTopicHandler(WINDOW* win, double rate, short color, int topic);
   void uavStateHandler(WINDOW* win, double rate, short color, int topic);
@@ -105,77 +107,23 @@ private:
   void controlManagerHandler(WINDOW* win, double rate, short color, int topic);
   void stringHandler(WINDOW* win, double rate, short color, int topic);
 
-  void generalInfoThread();
-
-  void flightTimeHandler(WINDOW* win);
-
-  void setupGenericCallbacks();
-
-  void setupMainMenu();
-  bool mainMenuHandler(int key_in);
-
-  void setupGotoMenu();
-  bool gotoMenuHandler(int key_in);
-
-  void remoteHandler(int key, WINDOW* win);
-
-  std::string callTerminal(const char* cmd);
-
-  mrs_lib::Profiler profiler_;
-  bool              _profiler_enabled_ = false;
-
-  ros::Subscriber uav_state_subscriber_;
-  ros::Subscriber mpc_diag_subscriber_;
-
-  ros::Subscriber mavros_state_subscriber_;
-  ros::Subscriber mavros_attitude_subscriber_;
-  ros::Subscriber battery_subscriber_;
-  ros::Subscriber control_manager_subscriber_;
-  ros::Subscriber gain_manager_subscriber_;
-  ros::Subscriber constraint_manager_subscriber_;
-
-  ros::Subscriber string_subscriber_;
-  ros::Subscriber set_service_subscriber_;
-
-  ros::Subscriber tf_static_subscriber_;
-
-  ros::ServiceClient service_goto_reference_;
-  ros::ServiceClient service_goto_fcu_;
-  ros::ServiceClient service_set_constraints_;
-  ros::ServiceClient service_set_gains_;
-  ros::ServiceClient service_set_controller_;
-  ros::ServiceClient service_hover_;
-
-  string _uav_name_;
-  string _uav_type_;
-  string _sensors_;
-  bool   _pixgarm_;
-
-  bool initialized_ = false;
-
-  long last_idle_  = 0;
-  long last_total_ = 0;
-  long last_gigas_ = 0;
-
-  int hz_counter_ = 0;
-
-  mrs_msgs::UavState uav_state_;
-  /* shared_ptr<int> uav_state_counter_ptr_ = make_shared<int>(0); */
-
-  mavros_msgs::State          mavros_state_;
-  mavros_msgs::AttitudeTarget mavros_attitude_;
-  sensor_msgs::BatteryState   battery_;
-
-  mrs_msgs::ControlManagerDiagnostics    control_manager_;
-  mrs_msgs::GainManagerDiagnostics       gain_manager_;
-  mrs_msgs::ConstraintManagerDiagnostics constraint_manager_;
-
   double uav_state_window_rate_       = 10;
   double control_manager_window_rate_ = 1;
   double mavros_state_window_rate_    = 1;
   double general_info_window_rate_    = 1;
   double generic_topic_window_rate_   = 1;
 
+  // General info window
+  void printCpuLoad(WINDOW* win);
+  void printCpuFreq(WINDOW* win);
+  void printMemLoad(WINDOW* win);
+  void printDiskSpace(WINDOW* win);
+
+  long last_idle_  = 0;
+  long last_total_ = 0;
+  long last_gigas_ = 0;
+
+  // Custom windows
   StatusWindow* uav_state_window_;
   vector<topic> uav_state_topic_;
 
@@ -189,6 +137,7 @@ private:
   vector<string_info> string_info_vec_;
   vector<topic>       string_topic_;
 
+  // Vanilla windows
   WINDOW* top_bar_window_;
   WINDOW* bottom_window_;
   WINDOW* general_info_window_;
@@ -198,7 +147,75 @@ private:
 
   bool help_active_ = false;
 
-  StatusWindow*           generic_topic_window_;
+  StatusWindow* generic_topic_window_;
+
+  // | ---------------------- Misc routines --------------------- |
+
+  void generalInfoThread();
+
+  void flightTimeHandler(WINDOW* win);
+
+  void remoteHandler(int key, WINDOW* win);
+
+  void setupGenericCallbacks();
+
+  std::string callTerminal(const char* cmd);
+
+  mrs_lib::Profiler profiler_;
+  bool              _profiler_enabled_ = false;
+
+  std::thread general_info_thread_;
+  bool        run_thread_ = true;
+
+
+  // | ---------------------- Menu routines --------------------- |
+
+  void setupMainMenu();
+  bool mainMenuHandler(int key_in);
+
+  void setupGotoMenu();
+  bool gotoMenuHandler(int key_in);
+
+  // | ----------------------- Subscribers ---------------------- |
+
+  ros::Subscriber uav_state_subscriber_;
+  ros::Subscriber mpc_diag_subscriber_;
+  ros::Subscriber mavros_state_subscriber_;
+  ros::Subscriber mavros_attitude_subscriber_;
+  ros::Subscriber battery_subscriber_;
+  ros::Subscriber control_manager_subscriber_;
+  ros::Subscriber gain_manager_subscriber_;
+  ros::Subscriber constraint_manager_subscriber_;
+  ros::Subscriber string_subscriber_;
+  ros::Subscriber set_service_subscriber_;
+  ros::Subscriber tf_static_subscriber_;
+
+  // | --------------------- Service Clients -------------------- |
+
+  ros::ServiceClient service_goto_reference_;
+  ros::ServiceClient service_goto_fcu_;
+  ros::ServiceClient service_set_constraints_;
+  ros::ServiceClient service_set_gains_;
+  ros::ServiceClient service_set_controller_;
+  ros::ServiceClient service_hover_;
+
+  // | -------------------- UAV configuration ------------------- |
+
+  string _uav_name_;
+  string _uav_type_;
+  string _sensors_;
+  bool   _pixgarm_;
+
+  // | ------------------ Data storage, inputs ------------------ |
+  mavros_msgs::State          mavros_state_;
+  mavros_msgs::AttitudeTarget mavros_attitude_;
+  sensor_msgs::BatteryState   battery_;
+
+  mrs_msgs::UavState                     uav_state_;
+  mrs_msgs::ControlManagerDiagnostics    control_manager_;
+  mrs_msgs::GainManagerDiagnostics       gain_manager_;
+  mrs_msgs::ConstraintManagerDiagnostics constraint_manager_;
+
   vector<topic>           generic_topic_vec_;
   vector<string>          generic_topic_input_vec_;
   vector<ros::Subscriber> generic_subscriber_vec_;
@@ -217,26 +234,31 @@ private:
   vector<string>   goto_menu_text_;
   vector<InputBox> goto_menu_inputs_;
 
-  bool remote_hover_ = false;
-  bool turbo_remote_ = false;
+  vector<string> tf_static_list_compare_;
+  vector<string> tf_static_list_add_;
 
   string old_constraints;
 
-  bool is_flying_   = false;
-  bool NullTracker_ = true;
+  // | ---------------------- Flight timer ---------------------- |
 
   unsigned long     secs_flown = 0;
   ros::Time         last_flight_time_;
   const std::string _time_filename_ = "/tmp/mrs_status_flight_time.txt";
 
-  vector<string> tf_static_list_compare_;
-  vector<string> tf_static_list_add_;
+  // | -------------------- Switches, states -------------------- |
+
+  bool remote_hover_ = false;
+  bool turbo_remote_ = false;
+
+
+  bool is_flying_   = false;
+  bool NullTracker_ = true;
 
   status_state state = STANDARD;
   int          cols_, lines_;
 
-  std::thread general_info_thread_;
-  bool        run_thread_ = true;
+  int  hz_counter_  = 0;
+  bool initialized_ = false;
 };
 
 //}
@@ -247,6 +269,8 @@ MrsStatus::MrsStatus() {
 
   // initialize node and create no handle
   nh_ = ros::NodeHandle("~");
+
+  // | ---------------------- Param loader ---------------------- |
 
   mrs_lib::ParamLoader param_loader(nh_, "MrsStatus");
 
@@ -267,6 +291,9 @@ MrsStatus::MrsStatus() {
     ROS_INFO("[MrsStatus]: All params loaded!");
   }
 
+  // | ------------------- Static tf handling ------------------- |
+  // Static tfs are used to add monitored topics to the generic window, if a tf for a sensor is present, its topic is added
+
   for (unsigned long i = 0; i < tf_static_list.size(); i++) {
 
     // this splits the loaded tf_static list into two parts, the first part is intended to be compared with the incoming static tfs, the second one
@@ -277,11 +304,13 @@ MrsStatus::MrsStatus() {
     tf_static_list_add_.push_back(tf_static_list[i].substr(pos + 1));
   }
 
-  // TIMERS
+  // | ------------------------- Timers ------------------------- |
+
   status_timer_ = nh_.createTimer(ros::Rate(10), &MrsStatus::statusTimer, this);
   resize_timer_ = nh_.createTimer(ros::Rate(1), &MrsStatus::resizeTimer, this);
 
-  // SUBSCRIBERS
+  // | ----------------------- Subscribers ---------------------- |
+
   uav_state_subscriber_          = nh_.subscribe("uav_state_in", 1, &MrsStatus::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
   mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 1, &MrsStatus::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
   mavros_attitude_subscriber_    = nh_.subscribe("mavros_attitude_in", 1, &MrsStatus::mavrosAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
@@ -293,7 +322,8 @@ MrsStatus::MrsStatus() {
   set_service_subscriber_        = nh_.subscribe("set_service_in", 1, &MrsStatus::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
   tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &MrsStatus::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
 
-  // SERVICES
+  // | ------------------------ Services ------------------------ |
+  //
   service_goto_reference_  = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
   service_goto_fcu_        = nh_.serviceClient<mrs_msgs::Vec4>("goto_fcu_out");
   service_set_constraints_ = nh_.serviceClient<mrs_msgs::String>("set_constraints_out");
@@ -301,19 +331,26 @@ MrsStatus::MrsStatus() {
   service_set_controller_  = nh_.serviceClient<mrs_msgs::String>("set_controller_out");
   service_hover_           = nh_.serviceClient<std_srvs::Trigger>("hover_out");
 
+  // mrs_lib profiler
   profiler_ = mrs_lib::Profiler(nh_, "MrsStatus", _profiler_enabled_);
 
+  // Loads the default GoTo value
   goto_double_vec_.push_back(0.0);
   goto_double_vec_.push_back(0.0);
   goto_double_vec_.push_back(2.0);
   goto_double_vec_.push_back(1.57);
 
-
+  // Loads the default menu options
   service_input_vec_.push_back("uav_manager/land Land");
   service_input_vec_.push_back("uav_manager/land_home Land Home");
   service_input_vec_.push_back("uav_manager/takeoff Takeoff");
 
+  // | ---------------------- Flight timer ---------------------- |
+  //
   if (boost::filesystem::exists(_time_filename_)) {
+
+    // loads time flown from a tmp file, if it exists, if it does not exists, flight time is set to 0
+    
     ifstream file(_time_filename_);
     string   line;
     getline(file, line);
@@ -336,7 +373,7 @@ MrsStatus::MrsStatus() {
     generic_topic_input_vec_.push_back("mavros/distance_sensor/garmin Garmin_pix 80+");
   }
 
-  for (int i = 0; i < results.size(); i++) {
+  for (unsigned long i = 0; i < results.size(); i++) {
     if (results[i] == "garmin_down" && _pixgarm_ == false) {
       generic_topic_input_vec_.push_back("garmin/range Garmin_Down 80+");
 
@@ -370,6 +407,10 @@ MrsStatus::MrsStatus() {
 
   //}
 
+  // --------------------------------------------------------------
+  // |            Window creation and topic association           |
+  // --------------------------------------------------------------
+
   uav_state_topic_.push_back(topic{100.0, uav_state_window_rate_});
 
   uav_state_window_ = new StatusWindow(6, 30, 5, 1, uav_state_topic_, uav_state_window_rate_);
@@ -399,7 +440,8 @@ MrsStatus::MrsStatus() {
 
   initialized_ = true;
   ROS_INFO("[MrsStatus]: Node initialized!");
-
+  
+  // This thread is for the general info window, it fetches CPU frequency, RAM info, Disk space info and CPU load asynchronously
   general_info_thread_ = std::thread{&MrsStatus::generalInfoThread, this};
 }
 
@@ -1270,9 +1312,6 @@ void MrsStatus::flightTimeHandler(WINDOW* win) {
   mvwprintw(win, 0, 0, "ToF: %i:%02i", mins, secs);
   wattroff(win, A_BOLD);
 }
-
-//}
-
 
 //}
 
