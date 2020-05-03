@@ -1,4 +1,5 @@
 colorblind_mode: True # Set True to change green color to blue
+enable_profiler: False # Set True to change green color to blue
 
 # List of topics to monitor, format is:
 # topic_name Displayed name (can be multiple words) expected_frequency
@@ -8,4 +9,12 @@ want_hz: [
       # "garmin/range Garmin 100",
       # "bluefox/image_raw Bluefox 100",
       # "mavros/setpoint_raw/attitude mavros setpoint 100",
+      ]
+
+tf_static_list: [
+      "garmin garmin/range Garmin 50",
+      "bluefox_optflow bluefox_optflow/camera_info BlueFox Optflow 50",
+      "bluefox_optflow optic_flow/velocity Optflow Velocity 50",
+      "rs_d435/link rs_d435/camera_info Realsense 30",
+      "rplidar rplidar/scan RPlidar 10",
       ]

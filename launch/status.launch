@@ -1,24 +1,56 @@
 <launch>
 
   <arg name="UAV_NAME" default="$(env UAV_NAME)"/>
-  <arg name="RUN_TYPE" default="$(env RUN_TYPE)"/>
   <arg name="UAV_TYPE" default="$(env UAV_TYPE)"/>
+  <arg name="SENSORS" default="$(env SENSORS)"/>
+  <arg name="RUN_TYPE" default="$(env RUN_TYPE)"/>
+  <arg name="PIXGARM" default="$(optenv PIXGARM false)"/>
+
+  <arg name="debug" default="false"/>
+
+  <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
+  <arg unless="$(arg debug)" name="launch_prefix" value="" />
+
   <arg name="config_file" default="$(find mrs_status)/config/status.yaml"/>
 
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f450')" name="UAV_MASS" default="2.0" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f550')" name="UAV_MASS" default="2.3" />
   <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 't650')" name="UAV_MASS" default="5.0" />
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f550')" name="UAV_MASS" default="3.0" />
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f450')" name="UAV_MASS" default="2.3" />
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'm650')" name="UAV_MASS" default="10.0" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'm600')" name="UAV_MASS" default="10.0" />
   <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'eaglemk2')" name="UAV_MASS" default="10.0" />
   <arg if="$(eval arg('RUN_TYPE') == 'uav')" name="UAV_MASS" default="$(env UAV_MASS)" />
 
   <group ns="$(arg UAV_NAME)">
 
-    <node name="mrs_status" pkg="mrs_status" type="status.py" output="screen" respawn="true">
+    <node name="mrs_status" pkg="mrs_status" type="mrs_status" output="screen" respawn="false" launch-prefix="$(arg launch_prefix)">
+
+      <param name="uav_name" value="$(arg UAV_NAME)" />
+      <param name="uav_type" value="$(arg UAV_TYPE)" />
+      <param name="uav_mass" value="$(arg UAV_MASS)" />
+      <param name="sensors" value="$(arg SENSORS)" />
+      <param name="pixgarm" type="bool" value="$(arg PIXGARM)" />
 
       <rosparam file="$(arg config_file)" />
 
-      <param name="uav_mass" value="$(arg UAV_MASS)" />
+        <!-- Subscribers -->
+      <remap from="~uav_state_in" to="odometry/uav_state" />
+      <remap from="~mavros_state_in" to="mavros/state" />
+      <remap from="~mavros_attitude_in" to="mavros/setpoint_raw/attitude" />
+      <remap from="~battery_in" to="mavros/battery" />
+      <remap from="~control_manager_in" to="control_manager/diagnostics" />
+      <remap from="~gain_manager_in" to="gain_manager/diagnostics" />
+      <remap from="~constraint_manager_in" to="constraint_manager/diagnostics" />
+      <remap from="~string_in" to="~display_string" />
+      <remap from="~set_service_in" to="~set_trigger_service" />
+      <remap from="~tf_static_in" to="/tf_static" />
+
+        <!-- Services -->
+      <remap from="~goto_fcu_out" to="control_manager/goto_fcu" />
+      <remap from="~reference_out" to="control_manager/reference" />
+      <remap from="~set_constraints_out" to="constraint_manager/set_constraints" />
+      <remap from="~set_gains_out" to="gain_manager/set_gains" />
+      <remap from="~set_controller_out" to="control_manager/switch_controller" />
+      <remap from="~hover_out" to="control_manager/hover" />
 
     </node>
 
