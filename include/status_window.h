@@ -1,7 +1,7 @@
 
 #include <commons.h>
 
-class MrsStatus;  // forward declaration
+class Status;  // forward declaration
 
 class StatusWindow {
 
@@ -11,7 +11,7 @@ public:
     window_rate_ = window_rate;
   };
 
-  void Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short color, int topic), MrsStatus* obj);
+  void    Redraw(void (Status::*fp)(WINDOW* win, double rate, short color, int topic), Status* obj);
   WINDOW* getWindow();
 
 private:
@@ -20,4 +20,3 @@ private:
   std::vector<topic>& topics_;
   ros::Time           last_time_ = ros::Time::now();
 };
-

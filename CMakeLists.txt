@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(mrs_status)
+project(mrs_uav_status)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -32,11 +32,11 @@ include_directories(include
   ${CURSES_INCLUDE_DIR}
 )
 
-add_executable(mrs_status src/mrs_status.cpp src/status_window.cpp src/menu.cpp src/input_box.cpp)
+add_executable(mrs_uav_status src/status.cpp src/status_window.cpp src/menu.cpp src/input_box.cpp)
 
-add_dependencies(mrs_status ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(mrs_uav_status ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-target_link_libraries(mrs_status
+target_link_libraries(mrs_uav_status
   ${catkin_LIBRARIES}
   ${CURSES_LIBRARIES}
 )
@@ -56,4 +56,3 @@ install(DIRECTORY include/${PROJECT_NAME}/
 install(DIRECTORY doc
 		DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
-

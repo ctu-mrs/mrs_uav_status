@@ -2,7 +2,7 @@
 
 /* Redraw() //{ */
 
-void StatusWindow::Redraw(void (MrsStatus::*fp)(WINDOW* win, double rate, short color, int topic), MrsStatus* obj) {
+void StatusWindow::Redraw(void (Status::*fp)(WINDOW* win, double rate, short color, int topic), Status* obj) {
 
   double interval = (ros::Time::now() - last_time_).toSec();
 

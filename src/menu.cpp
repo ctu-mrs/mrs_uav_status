@@ -109,4 +109,3 @@ std::optional<std::tuple<int, int>> Menu::iterate(std::vector<std::string>& text
 }
 
 //}
-

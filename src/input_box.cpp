@@ -125,4 +125,3 @@ double InputBox::getDouble() {
 }
 
 //}
-

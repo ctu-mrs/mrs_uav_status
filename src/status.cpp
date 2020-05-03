@@ -52,12 +52,12 @@ typedef enum
   GOTO_MENU,
 } status_state;
 
-/* class MrsStatus //{ */
+/* class Status //{ */
 
-class MrsStatus {
+class Status {
 
 public:
-  MrsStatus();
+  Status();
 
 private:
   ros::NodeHandle nh_;
@@ -263,16 +263,16 @@ private:
 
 //}
 
-/* MrsStatus() //{ */
+/* Status() //{ */
 
-MrsStatus::MrsStatus() {
+Status::Status() {
 
   // initialize node and create no handle
   nh_ = ros::NodeHandle("~");
 
   // | ---------------------- Param loader ---------------------- |
 
-  mrs_lib::ParamLoader param_loader(nh_, "MrsStatus");
+  mrs_lib::ParamLoader param_loader(nh_, "Status");
 
   param_loader.loadParam("uav_name", _uav_name_);
   param_loader.loadParam("uav_type", _uav_type_);
@@ -285,10 +285,10 @@ MrsStatus::MrsStatus() {
   param_loader.loadParam("tf_static_list", tf_static_list);
 
   if (!param_loader.loadedSuccessfully()) {
-    ROS_ERROR("[MrsStatus]: Could not load all parameters!");
+    ROS_ERROR("[Status]: Could not load all parameters!");
     ros::shutdown();
   } else {
-    ROS_INFO("[MrsStatus]: All params loaded!");
+    ROS_INFO("[Status]: All params loaded!");
   }
 
   // | ------------------- Static tf handling ------------------- |
@@ -306,21 +306,21 @@ MrsStatus::MrsStatus() {
 
   // | ------------------------- Timers ------------------------- |
 
-  status_timer_ = nh_.createTimer(ros::Rate(10), &MrsStatus::statusTimer, this);
-  resize_timer_ = nh_.createTimer(ros::Rate(1), &MrsStatus::resizeTimer, this);
+  status_timer_ = nh_.createTimer(ros::Rate(10), &Status::statusTimer, this);
+  resize_timer_ = nh_.createTimer(ros::Rate(1), &Status::resizeTimer, this);
 
   // | ----------------------- Subscribers ---------------------- |
 
-  uav_state_subscriber_          = nh_.subscribe("uav_state_in", 1, &MrsStatus::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 1, &MrsStatus::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_attitude_subscriber_    = nh_.subscribe("mavros_attitude_in", 1, &MrsStatus::mavrosAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
-  battery_subscriber_            = nh_.subscribe("battery_in", 1, &MrsStatus::batteryCallback, this, ros::TransportHints().tcpNoDelay());
-  control_manager_subscriber_    = nh_.subscribe("control_manager_in", 1, &MrsStatus::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 1, &MrsStatus::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &MrsStatus::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  string_subscriber_             = nh_.subscribe("string_in", 1, &MrsStatus::stringCallback, this, ros::TransportHints().tcpNoDelay());
-  set_service_subscriber_        = nh_.subscribe("set_service_in", 1, &MrsStatus::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
-  tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &MrsStatus::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
+  uav_state_subscriber_          = nh_.subscribe("uav_state_in", 1, &Status::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 1, &Status::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_attitude_subscriber_    = nh_.subscribe("mavros_attitude_in", 1, &Status::mavrosAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
+  battery_subscriber_            = nh_.subscribe("battery_in", 1, &Status::batteryCallback, this, ros::TransportHints().tcpNoDelay());
+  control_manager_subscriber_    = nh_.subscribe("control_manager_in", 1, &Status::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 1, &Status::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &Status::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  string_subscriber_             = nh_.subscribe("string_in", 1, &Status::stringCallback, this, ros::TransportHints().tcpNoDelay());
+  set_service_subscriber_        = nh_.subscribe("set_service_in", 1, &Status::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
+  tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &Status::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
 
   // | ------------------------ Services ------------------------ |
   //
@@ -332,7 +332,7 @@ MrsStatus::MrsStatus() {
   service_hover_           = nh_.serviceClient<std_srvs::Trigger>("hover_out");
 
   // mrs_lib profiler
-  profiler_ = mrs_lib::Profiler(nh_, "MrsStatus", _profiler_enabled_);
+  profiler_ = mrs_lib::Profiler(nh_, "Status", _profiler_enabled_);
 
   // Loads the default GoTo value
   goto_double_vec_.push_back(0.0);
@@ -350,7 +350,7 @@ MrsStatus::MrsStatus() {
   if (boost::filesystem::exists(_time_filename_)) {
 
     // loads time flown from a tmp file, if it exists, if it does not exists, flight time is set to 0
-    
+
     ifstream file(_time_filename_);
     string   line;
     getline(file, line);
@@ -439,17 +439,17 @@ MrsStatus::MrsStatus() {
   debug_window_ = newwin(20, 120, 12, 1);
 
   initialized_ = true;
-  ROS_INFO("[MrsStatus]: Node initialized!");
-  
+  ROS_INFO("[Status]: Node initialized!");
+
   // This thread is for the general info window, it fetches CPU frequency, RAM info, Disk space info and CPU load asynchronously
-  general_info_thread_ = std::thread{&MrsStatus::generalInfoThread, this};
+  general_info_thread_ = std::thread{&Status::generalInfoThread, this};
 }
 
 //}
 
 /* resizeTimer //{ */
 
-void MrsStatus::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
+void Status::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   // TODO resizing causes screen flicker, should be called just before general refresh.
   // TODO display breaks when screen is resized to very small number of cols
@@ -482,11 +482,11 @@ void MrsStatus::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 /* statusTimer //{ */
 
-void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
+void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
-    uav_state_window_->Redraw(&MrsStatus::uavStateHandler, this);
+    uav_state_window_->Redraw(&Status::uavStateHandler, this);
   }
 
   hz_counter_++;
@@ -497,19 +497,19 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
     {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
-      mavros_state_window_->Redraw(&MrsStatus::mavrosStateHandler, this);
+      mavros_state_window_->Redraw(&Status::mavrosStateHandler, this);
     }
     {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
-      control_manager_window_->Redraw(&MrsStatus::controlManagerHandler, this);
+      control_manager_window_->Redraw(&Status::controlManagerHandler, this);
     }
     {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
-      generic_topic_window_->Redraw(&MrsStatus::genericTopicHandler, this);
+      generic_topic_window_->Redraw(&Status::genericTopicHandler, this);
     }
     {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
-      string_window_->Redraw(&MrsStatus::stringHandler, this);
+      string_window_->Redraw(&Status::stringHandler, this);
     }
   }
 
@@ -603,7 +603,7 @@ void MrsStatus::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 /* mainMenuHandler() //{ */
 
-bool MrsStatus::mainMenuHandler(int key_in) {
+bool Status::mainMenuHandler(int key_in) {
 
   /* SUBMENU IS OPEN //{ */
 
@@ -801,7 +801,7 @@ bool MrsStatus::mainMenuHandler(int key_in) {
 
 /* gotoMenuHandler() //{ */
 
-bool MrsStatus::gotoMenuHandler(int key_in) {
+bool Status::gotoMenuHandler(int key_in) {
 
   optional<tuple<int, int>> ret = menu_vec_[0].iterate(goto_menu_text_, key_in, false);
 
@@ -859,7 +859,7 @@ bool MrsStatus::gotoMenuHandler(int key_in) {
 
 /* remoteHandler() //{ */
 
-void MrsStatus::remoteHandler(int key, WINDOW* win) {
+void Status::remoteHandler(int key, WINDOW* win) {
 
   wattron(win, A_BOLD);
   wattron(win, COLOR_PAIR(RED));
@@ -1016,7 +1016,7 @@ void MrsStatus::remoteHandler(int key, WINDOW* win) {
 
 /* stringHandler() //{ */
 
-void MrsStatus::stringHandler(WINDOW* win, double rate, short color, int topic) {
+void Status::stringHandler(WINDOW* win, double rate, short color, int topic) {
 
   if (string_info_vec_.empty()) {
     wclear(win);
@@ -1065,7 +1065,7 @@ void MrsStatus::stringHandler(WINDOW* win, double rate, short color, int topic) 
 
 /* genericTopicHandler() //{ */
 
-void MrsStatus::genericTopicHandler(WINDOW* win, double rate, short color, int topic) {
+void Status::genericTopicHandler(WINDOW* win, double rate, short color, int topic) {
 
   if (!generic_topic_vec_.empty()) {
 
@@ -1082,7 +1082,7 @@ void MrsStatus::genericTopicHandler(WINDOW* win, double rate, short color, int t
 
 /* uavStateHandler() //{ */
 
-void MrsStatus::uavStateHandler(WINDOW* win, double rate, short color, int topic) {
+void Status::uavStateHandler(WINDOW* win, double rate, short color, int topic) {
 
   printLimitedDouble(win, 0, 16, "Odom %5.1f Hz", rate, 1000);
 
@@ -1112,7 +1112,7 @@ void MrsStatus::uavStateHandler(WINDOW* win, double rate, short color, int topic
 
 /* mavrosStateHandler() //{ */
 
-void MrsStatus::mavrosStateHandler(WINDOW* win, double rate, short color, int topic) {
+void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic) {
 
   string tmp_string;
 
@@ -1192,7 +1192,7 @@ void MrsStatus::mavrosStateHandler(WINDOW* win, double rate, short color, int to
 
 /* controlManagerHandler() //{ */
 
-void MrsStatus::controlManagerHandler(WINDOW* win, double rate, short color, int topic) {
+void Status::controlManagerHandler(WINDOW* win, double rate, short color, int topic) {
 
   string controller;
   string tracker;
@@ -1273,7 +1273,7 @@ void MrsStatus::controlManagerHandler(WINDOW* win, double rate, short color, int
 
 /* flightTimeHandler() //{ */
 
-void MrsStatus::flightTimeHandler(WINDOW* win) {
+void Status::flightTimeHandler(WINDOW* win) {
 
   if (NullTracker_) {
 
@@ -1318,7 +1318,7 @@ void MrsStatus::flightTimeHandler(WINDOW* win) {
 
 /* generalInfoThread() //{ */
 
-void MrsStatus::generalInfoThread() {
+void Status::generalInfoThread() {
 
   ros::Time last_time;
 
@@ -1352,7 +1352,7 @@ void MrsStatus::generalInfoThread() {
 
 /* setupGenericCallbacks() //{ */
 
-void MrsStatus::setupGenericCallbacks() {
+void Status::setupGenericCallbacks() {
 
   generic_topic_vec_.clear();
   generic_subscriber_vec_.clear();
@@ -1406,7 +1406,7 @@ void MrsStatus::setupGenericCallbacks() {
 
 /* setupMainMenu() //{ */
 
-void MrsStatus::setupMainMenu() {
+void Status::setupMainMenu() {
 
   service_vec_.clear();
 
@@ -1461,7 +1461,7 @@ void MrsStatus::setupMainMenu() {
 
 /* setupGotoMenu() //{ */
 
-void MrsStatus::setupGotoMenu() {
+void Status::setupGotoMenu() {
 
   goto_menu_inputs_.clear();
   goto_menu_text_.clear();
@@ -1489,7 +1489,7 @@ void MrsStatus::setupGotoMenu() {
 
 /* printMemLoad() //{ */
 
-void MrsStatus::printMemLoad(WINDOW* win) {
+void Status::printMemLoad(WINDOW* win) {
 
   ifstream file("/proc/meminfo");
   string   line1, line2, line3, line4;
@@ -1569,7 +1569,7 @@ void MrsStatus::printMemLoad(WINDOW* win) {
 
 /* printCpuLoad() //{ */
 
-void MrsStatus::printCpuLoad(WINDOW* win) {
+void Status::printCpuLoad(WINDOW* win) {
 
   ifstream file("/proc/stat");
   string   line;
@@ -1618,7 +1618,7 @@ void MrsStatus::printCpuLoad(WINDOW* win) {
 
 /* printCpuFreq() //{ */
 
-void MrsStatus::printCpuFreq(WINDOW* win) {
+void Status::printCpuFreq(WINDOW* win) {
 
   ifstream file("/sys/devices/system/cpu/online");
   string   line;
@@ -1663,7 +1663,7 @@ void MrsStatus::printCpuFreq(WINDOW* win) {
 
 /* printDiskSpace() //{ */
 
-void MrsStatus::printDiskSpace(WINDOW* win) {
+void Status::printDiskSpace(WINDOW* win) {
 
   boost::filesystem::space_info si = boost::filesystem::space(".");
 
@@ -1690,7 +1690,7 @@ void MrsStatus::printDiskSpace(WINDOW* win) {
 
 /* printServiceResult() //{ */
 
-void MrsStatus::printServiceResult(bool success, string msg) {
+void Status::printServiceResult(bool success, string msg) {
 
   werase(bottom_window_);
 
@@ -1720,7 +1720,7 @@ void MrsStatus::printServiceResult(bool success, string msg) {
 
 /* printLimitedInt() //{ */
 
-void MrsStatus::printLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit) {
+void Status::printLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit) {
 
   if (abs(num) > limit) {
 
@@ -1743,7 +1743,7 @@ void MrsStatus::printLimitedInt(WINDOW* win, int y, int x, string str_in, int nu
 
 /* printLimitedDouble() //{ */
 
-void MrsStatus::printLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit) {
+void Status::printLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit) {
 
   if (fabs(num) > limit) {
 
@@ -1766,7 +1766,7 @@ void MrsStatus::printLimitedDouble(WINDOW* win, int y, int x, string str_in, dou
 
 /* printLimitedString() //{ */
 
-void MrsStatus::printLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit) {
+void Status::printLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit) {
 
   if (str_in.length() > limit) {
     str_in.resize(limit);
@@ -1781,7 +1781,7 @@ void MrsStatus::printLimitedString(WINDOW* win, int y, int x, string str_in, uns
 
 /* printNoData() //{ */
 
-void MrsStatus::printNoData(WINDOW* win, int y, int x) {
+void Status::printNoData(WINDOW* win, int y, int x) {
 
   wattron(win, A_BLINK);
   wattron(win, COLOR_PAIR(RED));
@@ -1790,7 +1790,7 @@ void MrsStatus::printNoData(WINDOW* win, int y, int x) {
   wattroff(win, A_BLINK);
 }
 
-void MrsStatus::printNoData(WINDOW* win, int y, int x, string text) {
+void Status::printNoData(WINDOW* win, int y, int x, string text) {
 
   wattron(win, COLOR_PAIR(RED));
   mvwprintw(win, y, x, text.c_str());
@@ -1801,7 +1801,7 @@ void MrsStatus::printNoData(WINDOW* win, int y, int x, string text) {
 
 /* printDebug() //{ */
 
-void MrsStatus::printDebug(string msg) {
+void Status::printDebug(string msg) {
 
   printLimitedString(debug_window_, 0, 0, msg, 120);
 
@@ -1812,7 +1812,7 @@ void MrsStatus::printDebug(string msg) {
 
 /* printHelp() //{ */
 
-void MrsStatus::printHelp() {
+void Status::printHelp() {
 
   werase(debug_window_);
 
@@ -1849,7 +1849,7 @@ void MrsStatus::printHelp() {
 
 /* uavStateCallback() //{ */
 
-void MrsStatus::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
+void Status::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
   uav_state_topic_[0].counter++;
   uav_state_ = *msg;
 }
@@ -1858,7 +1858,7 @@ void MrsStatus::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
 
 /* mavrosStateCallback() //{ */
 
-void MrsStatus::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
+void Status::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
   mavros_state_topic_[0].counter++;
   mavros_state_ = *msg;
 }
@@ -1867,7 +1867,7 @@ void MrsStatus::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
 
 /* batteryCallback() //{ */
 
-void MrsStatus::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
+void Status::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
   mavros_state_topic_[1].counter++;
   battery_ = *msg;
 }
@@ -1876,7 +1876,7 @@ void MrsStatus::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
 
 /* mavrosAttitudeCallback() //{ */
 
-void MrsStatus::mavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg) {
+void Status::mavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg) {
   mavros_state_topic_[2].counter++;
   mavros_attitude_ = *msg;
 }
@@ -1885,7 +1885,7 @@ void MrsStatus::mavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr
 
 /* controlManagerCallback() //{ */
 
-void MrsStatus::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
+void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
   control_manager_topic_[0].counter++;
   control_manager_                                                = *msg;
   control_manager_.active_tracker == "NullTracker" ? NullTracker_ = true : NullTracker_ = false;
@@ -1895,7 +1895,7 @@ void MrsStatus::controlManagerCallback(const mrs_msgs::ControlManagerDiagnostics
 
 /* gainManagerCallback() //{ */
 
-void MrsStatus::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
+void Status::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
   control_manager_topic_[1].counter++;
   gain_manager_ = *msg;
 }
@@ -1904,7 +1904,7 @@ void MrsStatus::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstP
 
 /* constraintManagerCallback() //{ */
 
-void MrsStatus::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
+void Status::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
   control_manager_topic_[2].counter++;
   constraint_manager_ = *msg;
 }
@@ -1913,7 +1913,7 @@ void MrsStatus::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagn
 
 /* setServiceCallback() //{ */
 
-void MrsStatus::setServiceCallback(const std_msgs::String& msg) {
+void Status::setServiceCallback(const std_msgs::String& msg) {
 
   if (std::find(service_input_vec_.begin(), service_input_vec_.end(), msg.data) == service_input_vec_.end()) {
     service_input_vec_.push_back(msg.data);
@@ -1923,7 +1923,7 @@ void MrsStatus::setServiceCallback(const std_msgs::String& msg) {
 
 /* tfStaticCallback() //{ */
 
-void MrsStatus::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
+void Status::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
 
   for (unsigned long i = 0; i < msg.transforms.size(); i++) {
 
@@ -1946,7 +1946,7 @@ void MrsStatus::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
 
 /* stringCallback() //{ */
 
-void MrsStatus::stringCallback(const ros::MessageEvent<std_msgs::String const>& event) {
+void Status::stringCallback(const ros::MessageEvent<std_msgs::String const>& event) {
 
   std::string pub_name = event.getPublisherName();
   std::string msg_str  = event.getMessage()->data;
@@ -1971,7 +1971,7 @@ void MrsStatus::stringCallback(const ros::MessageEvent<std_msgs::String const>& 
 
 /* genericCallback() //{ */
 
-void MrsStatus::genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id) {
+void Status::genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id) {
   generic_topic_vec_[id].counter++;
 }
 
@@ -1981,7 +1981,7 @@ void MrsStatus::genericCallback(const ShapeShifter::ConstPtr& msg, const string&
 
 /* callTerminal //{ */
 
-std::string MrsStatus::callTerminal(const char* cmd) {
+std::string Status::callTerminal(const char* cmd) {
   std::array<char, 128>                    buffer;
   std::string                              result;
   std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
@@ -2039,7 +2039,7 @@ int main(int argc, char** argv) {
   /* refresh(); */
   //}
 
-  MrsStatus status;
+  Status status;
 
   while (ros::ok()) {
 

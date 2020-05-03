@@ -11,7 +11,7 @@
   <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
   <arg unless="$(arg debug)" name="launch_prefix" value="" />
 
-  <arg name="config_file" default="$(find mrs_status)/config/status.yaml"/>
+  <arg name="config_file" default="$(find mrs_uav_status)/config/status.yaml"/>
 
   <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f450')" name="UAV_MASS" default="2.0" />
   <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f550')" name="UAV_MASS" default="2.3" />
@@ -22,7 +22,7 @@
 
   <group ns="$(arg UAV_NAME)">
 
-    <node name="mrs_status" pkg="mrs_status" type="mrs_status" output="screen" respawn="false" launch-prefix="$(arg launch_prefix)">
+    <node name="mrs_uav_status" pkg="mrs_uav_status" type="mrs_uav_status" output="screen" respawn="false" launch-prefix="$(arg launch_prefix)">
 
       <param name="uav_name" value="$(arg UAV_NAME)" />
       <param name="uav_type" value="$(arg UAV_TYPE)" />
