@@ -5,6 +5,8 @@
   <arg name="SENSORS" default="$(env SENSORS)"/>
   <arg name="RUN_TYPE" default="$(env RUN_TYPE)"/>
   <arg name="PIXGARM" default="$(optenv PIXGARM false)"/>
+  <arg name="COLORSCHEME" default="$(optenv PROFILES_BOTH COLORSCHEME_LIGHT)"/>
+  <arg name="RAINBOW" default="false"/>
 
   <arg name="debug" default="false"/>
 
@@ -29,6 +31,8 @@
       <param name="uav_mass" value="$(arg UAV_MASS)" />
       <param name="sensors" value="$(arg SENSORS)" />
       <param name="pixgarm" type="bool" value="$(arg PIXGARM)" />
+      <param name="colorscheme" value="$(arg COLORSCHEME)" />
+      <param name="rainbow" type="bool" value="$(arg RAINBOW)" />
 
       <rosparam file="$(arg config_file)" />
 

@@ -59,6 +59,10 @@ class Status {
 public:
   Status();
 
+  string _colorscheme_;
+  bool   _rainbow_;
+  bool   _light_ = false;
+
 private:
   ros::NodeHandle nh_;
 
@@ -279,6 +283,9 @@ Status::Status() {
   param_loader.loadParam("sensors", _sensors_);
   param_loader.loadParam("pixgarm", _pixgarm_);
 
+  param_loader.loadParam("colorscheme", _colorscheme_);
+  param_loader.loadParam("rainbow", _rainbow_);
+
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
   std::vector<string> tf_static_list;
@@ -473,7 +480,11 @@ void Status::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
   if (cols_ != cols || lines_ != lines) {
     lines_ = lines;
     cols_  = cols;
-    resize_term(lines_, cols_);
+
+    if (cols > 30) {
+      resize_term(lines_, cols_);
+    }
+
   }
 }
 
@@ -486,7 +497,7 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
-    uav_state_window_->Redraw(&Status::uavStateHandler, this);
+    uav_state_window_->Redraw(&Status::uavStateHandler, _light_, this);
   }
 
   hz_counter_++;
@@ -497,19 +508,19 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
     {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
-      mavros_state_window_->Redraw(&Status::mavrosStateHandler, this);
+      mavros_state_window_->Redraw(&Status::mavrosStateHandler, _light_, this);
     }
     {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
-      control_manager_window_->Redraw(&Status::controlManagerHandler, this);
+      control_manager_window_->Redraw(&Status::controlManagerHandler, _light_, this);
     }
     {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
-      generic_topic_window_->Redraw(&Status::genericTopicHandler, this);
+      generic_topic_window_->Redraw(&Status::genericTopicHandler, _light_, this);
     }
     {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
-      string_window_->Redraw(&Status::stringHandler, this);
+      string_window_->Redraw(&Status::stringHandler, _light_, this);
     }
   }
 
@@ -835,6 +846,7 @@ bool Status::gotoMenuHandler(int key_in) {
       printServiceResult(reference.response.success, reference.response.message);
 
       menu_vec_.clear();
+
       return true;
 
     } else if (line < goto_menu_inputs_.size()) {
@@ -860,6 +872,10 @@ bool Status::gotoMenuHandler(int key_in) {
 /* remoteHandler() //{ */
 
 void Status::remoteHandler(int key, WINDOW* win) {
+
+  if (_light_) {
+    wattron(win, A_STANDOUT);
+  }
 
   wattron(win, A_BOLD);
   wattron(win, COLOR_PAIR(RED));
@@ -1242,6 +1258,27 @@ void Status::controlManagerHandler(WINDOW* win, double rate, short color, int to
           wattron(win, COLOR_PAIR(color));
         }
       }
+
+      if (!control_manager_.tracker_status.callbacks_enabled) {
+
+        wattron(win, COLOR_PAIR(RED));
+        mvwprintw(win, 1, 24, "NO_CB");
+        wattroff(win, COLOR_PAIR(RED));
+      }
+
+
+      if (control_manager_.tracker_status.have_goal) {
+
+        wattron(win, COLOR_PAIR(GREEN));
+        mvwprintw(win, 2, 25, "FLY");
+        wattroff(win, COLOR_PAIR(GREEN));
+
+      } else {
+
+        wattron(win, COLOR_PAIR(YELLOW));
+        mvwprintw(win, 2, 25, "IDLE");
+        wattroff(win, COLOR_PAIR(YELLOW));
+      }
       break;
 
     case 1:  // mavros state
@@ -1274,6 +1311,10 @@ void Status::controlManagerHandler(WINDOW* win, double rate, short color, int to
 /* flightTimeHandler() //{ */
 
 void Status::flightTimeHandler(WINDOW* win) {
+
+  if (_light_) {
+    wattron(win, A_STANDOUT);
+  }
 
   if (NullTracker_) {
 
@@ -1331,11 +1372,17 @@ void Status::generalInfoThread() {
 
       last_time = ros::Time::now();
 
-      werase(general_info_window_);
+      wclear(general_info_window_);
 
       wattron(general_info_window_, A_BOLD);
       wattroff(general_info_window_, COLOR_PAIR(NORMAL));
+      wattroff(general_info_window_, A_STANDOUT);
+
       box(general_info_window_, 0, 0);
+
+      if (_light_) {
+        wattron(general_info_window_, A_STANDOUT);
+      }
 
       printCpuLoad(general_info_window_);
       printMemLoad(general_info_window_);
@@ -1692,7 +1739,11 @@ void Status::printDiskSpace(WINDOW* win) {
 
 void Status::printServiceResult(bool success, string msg) {
 
-  werase(bottom_window_);
+  if (_light_) {
+    wattron(bottom_window_, A_STANDOUT);
+  }
+
+  wclear(bottom_window_);
 
   wattron(bottom_window_, A_BOLD);
   wattron(bottom_window_, COLOR_PAIR(GREEN));
@@ -1814,7 +1865,7 @@ void Status::printDebug(string msg) {
 
 void Status::printHelp() {
 
-  werase(debug_window_);
+  wclear(debug_window_);
 
   if (help_active_) {
 
@@ -2023,23 +2074,37 @@ int main(int argc, char** argv) {
 
   attron(A_BOLD);
 
-  /* DEBUG COLOR RAINBOW //{ */
-
-  /* for (int j = 0; j < 256; j++) { */
-  /*   init_pair(j, COLOR_WHITE, j); */
-  /* } */
-
-  /* int k = 0; */
-  /* for (int j = 0; j < 256; j++) { */
-  /*   attron(COLOR_PAIR(j)); */
-  /*   mvwprintw(stdscr, k, (3 * j + 1) - k * 60 * 3, "%i", j); */
-  /*   k = int(j / 60); */
-  /*   attroff(COLOR_PAIR(j)); */
-  /* } */
-  /* refresh(); */
-  //}
-
   Status status;
+
+  if (status._colorscheme_ == "COLORSCHEME_LIGHT") {
+    init_pair(GREEN, COLOR_DARK_GREEN, BACKGROUND_DEFAULT);
+    init_pair(BLUE, COLOR_DARK_BLUE, BACKGROUND_DEFAULT);
+    init_pair(YELLOW, COLOR_DARK_YELLOW, BACKGROUND_DEFAULT);
+    status._light_ = true;
+  }
+
+  if (status._rainbow_) {
+
+    /* DEBUG COLOR RAINBOW //{ */
+    int k = 0;
+
+    for (int j = 0; j < 256; j++) {
+      init_pair(j, COLOR_WHITE, j);
+    }
+
+    for (int j = 0; j < 256; j++) {
+
+      attron(COLOR_PAIR(j));
+      mvwprintw(stdscr, k + 10, (3 * j + 1) - k * 60 * 3, "%i", j);
+      k = int(j / 60);
+      attroff(COLOR_PAIR(j));
+    }
+    refresh();
+    while (1) {
+    }
+
+    //}
+  }
 
   while (ros::ok()) {
 

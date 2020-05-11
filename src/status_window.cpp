@@ -2,8 +2,7 @@
 
 /* Redraw() //{ */
 
-void StatusWindow::Redraw(void (Status::*fp)(WINDOW* win, double rate, short color, int topic), Status* obj) {
-
+void StatusWindow::Redraw(void (Status::*fp)(WINDOW* win, double rate, short color, int topic), bool light, Status * obj) {
   double interval = (ros::Time::now() - last_time_).toSec();
 
   werase(win_);
@@ -12,8 +11,13 @@ void StatusWindow::Redraw(void (Status::*fp)(WINDOW* win, double rate, short col
 
   wattron(win_, A_BOLD);
 
+  wattroff(win_, A_STANDOUT);
+
   box(win_, 0, 0);
 
+  if (light) {
+    wattron(win_, A_STANDOUT);
+  }
   int tmp_color = RED;
 
   if (topics_.size() == 0) {
@@ -56,6 +60,14 @@ void StatusWindow::Redraw(void (Status::*fp)(WINDOW* win, double rate, short col
   wattroff(win_, A_BOLD);
 
   wrefresh(win_);
+}
+
+//}
+
+/* SetAttribute() //{ */
+
+void StatusWindow::SetAttribute(int attrs) {
+  wattron(win_, attrs);
 }
 
 //}

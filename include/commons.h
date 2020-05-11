@@ -1,10 +1,6 @@
+#pragma once
 #ifndef COMMONS_H
 #define COMMONS_H
-
-#define KEY_ENT 10
-#define KEY_ESC 27
-#define KEY_BACKSPACE 263
-#define KEY_DELETE 330
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -20,6 +16,11 @@
 #include <ros/ros.h>
 #include <ros/package.h>
 
+#define KEY_ENT 10
+#define KEY_ESC 27
+/* #define KEY_BACKSPACE 263 */
+#define KEY_DELETE 330
+
 #define NORMAL 100
 #define FIELD 101
 #define GREEN 102
@@ -31,9 +32,15 @@
 #define BACKGROUND_TRUE_BLACK 16
 
 #define COLOR_NICE_RED 196
+
 #define COLOR_NICE_GREEN 82
+#define COLOR_DARK_GREEN 2
+
 #define COLOR_NICE_BLUE 33
+#define COLOR_DARK_BLUE 21
+
 #define COLOR_NICE_YELLOW 220
+#define COLOR_DARK_YELLOW 172
 
 #define BUFFER_SECS_LEN 4
 

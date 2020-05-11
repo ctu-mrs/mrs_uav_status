@@ -11,7 +11,8 @@ public:
     window_rate_ = window_rate;
   };
 
-  void    Redraw(void (Status::*fp)(WINDOW* win, double rate, short color, int topic), Status* obj);
+  void    Redraw(void (Status::*fp)(WINDOW* win, double rate, short color, int topic), bool light, Status* obj);
+  void    SetAttribute(int attrs);
   WINDOW* getWindow();
 
 private:
@@ -20,3 +21,4 @@ private:
   std::vector<topic>& topics_;
   ros::Time           last_time_ = ros::Time::now();
 };
+
