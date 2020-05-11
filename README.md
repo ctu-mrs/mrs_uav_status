@@ -40,7 +40,7 @@ If the MRS UAV Status window is focused, you can use it to command the UAV. This
  
 ### Display custom messages from your nodes
 If you need to monitor some aspect or behaviour of your node, you can display messages from said node in MRS UAV Status.
-Simply publish a [std_msgs/String](http://docs.ros.org/melodic/api/std_msgs/html/msg/String.html) message to the topic ```mrs_uav_status/display_string```, and the message along with the publisher node name will show in MRS UAV Status.
+Simply publish a [std_msgs/String](http://docs.ros.org/melodic/api/std_msgs/html/msg/String.html) message to the topic ```mrs_uav_status/display_string```, and the message, along with the publisher node name, will show in MRS UAV Status.
 
  ![](.fig/display_string.png)
  
@@ -67,7 +67,7 @@ MRS UAV Status can monitor rates of different ROS topics, and warn the user if t
     * Name that will be displayed (```Bluefox Optflow```) - this name can contain additional spaces
     * Desired rate of the topic (```50```)
     
-* The namespace of the UAV will be added automatically to the tfs and topics (```garmin/range``` -> ```/uav1/garmin/range```)
-* To monitor a tf/topic outside of the namespace, use "/" as the first character of the tf/topic_name (```/garmin/range```)
+  * The namespace of the UAV will be added automatically to the tfs and topics (```garmin/range``` -> ```/uav1/garmin/range```)
+  * To monitor a tf/topic outside of the namespace, use "/" as the first character of the tf/topic_name (```/garmin/range```)
 
  ![](.fig/hz_display.png)
