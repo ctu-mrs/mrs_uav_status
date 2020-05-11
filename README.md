@@ -16,7 +16,9 @@
 If the MRS UAV Status window is focused, you can use it to command the UAV. This works in simulation and with a real UAV through SSH.
 
  * press the 'R' key to enter the "remote" mode. While in this mode, you can fly the UAV with your keyboard:
+ 
  ![](.fig/remote_mode.png) 
+ 
    * use 'wsad' or 'hjkl' keys to fly laterally
    * use 'qe' keys to change the UAVs heading
    * use 'rf' keys to fly up and down
