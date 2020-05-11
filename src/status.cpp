@@ -288,6 +288,9 @@ Status::Status() {
 
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
+  std::vector<string> want_hz;
+  param_loader.loadParam("want_hz", want_hz);
+
   std::vector<string> tf_static_list;
   param_loader.loadParam("tf_static_list", tf_static_list);
 
@@ -297,6 +300,13 @@ Status::Status() {
   } else {
     ROS_INFO("[Status]: All params loaded!");
   }
+
+  // | ------------------- want hz handling ------------------- |
+  //
+  for (unsigned long i = 0; i < want_hz.size(); i++) {
+    generic_topic_input_vec_.push_back(want_hz[i]);
+  }
+
 
   // | ------------------- Static tf handling ------------------- |
   // Static tfs are used to add monitored topics to the generic window, if a tf for a sensor is present, its topic is added
@@ -484,7 +494,6 @@ void Status::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
     if (cols > 30) {
       resize_term(lines_, cols_);
     }
-
   }
 }
 
