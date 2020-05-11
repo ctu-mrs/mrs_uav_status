@@ -60,6 +60,7 @@ MRS UAV Status can monitor rates of different ROS topics, and warn the user if t
     * Name of the topic to be monitored (```garmin/range```)
     * Name that will be displayed (```Garmin Down```) - this name can contain additional spaces
     * Desired rate of the topic (```50```)
+    
 * Any topic
   * If you need to monitor a topic which is not bound to a static tf
   * Add your topic to the want_hz list in ```config/status.yaml```
@@ -68,7 +69,8 @@ MRS UAV Status can monitor rates of different ROS topics, and warn the user if t
     * Name that will be displayed (```Bluefox Optflow```) - this name can contain additional spaces
     * Desired rate of the topic (```50```)
     
-  * The namespace of the UAV will be added automatically to the tfs and topics (```garmin/range``` -> ```/uav1/garmin/range```)
-  * To monitor a tf/topic outside of the namespace, use "/" as the first character of the tf/topic_name (```/garmin/range```)
+The namespace of the UAV will be added automatically to the tfs and topics (```garmin/range``` -> ```/uav1/garmin/range```)
+
+To monitor a tf/topic outside of the namespace, use "/" as the first character of the tf/topic_name (```/garmin/range```)
 
  ![](.fig/hz_display.png)
