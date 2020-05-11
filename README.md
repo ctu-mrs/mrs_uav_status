@@ -32,7 +32,7 @@ If the MRS UAV Status window is focused, you can use it to command the UAV. This
    
 ### Display custom messages from your nodes
 If you need to monitor some aspect or behaviour of your node, you can display messages from said node in MRS UAV Status.
-Simply publish a [std_msgs/String](http://docs.ros.org/melodic/api/std_msgs/html/msg/String.html) message to the topic mrs_uav_status/display_string, and the message along with the publisher node name will show in MRS UAV Status.
+Simply publish a [std_msgs/String](http://docs.ros.org/melodic/api/std_msgs/html/msg/String.html) message to the topic ```mrs_uav_status/display_string```, and the message along with the publisher node name will show in MRS UAV Status.
  * Only the newest message from each node will be displayed
  * The message will be displayed for 10 seconds
 
@@ -42,34 +42,19 @@ MRS UAV Status can monitor rates of different ROS topics, and warn the user if t
 * Static tf
   * If a defined static tf is present, MRS UAV Status will monitor a coresponding topic.
   * This is intended to automatically monitor different sensor configurations.
-  * To add more monitored static tfs, modify config/status.yaml file and add to the tf_static_list
+  * To add more monitored static tfs, modify ```config/status.yaml``` file and add to the ```tf_static_list```
   * Each list member consists of 4 entries separated by spaces:
-    * Name of the static tf (garmin)
-    * Name of the topic to be monitored (garmin/range)
-    * Name that will be displayed (Garmin Down) - this name can contain additional spaces
-    * Desired rate of the topic (50)
+    * Name of the static tf (```garmin```)
+    * Name of the topic to be monitored (```garmin/range```)
+    * Name that will be displayed (```Garmin Down```) - this name can contain additional spaces
+    * Desired rate of the topic (```50```)
 * Any topic
   * If you need to monitor a topic which is not bound to a static tf
-  * Add your topic to the want_hz list in config/status.yaml
+  * Add your topic to the want_hz list in ```config/status.yaml```
   * Each list member consists of 3 entries separated by spaces:
-    * Name of the topic to be monitored (bluefox/camera_info)
-    * Name that will be displayed (Bluefox Optflow) - this name can contain additional spaces
-    * Desired rate of the topic (50)
+    * Name of the topic to be monitored (```bluefox/camera_info```)
+    * Name that will be displayed (```Bluefox Optflow```) - this name can contain additional spaces
+    * Desired rate of the topic (```50```)
     
-* The namespace of the UAV will be added automatically to the tfs and topics (garmin/range -> /uav1/garmin/range)
-* To monitor a tf/topic outside of the namespace, use "/" as the first character of the tf/topic_name (/garmin/range)
-  
-
-* runs on the UAV within its TMUX session
-* usable through SSH
-* written in C++ with curses for windows
-* reports useful data and states of the UAV
-* monitors ROS topic rates
-  * predefine in a config file
-  * dynamically set during run-time by a service
-* can show arbitrary data from any node using a provided topic
-* allows calling services
-  * predefined for references, landing, takeoff, etc.
-  * dynamically set during run-time by a service
-* allows controlling the UAV using WSAD-like control scheme (press <shift>R to activate)
-* vim-like key bindings
+* The namespace of the UAV will be added automatically to the tfs and topics (```garmin/range``` -> ```/uav1/garmin/range```)
+* To monitor a tf/topic outside of the namespace, use "/" as the first character of the tf/topic_name (```/garmin/range```)
