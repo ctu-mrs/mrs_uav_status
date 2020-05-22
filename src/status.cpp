@@ -1107,7 +1107,7 @@ void Status::genericTopicHandler(WINDOW* win, double rate, short color, int topi
 
 /* uavStateHandler() //{ */
 
-void Status::uavStateHandler(WINDOW* win, double rate, short color, int topic) {
+void Status::uavStateHandler(WINDOW* win, double rate, [[maybe_unused]] short color, [[maybe_unused]] int topic) {
 
   printLimitedDouble(win, 0, 16, "Odom %5.1f Hz", rate, 1000);
 
@@ -1117,12 +1117,19 @@ void Status::uavStateHandler(WINDOW* win, double rate, short color, int topic) {
 
   } else {
 
-    double heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
+    double heading;
+
+    try {
+      heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
+    }
+    catch (...) {
+      heading = 0;
+    }
 
     printLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
     printLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
     printLimitedDouble(win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000);
-    printLimitedDouble(win, 4, 2, "Yaw %5.2f", heading, 1000);
+    printLimitedDouble(win, 4, 2, "hdg %5.2f", heading, 1000);
 
     int pos = uav_state_.header.frame_id.find("/") + 1;
     printLimitedString(win, 1, 14, uav_state_.header.frame_id.substr(pos, uav_state_.header.frame_id.length()), 15);
@@ -1524,7 +1531,7 @@ void Status::setupGotoMenu() {
   goto_menu_text_.push_back(" X:                ");
   goto_menu_text_.push_back(" Y:                ");
   goto_menu_text_.push_back(" Z:                ");
-  goto_menu_text_.push_back(" Yaw:              ");
+  goto_menu_text_.push_back(" hdg:              ");
   goto_menu_text_.push_back(" " + uav_state_.header.frame_id + " ");
 
   Menu menu(1, 32, goto_menu_text_);
