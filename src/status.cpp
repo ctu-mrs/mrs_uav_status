@@ -24,6 +24,8 @@
 
 #include <std_msgs/String.h>
 
+#include <sensor_msgs/NavSatFix.h>
+
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/AttitudeTarget.h>
 
@@ -86,6 +88,7 @@ private:
   void stringCallback(const ros::MessageEvent<std_msgs::String const>& event);
   void setServiceCallback(const std_msgs::String& msg);
   void tfStaticCallback(const tf2_msgs::TFMessage& msg);
+  void mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg);
 
   // generic callback, for any topic, to monitor its rate
   void genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
@@ -186,6 +189,7 @@ private:
   ros::Subscriber mpc_diag_subscriber_;
   ros::Subscriber mavros_state_subscriber_;
   ros::Subscriber mavros_attitude_subscriber_;
+  ros::Subscriber mavros_global_subscriber_;
   ros::Subscriber battery_subscriber_;
   ros::Subscriber control_manager_subscriber_;
   ros::Subscriber gain_manager_subscriber_;
@@ -213,6 +217,7 @@ private:
   // | ------------------ Data storage, inputs ------------------ |
   mavros_msgs::State          mavros_state_;
   mavros_msgs::AttitudeTarget mavros_attitude_;
+  sensor_msgs::NavSatFix      mavros_global_;
   sensor_msgs::BatteryState   battery_;
 
   mrs_msgs::UavState                     uav_state_;
@@ -331,6 +336,7 @@ Status::Status() {
   uav_state_subscriber_          = nh_.subscribe("uav_state_in", 1, &Status::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
   mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 1, &Status::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
   mavros_attitude_subscriber_    = nh_.subscribe("mavros_attitude_in", 1, &Status::mavrosAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_global_subscriber_      = nh_.subscribe("mavros_global_in", 1, &Status::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
   battery_subscriber_            = nh_.subscribe("battery_in", 1, &Status::batteryCallback, this, ros::TransportHints().tcpNoDelay());
   control_manager_subscriber_    = nh_.subscribe("control_manager_in", 1, &Status::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
   gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 1, &Status::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
@@ -430,25 +436,26 @@ Status::Status() {
 
   uav_state_topic_.push_back(topic{100.0, uav_state_window_rate_});
 
-  uav_state_window_ = new StatusWindow(6, 30, 5, 1, uav_state_topic_, uav_state_window_rate_);
+  uav_state_window_ = new StatusWindow(6, 26, 5, 1, uav_state_topic_, uav_state_window_rate_);
 
   control_manager_topic_.push_back(topic{10.0, control_manager_window_rate_});
   control_manager_topic_.push_back(topic{1.0, control_manager_window_rate_});
   control_manager_topic_.push_back(topic{1.0, control_manager_window_rate_});
 
-  control_manager_window_ = new StatusWindow(4, 30, 1, 1, control_manager_topic_, control_manager_window_rate_);
+  control_manager_window_ = new StatusWindow(4, 26, 1, 1, control_manager_topic_, control_manager_window_rate_);
 
   mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
   mavros_state_topic_.push_back(topic{1.0, mavros_state_window_rate_});
   mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
+  mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
 
-  mavros_state_window_ = new StatusWindow(6, 30, 5, 31, mavros_state_topic_, mavros_state_window_rate_);
+  mavros_state_window_ = new StatusWindow(6, 26, 5, 27, mavros_state_topic_, mavros_state_window_rate_);
 
-  generic_topic_window_ = new StatusWindow(10, 30, 1, 61, generic_topic_vec_, generic_topic_window_rate_);
+  generic_topic_window_ = new StatusWindow(10, 30, 1, 53, generic_topic_vec_, generic_topic_window_rate_);
 
   string_window_ = new StatusWindow(10, 32, 1, 91, string_topic_, generic_topic_window_rate_);
 
-  general_info_window_ = newwin(4, 30, 1, 31);
+  general_info_window_ = newwin(4, 26, 1, 27);
 
   top_bar_window_ = newwin(1, 120, 0, 1);
   bottom_window_  = newwin(1, 120, 11, 1);
@@ -1109,7 +1116,7 @@ void Status::genericTopicHandler(WINDOW* win, double rate, short color, int topi
 
 void Status::uavStateHandler(WINDOW* win, double rate, [[maybe_unused]] short color, [[maybe_unused]] int topic) {
 
-  printLimitedDouble(win, 0, 16, "Odom %5.1f Hz", rate, 1000);
+  printLimitedDouble(win, 0, 12, "Odom %5.1f Hz", rate, 1000);
 
   if (rate == 0) {
 
@@ -1126,17 +1133,17 @@ void Status::uavStateHandler(WINDOW* win, double rate, [[maybe_unused]] short co
       heading = 0;
     }
 
-    printLimitedDouble(win, 1, 2, "X %7.2f", uav_state_.pose.position.x, 1000);
-    printLimitedDouble(win, 2, 2, "Y %7.2f", uav_state_.pose.position.y, 1000);
-    printLimitedDouble(win, 3, 2, "Z %7.2f", uav_state_.pose.position.z, 1000);
-    printLimitedDouble(win, 4, 2, "hdg %5.2f", heading, 1000);
+    printLimitedDouble(win, 1, 1, "X %7.2f", uav_state_.pose.position.x, 1000);
+    printLimitedDouble(win, 2, 1, "Y %7.2f", uav_state_.pose.position.y, 1000);
+    printLimitedDouble(win, 3, 1, "Z %7.2f", uav_state_.pose.position.z, 1000);
+    printLimitedDouble(win, 4, 1, "hdg %5.2f", heading, 1000);
 
     int pos = uav_state_.header.frame_id.find("/") + 1;
-    printLimitedString(win, 1, 14, uav_state_.header.frame_id.substr(pos, uav_state_.header.frame_id.length()), 15);
+    printLimitedString(win, 1, 11, uav_state_.header.frame_id.substr(pos, uav_state_.header.frame_id.length()), 15);
 
-    printLimitedString(win, 2, 14, "Hori: " + uav_state_.estimator_horizontal.name, 15);
-    printLimitedString(win, 3, 14, "Vert: " + uav_state_.estimator_vertical.name, 15);
-    printLimitedString(win, 4, 14, "Head: " + uav_state_.estimator_heading.name, 15);
+    printLimitedString(win, 2, 11, "Hori: " + uav_state_.estimator_horizontal.name, 15);
+    printLimitedString(win, 3, 11, "Vert: " + uav_state_.estimator_vertical.name, 15);
+    printLimitedString(win, 4, 11, "Head: " + uav_state_.estimator_heading.name, 15);
   }
 }
 
@@ -1150,7 +1157,7 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
 
   switch (topic) {
     case 0:  // mavros state
-      printLimitedDouble(win, 0, 14, "Mavros %5.1f Hz", rate, 1000);
+      printLimitedDouble(win, 0, 10, "Mavros %5.1f Hz", rate, 1000);
 
       if (rate == 0) {
 
@@ -1217,6 +1224,34 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
         wattron(win, COLOR_PAIR(color));
       }
       break;
+
+    case 3:  // mavros global
+      if (rate == 0) {
+
+        wattron(win, COLOR_PAIR(RED));
+        printLimitedString(win, 1, 19, "NO_GPS", 6);
+        wattroff(win, COLOR_PAIR(RED));
+
+      } else {
+
+        wattron(win, COLOR_PAIR(GREEN));
+        printLimitedString(win, 1, 19, "GPS_OK", 6);
+        wattroff(win, COLOR_PAIR(GREEN));
+
+        double gps_qual = (mavros_global_.position_covariance[0] + mavros_global_.position_covariance[4] + mavros_global_.position_covariance[8]) / 3;
+        short  tmp_color = RED;
+
+        if (gps_qual < 5) {
+          tmp_color = GREEN;
+        } else if (gps_qual < 10) {
+          tmp_color = YELLOW;
+        }
+
+        wattron(win, COLOR_PAIR(tmp_color));
+        printLimitedDouble(win, 2, 18, "Q: %4.1f", gps_qual, 99.9);
+        wattroff(win, COLOR_PAIR(tmp_color));
+      }
+      break;
   }
 }
 
@@ -1233,7 +1268,7 @@ void Status::controlManagerHandler(WINDOW* win, double rate, short color, int to
 
   switch (topic) {
     case 0:  // mavros state
-      printLimitedString(win, 0, 14, "Control Manager", 15);
+      printLimitedString(win, 0, 10, "Control Manager", 15);
 
       if (rate == 0) {
 
@@ -1278,7 +1313,7 @@ void Status::controlManagerHandler(WINDOW* win, double rate, short color, int to
       if (!control_manager_.tracker_status.callbacks_enabled) {
 
         wattron(win, COLOR_PAIR(RED));
-        mvwprintw(win, 1, 24, "NO_CB");
+        mvwprintw(win, 1, 20, "NO_CB");
         wattroff(win, COLOR_PAIR(RED));
       }
 
@@ -1286,13 +1321,13 @@ void Status::controlManagerHandler(WINDOW* win, double rate, short color, int to
       if (control_manager_.tracker_status.have_goal) {
 
         wattron(win, COLOR_PAIR(GREEN));
-        mvwprintw(win, 2, 25, "FLY");
+        mvwprintw(win, 2, 21, "FLY");
         wattroff(win, COLOR_PAIR(GREEN));
 
       } else {
 
         wattron(win, COLOR_PAIR(YELLOW));
-        mvwprintw(win, 2, 25, "IDLE");
+        mvwprintw(win, 2, 21, "IDLE");
         wattroff(win, COLOR_PAIR(YELLOW));
       }
       break;
@@ -1625,7 +1660,7 @@ void Status::printMemLoad(WINDOW* win) {
 
   wattron(win, COLOR_PAIR(tmp_color));
 
-  printLimitedDouble(win, 2, 1, "RAM free: %4.1f G", (ram_free + buffers), 100);
+  printLimitedDouble(win, 2, 1, "RAM: %4.1f G", (ram_free + buffers), 100);
 }
 
 //}
@@ -1674,7 +1709,7 @@ void Status::printCpuLoad(WINDOW* win) {
 
   wattron(win, COLOR_PAIR(tmp_color));
 
-  printLimitedDouble(win, 1, 1, "CPU load: %4.1f %%", cpu_load, 99.9);
+  printLimitedDouble(win, 1, 1, "CPU: %4.1f %%", cpu_load, 99.9);
 }
 
 //}
@@ -1719,7 +1754,7 @@ void Status::printCpuFreq(WINDOW* win) {
 
 
   wattron(win, COLOR_PAIR(GREEN));
-  printLimitedDouble(win, 1, 21, "%4.2f GHz", avg_cpu_ghz, 10);
+  printLimitedDouble(win, 1, 17, "%4.2f GHz", avg_cpu_ghz, 10);
 }
 
 //}
@@ -1738,12 +1773,12 @@ void Status::printDiskSpace(WINDOW* win) {
   }
   if (gigas < 100) {
     wattron(win, COLOR_PAIR(RED));
-    printLimitedDouble(win, 2, 19, "HDD: %3.1f G", double(gigas) / 10, 10);
+    printLimitedDouble(win, 2, 15, "HDD: %3.1f G", double(gigas) / 10, 10);
   } else {
     if (gigas < 1000) {
-      printLimitedInt(win, 2, 19, "HDD:  %i G", gigas / 10, 1000);
+      printLimitedInt(win, 2, 15, "HDD:  %i G", gigas / 10, 1000);
     } else {
-      printLimitedInt(win, 2, 19, "HDD: %i G", gigas / 10, 1000);
+      printLimitedInt(win, 2, 15, "HDD: %i G", gigas / 10, 1000);
     }
   }
   last_gigas_ = gigas;
@@ -1946,6 +1981,15 @@ void Status::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
 void Status::mavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg) {
   mavros_state_topic_[2].counter++;
   mavros_attitude_ = *msg;
+}
+
+//}
+
+/* mavrosGlobalCallback() //{ */
+
+void Status::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
+  mavros_state_topic_[3].counter++;
+  mavros_global_ = *msg;
 }
 
 //}

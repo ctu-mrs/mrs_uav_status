@@ -47,6 +47,7 @@
       <remap from="~string_in" to="~display_string" />
       <remap from="~set_service_in" to="~set_trigger_service" />
       <remap from="~tf_static_in" to="/tf_static" />
+      <remap from="~mavros_global_in" to="mavros/global_position/global" />
 
         <!-- Services -->
       <remap from="~goto_fcu_out" to="control_manager/goto_fcu" />
