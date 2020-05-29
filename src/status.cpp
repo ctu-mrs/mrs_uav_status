@@ -1207,7 +1207,7 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
           wattron(win, COLOR_PAIR(YELLOW));
         }
 
-        printLimitedDouble(win, 3, 1, "Batt:  %4.2f V", voltage, 10);
+        printLimitedDouble(win, 3, 1, "Batt:  %4.2f V ", voltage, 10);
         wattron(win, COLOR_PAIR(color));
 
         printLimitedDouble(win, 3, 15, "%5.2f A", battery_.current, 100);
@@ -1228,12 +1228,33 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
         }
         printLimitedDouble(win, 4, 1, "Thrst: %4.2f", cmd_attitude_.thrust, 1.01);
         wattron(win, COLOR_PAIR(color));
+
+        short  tmp_color = GREEN;
+        double mass_diff = fabs(cmd_attitude_.total_mass - _uav_mass_) / _uav_mass_;
+
+        if (mass_diff > 0.3) {
+          tmp_color = RED;
+        } else if (mass_diff > 0.2) {
+          tmp_color = YELLOW;
+        }
+        if (_uav_mass_ > 10.0 || cmd_attitude_.total_mass > 10.0) {
+
+          wattron(win, COLOR_PAIR(NORMAL));
+          printLimitedDouble(win, 4, 15, "%.1f/", _uav_mass_, 99.99);
+          wattron(win, COLOR_PAIR(tmp_color));
+          printLimitedDouble(win, 4, 20, "%.1f", cmd_attitude_.total_mass, 99.99);
+
+        } else {
+
+          wattron(win, COLOR_PAIR(NORMAL));
+          printLimitedDouble(win, 4, 16, "%.1f/", _uav_mass_, 99.99);
+          wattron(win, COLOR_PAIR(tmp_color));
+          printLimitedDouble(win, 4, 20, "%.1f", cmd_attitude_.total_mass, 99.99);
+        }
       }
 
-      wattron(win, COLOR_PAIR(RED));
-
-      printLimitedDouble(win, 4, 13, "M: %3.1f/", _uav_mass_, 99.99);
-      printLimitedDouble(win, 4, 21, "%3.1f", cmd_attitude_.total_mass, 99.99);
+      wattron(win, COLOR_PAIR(NORMAL));
+      printLimitedString(win, 4, 23, "kg", 2);
 
       break;
 
@@ -2149,6 +2170,8 @@ int main(int argc, char** argv) {
   Status status;
 
   if (status._colorscheme_ == "COLORSCHEME_LIGHT") {
+    init_pair(NORMAL, COLOR_BLACK, BACKGROUND_DEFAULT);
+    init_pair(FIELD, COLOR_BLACK, 235);
     init_pair(GREEN, COLOR_DARK_GREEN, BACKGROUND_DEFAULT);
     init_pair(BLUE, COLOR_DARK_BLUE, BACKGROUND_DEFAULT);
     init_pair(YELLOW, COLOR_DARK_YELLOW, BACKGROUND_DEFAULT);
