@@ -455,13 +455,13 @@ Status::Status() {
   mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
   mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
 
-  mavros_state_window_ = new StatusWindow(6, 26, 5, 27, mavros_state_topic_, mavros_state_window_rate_);
+  mavros_state_window_ = new StatusWindow(6, 25, 5, 27, mavros_state_topic_, mavros_state_window_rate_);
 
-  generic_topic_window_ = new StatusWindow(10, 30, 1, 53, generic_topic_vec_, generic_topic_window_rate_);
+  generic_topic_window_ = new StatusWindow(10, 25, 1, 52, generic_topic_vec_, generic_topic_window_rate_);
 
-  string_window_ = new StatusWindow(10, 32, 1, 91, string_topic_, generic_topic_window_rate_);
+  string_window_ = new StatusWindow(10, 32, 1, 77, string_topic_, generic_topic_window_rate_);
 
-  general_info_window_ = newwin(4, 26, 1, 27);
+  general_info_window_ = newwin(4, 25, 1, 27);
 
   top_bar_window_ = newwin(1, 120, 0, 1);
   bottom_window_  = newwin(1, 120, 11, 1);
@@ -1107,8 +1107,8 @@ void Status::genericTopicHandler(WINDOW* win, double rate, short color, int topi
 
   if (!generic_topic_vec_.empty()) {
 
-    printLimitedString(win, 1 + topic, 1, generic_topic_vec_[topic].topic_display_name, 19);
-    printLimitedDouble(win, 1 + topic, 21, "%5.1f Hz", rate, 1000);
+    printLimitedString(win, 1 + topic, 1, generic_topic_vec_[topic].topic_display_name, 15);
+    printLimitedDouble(win, 1 + topic, 16, "%5.1f Hz", rate, 1000);
 
   } else {
 
@@ -1163,7 +1163,7 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
 
   switch (topic) {
     case 0:  // mavros state
-      printLimitedDouble(win, 0, 10, "Mavros %5.1f Hz", rate, 1000);
+      printLimitedDouble(win, 0, 9, "Mavros %5.1f Hz", rate, 1000);
 
       if (rate == 0) {
 
@@ -1240,21 +1240,22 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
         if (_uav_mass_ > 10.0 || cmd_attitude_.total_mass > 10.0) {
 
           wattron(win, COLOR_PAIR(NORMAL));
-          printLimitedDouble(win, 4, 15, "%.1f/", _uav_mass_, 99.99);
+          printLimitedDouble(win, 4, 14, "%.1f/", _uav_mass_, 99.99);
           wattron(win, COLOR_PAIR(tmp_color));
-          printLimitedDouble(win, 4, 20, "%.1f", cmd_attitude_.total_mass, 99.99);
+          printLimitedDouble(win, 4, 19, "%.1f", cmd_attitude_.total_mass, 99.99);
+          printLimitedString(win, 4, 22, "kg", 2);
 
         } else {
 
           wattron(win, COLOR_PAIR(NORMAL));
-          printLimitedDouble(win, 4, 16, "%.1f/", _uav_mass_, 99.99);
+          printLimitedDouble(win, 4, 15, "%.1f/", _uav_mass_, 99.99);
           wattron(win, COLOR_PAIR(tmp_color));
-          printLimitedDouble(win, 4, 20, "%.1f", cmd_attitude_.total_mass, 99.99);
+          printLimitedDouble(win, 4, 19, "%.1f", cmd_attitude_.total_mass, 99.99);
+          printLimitedString(win, 4, 22, "kg", 2);
+
         }
       }
 
-      wattron(win, COLOR_PAIR(NORMAL));
-      printLimitedString(win, 4, 23, "kg", 2);
 
       break;
 
@@ -1262,13 +1263,13 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
       if (rate == 0) {
 
         wattron(win, COLOR_PAIR(RED));
-        printLimitedString(win, 1, 19, "NO_GPS", 6);
+        printLimitedString(win, 1, 18, "NO_GPS", 6);
         wattroff(win, COLOR_PAIR(RED));
 
       } else {
 
         wattron(win, COLOR_PAIR(GREEN));
-        printLimitedString(win, 1, 19, "GPS_OK", 6);
+        printLimitedString(win, 1, 18, "GPS_OK", 6);
         wattroff(win, COLOR_PAIR(GREEN));
 
         double gps_qual  = (mavros_global_.position_covariance[0] + mavros_global_.position_covariance[4] + mavros_global_.position_covariance[8]) / 3;
@@ -1281,7 +1282,7 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
         }
 
         wattron(win, COLOR_PAIR(tmp_color));
-        printLimitedDouble(win, 2, 18, "Q: %4.1f", gps_qual, 99.9);
+        printLimitedDouble(win, 2, 17, "Q: %4.1f", gps_qual, 99.9);
         wattroff(win, COLOR_PAIR(tmp_color));
       }
       break;
@@ -1439,7 +1440,6 @@ void Status::flightTimeHandler(WINDOW* win) {
 }
 
 //}
-
 
 /* generalInfoThread() //{ */
 
@@ -1787,7 +1787,7 @@ void Status::printCpuFreq(WINDOW* win) {
 
 
   wattron(win, COLOR_PAIR(GREEN));
-  printLimitedDouble(win, 1, 17, "%4.2f GHz", avg_cpu_ghz, 10);
+  printLimitedDouble(win, 1, 16, "%4.2f GHz", avg_cpu_ghz, 10);
 }
 
 //}
@@ -1806,12 +1806,12 @@ void Status::printDiskSpace(WINDOW* win) {
   }
   if (gigas < 100) {
     wattron(win, COLOR_PAIR(RED));
-    printLimitedDouble(win, 2, 15, "HDD: %3.1f G", double(gigas) / 10, 10);
+    printLimitedDouble(win, 2, 14, "HDD: %3.1f G", double(gigas) / 10, 10);
   } else {
     if (gigas < 1000) {
-      printLimitedInt(win, 2, 15, "HDD:  %i G", gigas / 10, 1000);
+      printLimitedInt(win, 2, 14, "HDD:  %i G", gigas / 10, 1000);
     } else {
-      printLimitedInt(win, 2, 15, "HDD: %i G", gigas / 10, 1000);
+      printLimitedInt(win, 2, 14, "HDD: %i G", gigas / 10, 1000);
     }
   }
   last_gigas_ = gigas;
