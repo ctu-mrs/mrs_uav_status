@@ -17,7 +17,7 @@
 
   <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f450')" name="UAV_MASS" default="2.0" />
   <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f550')" name="UAV_MASS" default="2.3" />
-  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 't650')" name="UAV_MASS" default="5.0" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 't650')" name="UAV_MASS" default="3.5" />
   <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'm600')" name="UAV_MASS" default="10.0" />
   <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'eaglemk2')" name="UAV_MASS" default="10.0" />
   <arg if="$(eval arg('RUN_TYPE') == 'uav')" name="UAV_MASS" default="$(env UAV_MASS)" />
@@ -39,7 +39,7 @@
         <!-- Subscribers -->
       <remap from="~uav_state_in" to="odometry/uav_state" />
       <remap from="~mavros_state_in" to="mavros/state" />
-      <remap from="~mavros_attitude_in" to="mavros/setpoint_raw/attitude" />
+      <remap from="~cmd_attitude_in" to="control_manager/attitude_cmd" />
       <remap from="~battery_in" to="mavros/battery" />
       <remap from="~control_manager_in" to="control_manager/diagnostics" />
       <remap from="~gain_manager_in" to="gain_manager/diagnostics" />

@@ -17,6 +17,7 @@
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 #include <mrs_msgs/GainManagerDiagnostics.h>
 #include <mrs_msgs/ConstraintManagerDiagnostics.h>
+#include <mrs_msgs/AttitudeCommand.h>
 
 #include <mrs_msgs/ReferenceStampedSrv.h>
 #include <mrs_msgs/Vec4.h>
@@ -80,7 +81,7 @@ private:
 
   void uavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
   void mavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
-  void mavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg);
+  void cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg);
   void batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
   void controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg);
   void gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
@@ -188,8 +189,8 @@ private:
   ros::Subscriber uav_state_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
   ros::Subscriber mavros_state_subscriber_;
-  ros::Subscriber mavros_attitude_subscriber_;
   ros::Subscriber mavros_global_subscriber_;
+  ros::Subscriber attitude_cmd_subscriber_;
   ros::Subscriber battery_subscriber_;
   ros::Subscriber control_manager_subscriber_;
   ros::Subscriber gain_manager_subscriber_;
@@ -211,14 +212,15 @@ private:
 
   string _uav_name_;
   string _uav_type_;
+  double _uav_mass_;
   string _sensors_;
   bool   _pixgarm_;
 
   // | ------------------ Data storage, inputs ------------------ |
-  mavros_msgs::State          mavros_state_;
-  mavros_msgs::AttitudeTarget mavros_attitude_;
-  sensor_msgs::NavSatFix      mavros_global_;
-  sensor_msgs::BatteryState   battery_;
+  mavros_msgs::State        mavros_state_;
+  mrs_msgs::AttitudeCommand cmd_attitude_;
+  sensor_msgs::NavSatFix    mavros_global_;
+  sensor_msgs::BatteryState battery_;
 
   mrs_msgs::UavState                     uav_state_;
   mrs_msgs::ControlManagerDiagnostics    control_manager_;
@@ -283,8 +285,11 @@ Status::Status() {
 
   mrs_lib::ParamLoader param_loader(nh_, "Status");
 
+  string tmp_uav_mass;
+
   param_loader.loadParam("uav_name", _uav_name_);
   param_loader.loadParam("uav_type", _uav_type_);
+  param_loader.loadParam("uav_mass", _uav_mass_);
   param_loader.loadParam("sensors", _sensors_);
   param_loader.loadParam("pixgarm", _pixgarm_);
 
@@ -305,6 +310,7 @@ Status::Status() {
   } else {
     ROS_INFO("[Status]: All params loaded!");
   }
+
 
   // | ------------------- want hz handling ------------------- |
   //
@@ -335,7 +341,7 @@ Status::Status() {
 
   uav_state_subscriber_          = nh_.subscribe("uav_state_in", 1, &Status::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
   mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 1, &Status::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_attitude_subscriber_    = nh_.subscribe("mavros_attitude_in", 1, &Status::mavrosAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
+  attitude_cmd_subscriber_       = nh_.subscribe("cmd_attitude_in", 1, &Status::cmdAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
   mavros_global_subscriber_      = nh_.subscribe("mavros_global_in", 1, &Status::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
   battery_subscriber_            = nh_.subscribe("battery_in", 1, &Status::batteryCallback, this, ros::TransportHints().tcpNoDelay());
   control_manager_subscriber_    = nh_.subscribe("control_manager_in", 1, &Status::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
@@ -1208,21 +1214,27 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
       }
       break;
 
-    case 2:  // mavros attitude
+    case 2:  // control manager cmd attitude
       if (rate == 0) {
 
         printNoData(win, 4, 1, "Thrst: ");
 
       } else {
 
-        if (mavros_attitude_.thrust > 0.75) {
+        if (cmd_attitude_.thrust > 0.75) {
           wattron(win, COLOR_PAIR(RED));
-        } else if (mavros_attitude_.thrust > 0.65 && color != RED) {
+        } else if (cmd_attitude_.thrust > 0.65 && color != RED) {
           wattron(win, COLOR_PAIR(YELLOW));
         }
-        printLimitedDouble(win, 4, 1, "Thrst: %4.2f", mavros_attitude_.thrust, 1.01);
+        printLimitedDouble(win, 4, 1, "Thrst: %4.2f", cmd_attitude_.thrust, 1.01);
         wattron(win, COLOR_PAIR(color));
       }
+
+      wattron(win, COLOR_PAIR(RED));
+
+      printLimitedDouble(win, 4, 13, "M: %3.1f/", _uav_mass_, 99.99);
+      printLimitedDouble(win, 4, 21, "%3.1f", cmd_attitude_.total_mass, 99.99);
+
       break;
 
     case 3:  // mavros global
@@ -1238,7 +1250,7 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
         printLimitedString(win, 1, 19, "GPS_OK", 6);
         wattroff(win, COLOR_PAIR(GREEN));
 
-        double gps_qual = (mavros_global_.position_covariance[0] + mavros_global_.position_covariance[4] + mavros_global_.position_covariance[8]) / 3;
+        double gps_qual  = (mavros_global_.position_covariance[0] + mavros_global_.position_covariance[4] + mavros_global_.position_covariance[8]) / 3;
         short  tmp_color = RED;
 
         if (gps_qual < 5) {
@@ -1978,9 +1990,9 @@ void Status::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
 
 /* mavrosAttitudeCallback() //{ */
 
-void Status::mavrosAttitudeCallback(const mavros_msgs::AttitudeTargetConstPtr& msg) {
+void Status::cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg) {
   mavros_state_topic_[2].counter++;
-  mavros_attitude_ = *msg;
+  cmd_attitude_ = *msg;
 }
 
 //}
