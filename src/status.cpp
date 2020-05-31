@@ -2144,6 +2144,7 @@ std::string Status::callTerminal(const char* cmd) {
   std::string                              result;
   std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
   if (!pipe) {
+    ROS_ERROR("[Status]: Exception in callTerminal");
     throw std::runtime_error("popen() failed!");
   }
   while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
