@@ -1069,20 +1069,30 @@ void Status::stringHandler(WINDOW* win, double rate, short color, int topic) {
       printLimitedString(win, 1 + (3 * i), 1, string_info_vec_[i].publisher_name + ": ", 30);
 
       int    tmp_color          = NORMAL;
+      bool   blink              = false;
       string tmp_display_string = string_info_vec_[i].display_string;
 
       if (tmp_display_string.at(0) == '-') {
 
         if (tmp_display_string.at(1) == 'r') {
           tmp_color = RED;
+        } else if (tmp_display_string.at(1) == 'R') {
+          tmp_color = RED;
+          blink     = true;
         }
 
         else if (tmp_display_string.at(1) == 'y') {
           tmp_color = YELLOW;
+        } else if (tmp_display_string.at(1) == 'Y') {
+          tmp_color = YELLOW;
+          blink     = true;
         }
 
         else if (tmp_display_string.at(1) == 'g') {
           tmp_color = GREEN;
+        } else if (tmp_display_string.at(1) == 'G') {
+          tmp_color = GREEN;
+          blink     = true;
         }
 
         if (tmp_color != NORMAL) {
@@ -1090,9 +1100,14 @@ void Status::stringHandler(WINDOW* win, double rate, short color, int topic) {
         }
       }
 
+      if (blink) {
+        wattron(win, A_BLINK);
+      }
+
       wattron(win, COLOR_PAIR(tmp_color));
       printLimitedString(win, 2 + (3 * i), 1, tmp_display_string, 30);
       wattroff(win, COLOR_PAIR(tmp_color));
+      wattroff(win, A_BLINK);
     }
   }
 }
@@ -1252,7 +1267,6 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
           wattron(win, COLOR_PAIR(tmp_color));
           printLimitedDouble(win, 4, 19, "%.1f", cmd_attitude_.total_mass, 99.99);
           printLimitedString(win, 4, 22, "kg", 2);
-
         }
       }
 
