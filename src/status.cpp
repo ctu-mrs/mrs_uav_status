@@ -211,6 +211,7 @@ private:
   // | -------------------- UAV configuration ------------------- |
 
   string _uav_name_;
+  string _nato_name_;
   string _uav_type_;
   double _uav_mass_;
   string _sensors_;
@@ -288,6 +289,7 @@ Status::Status() {
   string tmp_uav_mass;
 
   param_loader.loadParam("uav_name", _uav_name_);
+  param_loader.loadParam("nato_name", _nato_name_);
   param_loader.loadParam("uav_type", _uav_type_);
   param_loader.loadParam("uav_mass", _uav_mass_);
   param_loader.loadParam("sensors", _sensors_);
@@ -1444,6 +1446,7 @@ void Status::flightTimeHandler(WINDOW* win) {
 
   wattron(win, A_BOLD);
   printLimitedInt(win, 0, 0, "ToF: %i", secs_flown, 1000);
+  mvwprintw(win, 0, 13, " %s  %s  %s ", _uav_name_.c_str(), _uav_type_.c_str(), _nato_name_.c_str());
 
   int mins = secs_flown / 60;
   /* int tens_secs = ((secs_flown % 60) / 10) % 10; */
