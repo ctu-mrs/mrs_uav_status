@@ -409,26 +409,26 @@ Status::Status() {
     } else if (results[i] == "garmin_up") {
       generic_topic_input_vec_.push_back("garmin/range_up Garmin_Up 80+");
 
-    } else if (results[i] == "realsense_brick") {
-      generic_topic_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Brick 25+");
+    /* } else if (results[i] == "realsense_brick") { */
+    /*   generic_topic_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Brick 25+"); */
 
-    } else if (results[i] == "realsense_front") {
-      generic_topic_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Front 25+");
+    /* } else if (results[i] == "realsense_front") { */
+    /*   generic_topic_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Front 25+"); */
 
-    } else if (results[i] == "bluefox_brick") {
-      generic_topic_input_vec_.push_back("bluefox_brick/camera_info Bluefox_Brick 25+");
+    /* } else if (results[i] == "bluefox_brick") { */
+    /*   generic_topic_input_vec_.push_back("bluefox_brick/camera_info Bluefox_Brick 25+"); */
 
-    } else if (results[i] == "bluefox_optflow") {
-      generic_topic_input_vec_.push_back("bluefox_optflow/camera_info Bluefox_Optflow 60+");
-      generic_topic_input_vec_.push_back("optic_flow/velocity Optic_flow 60+");
+    /* } else if (results[i] == "bluefox_optflow") { */
+    /*   generic_topic_input_vec_.push_back("bluefox_optflow/camera_info Bluefox_Optflow 60+"); */
+    /*   generic_topic_input_vec_.push_back("optic_flow/velocity Optic_flow 60+"); */
 
-    } else if (results[i] == "trinocular_thermal") {
-      generic_topic_input_vec_.push_back("thermal/top/rgb_image Thermal_Top 15+");
-      generic_topic_input_vec_.push_back("thermal/middle/rgb_image Thermal_Middle 15+");
-      generic_topic_input_vec_.push_back("thermal/bottom/rgb_image Thermal_Bottom 15+");
+    /* } else if (results[i] == "trinocular_thermal") { */
+    /*   generic_topic_input_vec_.push_back("thermal/top/rgb_image Thermal_Top 15+"); */
+    /*   generic_topic_input_vec_.push_back("thermal/middle/rgb_image Thermal_Middle 15+"); */
+    /*   generic_topic_input_vec_.push_back("thermal/bottom/rgb_image Thermal_Bottom 15+"); */
 
-    } else if (results[i] == "rplidar") {
-      generic_topic_input_vec_.push_back("rplidar/scan Rplidar 10+");
+    /* } else if (results[i] == "rplidar") { */
+    /*   generic_topic_input_vec_.push_back("rplidar/scan Rplidar 10+"); */
     }
   }
 
