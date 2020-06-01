@@ -62,7 +62,7 @@ std::optional<std::tuple<int, int>> Menu::iterate(std::vector<std::string>& text
 
   std::optional<std::tuple<int, int>> ret_val = std::nullopt;
 
-  werase(win_);  // update the terminal screen
+  wclear(win_);  // update the terminal screen
   wattron(win_, A_BOLD);
 
   if (key == 'q' || key == KEY_ESC) {

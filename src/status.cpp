@@ -25,6 +25,8 @@
 
 #include <std_msgs/String.h>
 
+#include <mrs_lib/mutex.h>
+
 #include <sensor_msgs/NavSatFix.h>
 
 #include <mavros_msgs/State.h>
@@ -68,6 +70,8 @@ public:
 
 private:
   ros::NodeHandle nh_;
+
+  std::mutex mutex_general_info_thread_;
 
   // | ------------------------- Timers ------------------------- |
 
@@ -411,26 +415,26 @@ Status::Status() {
     } else if (results[i] == "garmin_up") {
       generic_topic_input_vec_.push_back("garmin/range_up Garmin_Up 80+");
 
-    /* } else if (results[i] == "realsense_brick") { */
-    /*   generic_topic_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Brick 25+"); */
+      /* } else if (results[i] == "realsense_brick") { */
+      /*   generic_topic_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Brick 25+"); */
 
-    /* } else if (results[i] == "realsense_front") { */
-    /*   generic_topic_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Front 25+"); */
+      /* } else if (results[i] == "realsense_front") { */
+      /*   generic_topic_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Front 25+"); */
 
-    /* } else if (results[i] == "bluefox_brick") { */
-    /*   generic_topic_input_vec_.push_back("bluefox_brick/camera_info Bluefox_Brick 25+"); */
+      /* } else if (results[i] == "bluefox_brick") { */
+      /*   generic_topic_input_vec_.push_back("bluefox_brick/camera_info Bluefox_Brick 25+"); */
 
-    /* } else if (results[i] == "bluefox_optflow") { */
-    /*   generic_topic_input_vec_.push_back("bluefox_optflow/camera_info Bluefox_Optflow 60+"); */
-    /*   generic_topic_input_vec_.push_back("optic_flow/velocity Optic_flow 60+"); */
+      /* } else if (results[i] == "bluefox_optflow") { */
+      /*   generic_topic_input_vec_.push_back("bluefox_optflow/camera_info Bluefox_Optflow 60+"); */
+      /*   generic_topic_input_vec_.push_back("optic_flow/velocity Optic_flow 60+"); */
 
-    /* } else if (results[i] == "trinocular_thermal") { */
-    /*   generic_topic_input_vec_.push_back("thermal/top/rgb_image Thermal_Top 15+"); */
-    /*   generic_topic_input_vec_.push_back("thermal/middle/rgb_image Thermal_Middle 15+"); */
-    /*   generic_topic_input_vec_.push_back("thermal/bottom/rgb_image Thermal_Bottom 15+"); */
+      /* } else if (results[i] == "trinocular_thermal") { */
+      /*   generic_topic_input_vec_.push_back("thermal/top/rgb_image Thermal_Top 15+"); */
+      /*   generic_topic_input_vec_.push_back("thermal/middle/rgb_image Thermal_Middle 15+"); */
+      /*   generic_topic_input_vec_.push_back("thermal/bottom/rgb_image Thermal_Bottom 15+"); */
 
-    /* } else if (results[i] == "rplidar") { */
-    /*   generic_topic_input_vec_.push_back("rplidar/scan Rplidar 10+"); */
+      /* } else if (results[i] == "rplidar") { */
+      /*   generic_topic_input_vec_.push_back("rplidar/scan Rplidar 10+"); */
     }
   }
 
@@ -546,6 +550,11 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
       string_window_->Redraw(&Status::stringHandler, _light_, this);
     }
+  }
+
+  {
+    std::scoped_lock lock(mutex_general_info_thread_);
+    wrefresh(general_info_window_);
   }
 
   wclear(top_bar_window_);
@@ -1471,6 +1480,8 @@ void Status::generalInfoThread() {
 
     if (interval >= 1.0 / double(general_info_window_rate_)) {
 
+      std::scoped_lock lock(mutex_general_info_thread_);
+
       last_time = ros::Time::now();
 
       wclear(general_info_window_);
@@ -1489,7 +1500,6 @@ void Status::generalInfoThread() {
       printMemLoad(general_info_window_);
       printCpuFreq(general_info_window_);
       printDiskSpace(general_info_window_);
-      wrefresh(general_info_window_);
     }
 
     sleep(general_info_window_rate_ / 10);
@@ -2189,7 +2199,7 @@ int main(int argc, char** argv) {
 
   if (status._colorscheme_ == "COLORSCHEME_LIGHT") {
     init_pair(NORMAL, COLOR_BLACK, BACKGROUND_DEFAULT);
-    init_pair(FIELD, COLOR_BLACK, 235);
+    init_pair(FIELD, COLOR_WHITE, 237);
     init_pair(GREEN, COLOR_DARK_GREEN, BACKGROUND_DEFAULT);
     init_pair(BLUE, COLOR_DARK_BLUE, BACKGROUND_DEFAULT);
     init_pair(YELLOW, COLOR_DARK_YELLOW, BACKGROUND_DEFAULT);
