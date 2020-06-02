@@ -18,4 +18,6 @@ tf_static_list: [
       "rplidar rplidar/scan RPlidar 10",
       "os1_sensor os1_cloud_node/diag Ouster 10",
       "os1_sensor aloam_mapping/aft_mapped_to_init ALOAM 10",
+      "uvcam_left uvdar_bluefox/left/camera_info UV_BFox_Left 70",
+      "uvcam_right uvdar_bluefox/right/camera_info UV_BFox_Right 70",
       ]
