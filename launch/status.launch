@@ -31,6 +31,7 @@
       <param name="nato_name" value="$(arg NATO_NAME)" />
       <param name="uav_type" value="$(arg UAV_TYPE)" />
       <param name="uav_mass" value="$(arg UAV_MASS)" />
+      <param name="run_type" value="$(arg RUN_TYPE)" />
       <param name="sensors" value="$(arg SENSORS)" />
       <param name="pixgarm" type="bool" value="$(arg PIXGARM)" />
       <param name="colorscheme" value="$(arg COLORSCHEME)" />

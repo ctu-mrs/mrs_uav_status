@@ -217,6 +217,7 @@ private:
   string _uav_name_;
   string _nato_name_;
   string _uav_type_;
+  string _run_type_;
   double _uav_mass_;
   string _sensors_;
   bool   _pixgarm_;
@@ -295,6 +296,7 @@ Status::Status() {
   param_loader.loadParam("uav_name", _uav_name_);
   param_loader.loadParam("nato_name", _nato_name_);
   param_loader.loadParam("uav_type", _uav_type_);
+  param_loader.loadParam("run_type", _run_type_);
   param_loader.loadParam("uav_mass", _uav_mass_);
   param_loader.loadParam("sensors", _sensors_);
   param_loader.loadParam("pixgarm", _pixgarm_);
@@ -408,33 +410,16 @@ Status::Status() {
     generic_topic_input_vec_.push_back("mavros/distance_sensor/garmin Garmin_pix 80+");
   }
 
+  if (_run_type_ == "simulation") {
+    generic_topic_input_vec_.push_back("garmin/range Garmin_Down 80+");
+  }
+
   for (unsigned long i = 0; i < results.size(); i++) {
     if (results[i] == "garmin_down" && _pixgarm_ == false) {
       generic_topic_input_vec_.push_back("garmin/range Garmin_Down 80+");
 
     } else if (results[i] == "garmin_up") {
       generic_topic_input_vec_.push_back("garmin/range_up Garmin_Up 80+");
-
-      /* } else if (results[i] == "realsense_brick") { */
-      /*   generic_topic_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Brick 25+"); */
-
-      /* } else if (results[i] == "realsense_front") { */
-      /*   generic_topic_input_vec_.push_back("rs_d435/depth/camera_info Realsense_Front 25+"); */
-
-      /* } else if (results[i] == "bluefox_brick") { */
-      /*   generic_topic_input_vec_.push_back("bluefox_brick/camera_info Bluefox_Brick 25+"); */
-
-      /* } else if (results[i] == "bluefox_optflow") { */
-      /*   generic_topic_input_vec_.push_back("bluefox_optflow/camera_info Bluefox_Optflow 60+"); */
-      /*   generic_topic_input_vec_.push_back("optic_flow/velocity Optic_flow 60+"); */
-
-      /* } else if (results[i] == "trinocular_thermal") { */
-      /*   generic_topic_input_vec_.push_back("thermal/top/rgb_image Thermal_Top 15+"); */
-      /*   generic_topic_input_vec_.push_back("thermal/middle/rgb_image Thermal_Middle 15+"); */
-      /*   generic_topic_input_vec_.push_back("thermal/bottom/rgb_image Thermal_Bottom 15+"); */
-
-      /* } else if (results[i] == "rplidar") { */
-      /*   generic_topic_input_vec_.push_back("rplidar/scan Rplidar 10+"); */
     }
   }
 
@@ -1224,6 +1209,8 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
 
       } else {
 
+        wattron(win, COLOR_PAIR(GREEN));
+
         double voltage = battery_.voltage;
         (voltage > 17.0) ? (voltage = voltage / 6) : (voltage = voltage / 4);
 
@@ -1234,8 +1221,6 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
         }
 
         printLimitedDouble(win, 3, 1, "Batt:  %4.2f V ", voltage, 10);
-        wattron(win, COLOR_PAIR(color));
-
         printLimitedDouble(win, 3, 15, "%5.2f A", battery_.current, 100);
       }
       break;
@@ -1259,16 +1244,20 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
         double mass_diff = fabs(cmd_attitude_.total_mass - _uav_mass_) / _uav_mass_;
 
         if (mass_diff > 0.3) {
+
           tmp_color = RED;
+
         } else if (mass_diff > 0.2) {
+
           tmp_color = YELLOW;
         }
+
         if (_uav_mass_ > 10.0 || cmd_attitude_.total_mass > 10.0) {
 
           wattron(win, COLOR_PAIR(NORMAL));
-          printLimitedDouble(win, 4, 14, "%.1f/", _uav_mass_, 99.99);
+          printLimitedDouble(win, 4, 13, "%.1f/", _uav_mass_, 99.99);
           wattron(win, COLOR_PAIR(tmp_color));
-          printLimitedDouble(win, 4, 19, "%.1f", cmd_attitude_.total_mass, 99.99);
+          printLimitedDouble(win, 4, 18, "%.1f", cmd_attitude_.total_mass, 99.99);
           printLimitedString(win, 4, 22, "kg", 2);
 
         } else {
