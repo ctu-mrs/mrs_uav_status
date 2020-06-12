@@ -15,7 +15,10 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(Curses REQUIRED)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-diagnostics-color -fopenmp -O0 -lncurses -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-diagnostics-color -fopenmp -lncurses")
+
+# please, NEVER commit those alternative flags with specific overrides of optimization
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-diagnostics-color -fopenmp -O0 -lncurses -g")
 
 catkin_package(
   CATKIN_DEPENDS message_runtime # image_transport roscpp rospy std_msgs
