@@ -801,7 +801,7 @@ bool Status::mainMenuHandler(int key_in) {
           // SET CONTROLLER
 
           controllers_text_.clear();
-          controllers_text_.push_back("So3Controller");
+          controllers_text_.push_back("Se3Controller");
           controllers_text_.push_back("MpcController");
 
           int x;
@@ -1328,7 +1328,7 @@ void Status::controlManagerHandler(WINDOW* win, double rate, short color, int to
         wattron(win, COLOR_PAIR(color));
 
       } else {
-        if (controller != "So3Controller") {
+        if (controller != "Se3Controller") {
           if (controller != "MpcController") {
             wattron(win, COLOR_PAIR(RED));
           }
@@ -1382,7 +1382,7 @@ void Status::controlManagerHandler(WINDOW* win, double rate, short color, int to
 
     case 1:  // mavros state
 
-      if (controller == "So3Controller") {
+      if (controller == "Se3Controller") {
 
         if (rate == 0) {
           printNoData(win, 1, 2 + controller.length());
