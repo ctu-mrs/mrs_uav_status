@@ -213,7 +213,8 @@ private:
   ros::ServiceClient service_set_constraints_;
   ros::ServiceClient service_set_gains_;
   ros::ServiceClient service_set_controller_;
-  ros::ServiceClient service_set_odometry_source_;
+  ros::ServiceClient service_set_lat_estimator_;
+  ros::ServiceClient service_set_alt_estimator_;
   ros::ServiceClient service_hover_;
 
   // | -------------------- UAV configuration ------------------- |
@@ -253,7 +254,8 @@ private:
   vector<string>  constraints_text_;
   vector<string>  gains_text_;
   vector<string>  controllers_text_;
-  vector<string>  odometry_sources_text_;
+  vector<string>  odometry_lat_sources_text_;
+  vector<string>  odometry_alt_sources_text_;
 
   vector<double>   goto_double_vec_;
   vector<string>   goto_menu_text_;
@@ -375,7 +377,8 @@ Status::Status() {
   service_set_constraints_     = nh_.serviceClient<mrs_msgs::String>("set_constraints_out");
   service_set_gains_           = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
   service_set_controller_      = nh_.serviceClient<mrs_msgs::String>("set_controller_out");
-  service_set_odometry_source_ = nh_.serviceClient<mrs_msgs::String>("set_odometry_source_out");
+  service_set_lat_estimator_ = nh_.serviceClient<mrs_msgs::String>("set_odometry_lat_estimator_out");
+  service_set_alt_estimator_ = nh_.serviceClient<mrs_msgs::String>("set_odometry_alt_estimator_out");
   service_hover_               = nh_.serviceClient<std_srvs::Trigger>("hover_out");
 
   // mrs_lib profiler
@@ -735,8 +738,8 @@ bool Status::mainMenuHandler(int key_in) {
         break;
 
       case 4:
-        // CONTROLLERS
-        ret = submenu_vec_[0].iterate(odometry_sources_text_, key_in, true);
+        // Lat estimator
+        ret = submenu_vec_[0].iterate(odometry_lat_sources_text_, key_in, true);
 
         if (ret.has_value()) {
 
@@ -751,8 +754,35 @@ bool Status::mainMenuHandler(int key_in) {
           } else if (key == KEY_ENT) {
 
             mrs_msgs::String string_service;
-            string_service.request.value = odometry_sources_text_[line];
-            service_set_odometry_source_.call(string_service);
+            string_service.request.value = odometry_lat_sources_text_[line];
+            service_set_lat_estimator_.call(string_service);
+            printServiceResult(string_service.response.success, string_service.response.message);
+
+            submenu_vec_.clear();
+            return true;
+          }
+        }
+        break;
+
+      case 5:
+        // Alt estimator
+        ret = submenu_vec_[0].iterate(odometry_alt_sources_text_, key_in, true);
+
+        if (ret.has_value()) {
+
+          int line = get<0>(ret.value());
+          int key  = get<1>(ret.value());
+
+          if (line == 666 && key == 666) {
+
+            submenu_vec_.clear();
+            return false;
+
+          } else if (key == KEY_ENT) {
+
+            mrs_msgs::String string_service;
+            string_service.request.value = odometry_alt_sources_text_[line];
+            service_set_alt_estimator_.call(string_service);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -814,7 +844,7 @@ bool Status::mainMenuHandler(int key_in) {
           Menu menu(x, 31 + cols, constraints_text_, 1);
           submenu_vec_.push_back(menu);
 
-        } else if (line == main_menu_text_.size() - 3) {
+        } else if (line == main_menu_text_.size() - 4) {
           // SET GAINS
 
           gains_text_.clear();
@@ -834,7 +864,7 @@ bool Status::mainMenuHandler(int key_in) {
           Menu menu(x, 31 + cols, gains_text_, 2);
           submenu_vec_.push_back(menu);
 
-        } else if (line == main_menu_text_.size() - 2) {
+        } else if (line == main_menu_text_.size() - 3) {
           // SET CONTROLLER
 
           controllers_text_.clear();
@@ -852,47 +882,18 @@ bool Status::mainMenuHandler(int key_in) {
           Menu menu(x, 31 + cols, controllers_text_, 3);
           submenu_vec_.push_back(menu);
 
-        } else if (line == main_menu_text_.size() - 1) {
-          // SET ODOMETRY SOURCE
+        } else if (line == main_menu_text_.size() - 2) {
+          // SET LAT ODOMETRY SOURCE
 
-          odometry_sources_text_.clear();
+          odometry_lat_sources_text_.clear();
 
 
           if (!has_odom_diag_) {
             printServiceResult(false, "Did not receive odometry diagnostics! Check topic remaping.");
+            return false;
           }
 
-          if (odom_diag_.gps_available) {
-            odometry_sources_text_.push_back("gps");
-          }
-
-          if (odom_diag_.optflow_available) {
-            odometry_sources_text_.push_back("optflow");
-          }
-
-          if (odom_diag_.vio_available) {
-            odometry_sources_text_.push_back("vio");
-          }
-
-          if (odom_diag_.rtk_available) {
-            odometry_sources_text_.push_back("rtk");
-          }
-
-          if (odom_diag_.lidar_available) {
-            odometry_sources_text_.push_back("lidar");
-          }
-
-          if (odom_diag_.aloam_available) {
-            odometry_sources_text_.push_back("aloam");
-          }
-
-          if (odom_diag_.object_available) {
-            odometry_sources_text_.push_back("object");
-          }
-
-          if (odom_diag_.t265_available) {
-            odometry_sources_text_.push_back("t265");
-          }
+          odometry_lat_sources_text_ = odom_diag_.available_lat_estimators;
 
           int x;
           int y;
@@ -902,7 +903,31 @@ bool Status::mainMenuHandler(int key_in) {
           getyx(menu_vec_[0].getWin(), x, y);
           getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
-          Menu menu(x, 31 + cols, odometry_sources_text_, 4);
+          Menu menu(x, 31 + cols, odometry_lat_sources_text_, 4);
+          submenu_vec_.push_back(menu);
+
+        } else if (line == main_menu_text_.size() - 1) {
+          // SET LAT ODOMETRY SOURCE
+
+          odometry_alt_sources_text_.clear();
+
+
+          if (!has_odom_diag_) {
+            printServiceResult(false, "Did not receive odometry diagnostics! Check topic remaping.");
+            return false;
+          }
+
+          odometry_alt_sources_text_ = odom_diag_.available_alt_estimators;
+
+          int x;
+          int y;
+          int rows;
+          int cols;
+
+          getyx(menu_vec_[0].getWin(), x, y);
+          getmaxyx(menu_vec_[0].getWin(), rows, cols);
+
+          Menu menu(x, 31 + cols, odometry_alt_sources_text_, 5);
           submenu_vec_.push_back(menu);
 
         } else {
@@ -1689,7 +1714,8 @@ void Status::setupMainMenu() {
   main_menu_text_.push_back("Set Constraints");
   main_menu_text_.push_back("Set Gains");
   main_menu_text_.push_back("Set Controller");
-  main_menu_text_.push_back("Set Odom Source");
+  main_menu_text_.push_back("Set Lat Estimator");
+  main_menu_text_.push_back("Set Alt Estimator");
 
   Menu menu(1, 32, main_menu_text_);
   menu_vec_.push_back(menu);
