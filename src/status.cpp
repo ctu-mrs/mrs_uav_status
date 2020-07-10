@@ -620,6 +620,8 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
     case MAIN_MENU:
       flushinp();
       if (mainMenuHandler(key_in)) {
+        menu_vec_.clear();
+        submenu_vec_.clear();
         state = STANDARD;
       }
       break;
@@ -627,6 +629,8 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
     case GOTO_MENU:
       flushinp();
       if (gotoMenuHandler(key_in)) {
+        menu_vec_.clear();
+        submenu_vec_.clear();
         state = STANDARD;
       }
       break;
@@ -824,7 +828,7 @@ bool Status::mainMenuHandler(int key_in) {
           menu_vec_.clear();
           return true;
 
-        } else if (line == main_menu_text_.size() - 4) {
+        } else if (line == main_menu_text_.size() - 5) {
           // SET CONSTRAINTS
 
           constraints_text_.clear();
