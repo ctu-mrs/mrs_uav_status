@@ -213,6 +213,7 @@ private:
   ros::ServiceClient service_set_constraints_;
   ros::ServiceClient service_set_gains_;
   ros::ServiceClient service_set_controller_;
+  ros::ServiceClient service_set_tracker_;
   ros::ServiceClient service_set_lat_estimator_;
   ros::ServiceClient service_set_alt_estimator_;
   ros::ServiceClient service_hover_;
@@ -254,6 +255,7 @@ private:
   vector<string>  constraints_text_;
   vector<string>  gains_text_;
   vector<string>  controllers_text_;
+  vector<string>  trackers_text_;
   vector<string>  odometry_lat_sources_text_;
   vector<string>  odometry_alt_sources_text_;
 
@@ -377,6 +379,7 @@ Status::Status() {
   service_set_constraints_     = nh_.serviceClient<mrs_msgs::String>("set_constraints_out");
   service_set_gains_           = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
   service_set_controller_      = nh_.serviceClient<mrs_msgs::String>("set_controller_out");
+  service_set_tracker_      = nh_.serviceClient<mrs_msgs::String>("set_tracker_out");
   service_set_lat_estimator_ = nh_.serviceClient<mrs_msgs::String>("set_odometry_lat_estimator_out");
   service_set_alt_estimator_ = nh_.serviceClient<mrs_msgs::String>("set_odometry_alt_estimator_out");
   service_hover_               = nh_.serviceClient<std_srvs::Trigger>("hover_out");
@@ -742,6 +745,33 @@ bool Status::mainMenuHandler(int key_in) {
         break;
 
       case 4:
+        // TRACKERS
+        ret = submenu_vec_[0].iterate(trackers_text_, key_in, true);
+
+        if (ret.has_value()) {
+
+          int line = get<0>(ret.value());
+          int key  = get<1>(ret.value());
+
+          if (line == 666 && key == 666) {
+
+            submenu_vec_.clear();
+            return false;
+
+          } else if (key == KEY_ENT) {
+
+            mrs_msgs::String string_service;
+            string_service.request.value = trackers_text_[line];
+            service_set_tracker_.call(string_service);
+            printServiceResult(string_service.response.success, string_service.response.message);
+
+            submenu_vec_.clear();
+            return true;
+          }
+        }
+        break;
+
+      case 5:
         // Lat estimator
         ret = submenu_vec_[0].iterate(odometry_lat_sources_text_, key_in, true);
 
@@ -768,7 +798,7 @@ bool Status::mainMenuHandler(int key_in) {
         }
         break;
 
-      case 5:
+      case 6:
         // Alt estimator
         ret = submenu_vec_[0].iterate(odometry_alt_sources_text_, key_in, true);
 
@@ -828,7 +858,7 @@ bool Status::mainMenuHandler(int key_in) {
           menu_vec_.clear();
           return true;
 
-        } else if (line == main_menu_text_.size() - 5) {
+        } else if (line == main_menu_text_.size() - 6) {
           // SET CONSTRAINTS
 
           constraints_text_.clear();
@@ -848,7 +878,7 @@ bool Status::mainMenuHandler(int key_in) {
           Menu menu(x, 31 + cols, constraints_text_, 1);
           submenu_vec_.push_back(menu);
 
-        } else if (line == main_menu_text_.size() - 4) {
+        } else if (line == main_menu_text_.size() - 5) {
           // SET GAINS
 
           gains_text_.clear();
@@ -868,7 +898,7 @@ bool Status::mainMenuHandler(int key_in) {
           Menu menu(x, 31 + cols, gains_text_, 2);
           submenu_vec_.push_back(menu);
 
-        } else if (line == main_menu_text_.size() - 3) {
+        } else if (line == main_menu_text_.size() - 4) {
           // SET CONTROLLER
 
           controllers_text_.clear();
@@ -884,6 +914,24 @@ bool Status::mainMenuHandler(int key_in) {
           getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
           Menu menu(x, 31 + cols, controllers_text_, 3);
+          submenu_vec_.push_back(menu);
+
+        } else if (line == main_menu_text_.size() - 3) {
+          // SET TRACKER
+
+          trackers_text_.clear();
+          trackers_text_.push_back("Mpc Tracker");
+          trackers_text_.push_back("Some Other Tracker");
+
+          int x;
+          int y;
+          int rows;
+          int cols;
+
+          getyx(menu_vec_[0].getWin(), x, y);
+          getmaxyx(menu_vec_[0].getWin(), rows, cols);
+
+          Menu menu(x, 31 + cols, trackers_text_, 4);
           submenu_vec_.push_back(menu);
 
         } else if (line == main_menu_text_.size() - 2) {
@@ -907,7 +955,7 @@ bool Status::mainMenuHandler(int key_in) {
           getyx(menu_vec_[0].getWin(), x, y);
           getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
-          Menu menu(x, 31 + cols, odometry_lat_sources_text_, 4);
+          Menu menu(x, 31 + cols, odometry_lat_sources_text_, 5);
           submenu_vec_.push_back(menu);
 
         } else if (line == main_menu_text_.size() - 1) {
@@ -931,7 +979,7 @@ bool Status::mainMenuHandler(int key_in) {
           getyx(menu_vec_[0].getWin(), x, y);
           getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
-          Menu menu(x, 31 + cols, odometry_alt_sources_text_, 5);
+          Menu menu(x, 31 + cols, odometry_alt_sources_text_, 6);
           submenu_vec_.push_back(menu);
 
         } else {
@@ -1690,7 +1738,7 @@ void Status::setupMainMenu() {
     std::vector<std::string> results;
     boost::split(results, service_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
 
-    for (int j = 2; j < results.size(); j++) {
+    for (unsigned long j = 2; j < results.size(); j++) {
       results[1] = results[1] + " " + results[j];
     }
 
@@ -1718,6 +1766,7 @@ void Status::setupMainMenu() {
   main_menu_text_.push_back("Set Constraints");
   main_menu_text_.push_back("Set Gains");
   main_menu_text_.push_back("Set Controller");
+  main_menu_text_.push_back("Set Tracker");
   main_menu_text_.push_back("Set Lat Estimator");
   main_menu_text_.push_back("Set Alt Estimator");
 

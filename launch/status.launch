@@ -61,6 +61,7 @@
       <remap from="~set_odometry_alt_estimator_out" to="odometry/change_alt_estimator_type_string" />
       <remap from="~set_gains_out" to="gain_manager/set_gains" />
       <remap from="~set_controller_out" to="control_manager/switch_controller" />
+      <remap from="~set_tracker_out" to="control_manager/switch_tracker" />
       <remap from="~hover_out" to="control_manager/hover" />
 
     </node>
