@@ -22,4 +22,5 @@ tf_static_list: [
       "os1_sensor aloam/odom_local ALOAM 10",
       "uvcam_left uvdar_bluefox/left/camera_info UV_BFox_Left 70",
       "uvcam_right uvdar_bluefox/right/camera_info UV_BFox_Right 70",
+      "picoflexx pico_flexx/camera_info Picoflexx 5"
       ]
