@@ -374,15 +374,15 @@ Status::Status() {
 
   // | ------------------------ Services ------------------------ |
   //
-  service_goto_reference_      = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
-  service_goto_fcu_            = nh_.serviceClient<mrs_msgs::Vec4>("goto_fcu_out");
-  service_set_constraints_     = nh_.serviceClient<mrs_msgs::String>("set_constraints_out");
-  service_set_gains_           = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
-  service_set_controller_      = nh_.serviceClient<mrs_msgs::String>("set_controller_out");
-  service_set_tracker_      = nh_.serviceClient<mrs_msgs::String>("set_tracker_out");
+  service_goto_reference_    = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
+  service_goto_fcu_          = nh_.serviceClient<mrs_msgs::Vec4>("goto_fcu_out");
+  service_set_constraints_   = nh_.serviceClient<mrs_msgs::String>("set_constraints_out");
+  service_set_gains_         = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
+  service_set_controller_    = nh_.serviceClient<mrs_msgs::String>("set_controller_out");
+  service_set_tracker_       = nh_.serviceClient<mrs_msgs::String>("set_tracker_out");
   service_set_lat_estimator_ = nh_.serviceClient<mrs_msgs::String>("set_odometry_lat_estimator_out");
   service_set_alt_estimator_ = nh_.serviceClient<mrs_msgs::String>("set_odometry_alt_estimator_out");
-  service_hover_               = nh_.serviceClient<std_srvs::Trigger>("hover_out");
+  service_hover_             = nh_.serviceClient<std_srvs::Trigger>("hover_out");
 
   // mrs_lib profiler
   profiler_ = mrs_lib::Profiler(nh_, "Status", _profiler_enabled_);
@@ -567,6 +567,8 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   flightTimeHandler(top_bar_window_);
 
   printHelp();
+  wrefresh(top_bar_window_);
+  wrefresh(bottom_window_);
 
   int key_in = getch();
 
@@ -639,8 +641,6 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       break;
   }
 
-  wrefresh(top_bar_window_);
-  wrefresh(bottom_window_);
   refresh();
 }
 
@@ -902,8 +902,7 @@ bool Status::mainMenuHandler(int key_in) {
           // SET CONTROLLER
 
           controllers_text_.clear();
-          controllers_text_.push_back("Se3Controller");
-          controllers_text_.push_back("MpcController");
+          controllers_text_ = control_manager_.available_controllers;
 
           int x;
           int y;
@@ -920,8 +919,7 @@ bool Status::mainMenuHandler(int key_in) {
           // SET TRACKER
 
           trackers_text_.clear();
-          trackers_text_.push_back("Mpc Tracker");
-          trackers_text_.push_back("Some Other Tracker");
+          trackers_text_ = control_manager_.available_trackers;
 
           int x;
           int y;
