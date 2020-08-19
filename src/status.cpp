@@ -567,8 +567,7 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   flightTimeHandler(top_bar_window_);
 
   printHelp();
-  wrefresh(top_bar_window_);
-  wrefresh(bottom_window_);
+
 
   int key_in = getch();
 
@@ -640,6 +639,9 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       }
       break;
   }
+
+  wrefresh(top_bar_window_);
+  wrefresh(bottom_window_);
 
   refresh();
 }
@@ -1062,12 +1064,12 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
   wattron(win, A_BOLD);
   wattron(win, COLOR_PAIR(RED));
-  mvwprintw(win, 0, 20, "REMOTE MODE IS ACTIVE, YOU HAVE CONTROL");
+  mvwprintw(win, 0, 40, "REMOTE MODE IS ACTIVE, YOU HAVE CONTROL");
 
   if (turbo_remote_) {
     wattron(win, A_BLINK);
-    mvwprintw(win, 0, 12, "!TURBO!");
-    mvwprintw(win, 0, 60, "!TURBO!");
+    mvwprintw(win, 0, 32, "!TURBO!");
+    mvwprintw(win, 0, 80, "!TURBO!");
     wattroff(win, A_BLINK);
   }
 
@@ -1705,9 +1707,9 @@ void Status::setupGenericCallbacks() {
       topic_name = "/" + _uav_name_ + "/" + generic_topic_vec_[i].topic_name;
     }
 
-    callback                       = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { genericCallback(msg, topic_name, id); };
+    callback = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { genericCallback(msg, topic_name, id); };
     ros::VoidConstPtr shit;
-    ros::Subscriber tmp_subscriber = nh_.subscribe(topic_name, 10, callback, shit, ros::TransportHints().tcpNoDelay());
+    ros::Subscriber   tmp_subscriber = nh_.subscribe(topic_name, 10, callback, shit, ros::TransportHints().tcpNoDelay());
 
     generic_subscriber_vec_.push_back(tmp_subscriber);
   }
