@@ -36,6 +36,8 @@
 #include <std_srvs/Trigger.h>
 
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Vector3.h>
 
 #include <sensor_msgs/BatteryState.h>
 
@@ -67,7 +69,9 @@ public:
 
   string _colorscheme_;
   bool   _rainbow_;
-  bool   _light_ = false;
+  bool   _debug_tilt_;
+
+  bool _light_ = false;
 
 private:
   ros::NodeHandle nh_;
@@ -96,6 +100,7 @@ private:
   void setServiceCallback(const std_msgs::String& msg);
   void tfStaticCallback(const tf2_msgs::TFMessage& msg);
   void mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg);
+  void mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg);
 
   // generic callback, for any topic, to monitor its rate
   void genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
@@ -197,6 +202,7 @@ private:
   ros::Subscriber mpc_diag_subscriber_;
   ros::Subscriber mavros_state_subscriber_;
   ros::Subscriber mavros_global_subscriber_;
+  ros::Subscriber mavros_local_subscriber_;
   ros::Subscriber attitude_cmd_subscriber_;
   ros::Subscriber battery_subscriber_;
   ros::Subscriber control_manager_subscriber_;
@@ -229,10 +235,11 @@ private:
   bool   _pixgarm_;
 
   // | ------------------ Data storage, inputs ------------------ |
-  mavros_msgs::State        mavros_state_;
-  mrs_msgs::AttitudeCommand cmd_attitude_;
-  sensor_msgs::NavSatFix    mavros_global_;
-  sensor_msgs::BatteryState battery_;
+  mavros_msgs::State         mavros_state_;
+  mrs_msgs::AttitudeCommand  cmd_attitude_;
+  sensor_msgs::NavSatFix     mavros_global_;
+  geometry_msgs::PoseStamped mavros_local_;
+  sensor_msgs::BatteryState  battery_;
 
   mrs_msgs::UavState                     uav_state_;
   mrs_msgs::OdometryDiag                 odom_diag_;
@@ -316,6 +323,8 @@ Status::Status() {
   param_loader.loadParam("colorscheme", _colorscheme_);
   param_loader.loadParam("rainbow", _rainbow_);
 
+  param_loader.loadParam("debug_tilt", _debug_tilt_);
+
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
   std::vector<string> want_hz;
@@ -371,6 +380,10 @@ Status::Status() {
   string_subscriber_             = nh_.subscribe("string_in", 1, &Status::stringCallback, this, ros::TransportHints().tcpNoDelay());
   set_service_subscriber_        = nh_.subscribe("set_service_in", 1, &Status::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
   tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &Status::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
+
+  if (_debug_tilt_) {
+    mavros_local_subscriber_ = nh_.subscribe("mavros_local_in", 1, &Status::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
+  }
 
   // | ------------------------ Services ------------------------ |
   //
@@ -1229,7 +1242,7 @@ void Status::stringHandler(WINDOW* win, double rate, short color, int topic) {
       string_info_vec_.erase(string_info_vec_.begin() + i);
     } else {
 
-      printLimitedString(win, 1 + (3 * i), 1, string_info_vec_[i].publisher_name + ": ", 30);
+      printLimitedString(win, 1 + (3 * i), 1, string_info_vec_[i].publisher_name + ": ", 40);
 
       int    tmp_color          = NORMAL;
       bool   blink              = false;
@@ -1268,7 +1281,7 @@ void Status::stringHandler(WINDOW* win, double rate, short color, int topic) {
       }
 
       wattron(win, COLOR_PAIR(tmp_color));
-      printLimitedString(win, 2 + (3 * i), 1, tmp_display_string, 30);
+      printLimitedString(win, 2 + (3 * i), 1, tmp_display_string, 40);
       wattroff(win, COLOR_PAIR(tmp_color));
       wattroff(win, A_BLINK);
     }
@@ -2219,6 +2232,55 @@ void Status::cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg) {
 void Status::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
   mavros_state_topic_[3].counter++;
   mavros_global_ = *msg;
+}
+
+//}
+
+/* mavrosLocalCallback() //{ */
+
+void Status::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) {
+
+  mavros_local_ = *msg;
+  double tilt, roll, pitch;
+
+  geometry_msgs::Vector3 z_vec = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getVectorZ();
+  roll                         = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getRoll() * 57.2958;
+  pitch                        = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getPitch() * 57.2958;
+
+  try {
+    tilt = acos(z_vec.z) * 57.2958;
+  }
+  catch (int e) {
+    tilt = -666;
+  }
+
+  std::stringstream stream;
+  stream << std::fixed << std::setprecision(2) << "tilt: " << tilt << " deg,\n roll: " << roll << ", pitch: " << pitch;
+
+  std::string display_msg = stream.str();
+  std::string pub_name    = "pixhawk";
+
+  if (tilt < 10) {
+    display_msg = "-g " + display_msg;
+  } else {
+    display_msg = "-r " + display_msg;
+  }
+
+  bool contains = false;
+
+  for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
+    if (string_info_vec_[i].publisher_name == pub_name) {
+      contains                           = true;
+      string_info_vec_[i].display_string = display_msg;
+      string_info_vec_[i].last_time      = ros::Time::now();
+      break;
+    }
+  }
+
+  if (!contains) {
+    string_info tmp(pub_name, display_msg);
+    string_info_vec_.push_back(tmp);
+  }
 }
 
 //}
