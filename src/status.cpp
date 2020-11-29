@@ -44,11 +44,22 @@
 #include <mrs_lib/transformer.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/attitude_converter.h>
+#include <mrs_lib/timer.h>
 
 #include <tf2_msgs/TFMessage.h>
 
 using namespace std;
 using topic_tools::ShapeShifter;
+
+//}
+
+/* using //{ */
+
+#if ROS_VERSION_MINIMUM(1, 15, 8)
+using Timer = mrs_lib::ThreadTimer;
+#else
+using Timer = mrs_lib::ROSTimer;
+#endif
 
 //}
 
@@ -80,8 +91,8 @@ private:
 
   // | ------------------------- Timers ------------------------- |
 
-  ros::Timer status_timer_;
-  ros::Timer resize_timer_;
+  Timer status_timer_;
+  Timer resize_timer_;
 
   void statusTimer(const ros::TimerEvent& event);
   void resizeTimer(const ros::TimerEvent& event);
@@ -363,8 +374,8 @@ Status::Status() {
 
   // | ------------------------- Timers ------------------------- |
 
-  status_timer_ = nh_.createTimer(ros::Rate(10), &Status::statusTimer, this);
-  resize_timer_ = nh_.createTimer(ros::Rate(1), &Status::resizeTimer, this);
+  status_timer_ = Timer(nh_, ros::Rate(10), &Status::statusTimer, this);
+  resize_timer_ = Timer(nh_, ros::Rate(1), &Status::resizeTimer, this);
 
   // | ----------------------- Subscribers ---------------------- |
 
@@ -488,11 +499,12 @@ Status::Status() {
 
   debug_window_ = newwin(20, 120, 12, 1);
 
-  initialized_ = true;
   ROS_INFO("[Status]: Node initialized!");
 
   // This thread is for the general info window, it fetches CPU frequency, RAM info, Disk space info and CPU load asynchronously
   general_info_thread_ = std::thread{&Status::generalInfoThread, this};
+
+  initialized_ = true;
 }
 
 //}
@@ -500,6 +512,10 @@ Status::Status() {
 /* resizeTimer //{ */
 
 void Status::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
+
+  if (!initialized_) {
+    return; 
+  }
 
   // TODO resizing causes screen flicker, should be called just before general refresh.
   // TODO display breaks when screen is resized to very small number of cols
@@ -536,6 +552,10 @@ void Status::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
 /* statusTimer //{ */
 
 void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
+
+  if (!initialized_) {
+    return; 
+  }
 
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
@@ -1642,7 +1662,6 @@ void Status::generalInfoThread() {
 
   ros::Time last_time;
 
-
   while (true) {
 
     double interval = (ros::Time::now() - last_time).toSec();
@@ -1680,6 +1699,10 @@ void Status::generalInfoThread() {
 /* setupGenericCallbacks() //{ */
 
 void Status::setupGenericCallbacks() {
+
+  if (!initialized_) {
+    return; 
+  }
 
   generic_topic_vec_.clear();
   generic_subscriber_vec_.clear();
@@ -2185,6 +2208,11 @@ void Status::printHelp() {
 /* uavStateCallback() //{ */
 
 void Status::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
+
+  if (!initialized_) {
+    return; 
+  }
+
   uav_state_topic_[0].counter++;
   uav_state_ = *msg;
 }
@@ -2194,6 +2222,11 @@ void Status::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
 /* odomDiagCallback() //{ */
 
 void Status::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
+
+  if (!initialized_) {
+    return; 
+  }
+
   odom_diag_     = *msg;
   has_odom_diag_ = true;
 }
@@ -2203,6 +2236,11 @@ void Status::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
 /* mavrosStateCallback() //{ */
 
 void Status::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
+
+  if (!initialized_) {
+    return; 
+  }
+
   mavros_state_topic_[0].counter++;
   mavros_state_ = *msg;
 }
@@ -2212,6 +2250,11 @@ void Status::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
 /* batteryCallback() //{ */
 
 void Status::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
+
+  if (!initialized_) {
+    return; 
+  }
+
   mavros_state_topic_[1].counter++;
   battery_ = *msg;
 }
@@ -2221,6 +2264,11 @@ void Status::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
 /* mavrosAttitudeCallback() //{ */
 
 void Status::cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg) {
+
+  if (!initialized_) {
+    return; 
+  }
+
   mavros_state_topic_[2].counter++;
   cmd_attitude_ = *msg;
 }
@@ -2230,6 +2278,11 @@ void Status::cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg) {
 /* mavrosGlobalCallback() //{ */
 
 void Status::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
+
+  if (!initialized_) {
+    return; 
+  }
+
   mavros_state_topic_[3].counter++;
   mavros_global_ = *msg;
 }
@@ -2239,6 +2292,10 @@ void Status::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
 /* mavrosLocalCallback() //{ */
 
 void Status::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) {
+
+  if (!initialized_) {
+    return; 
+  }
 
   mavros_local_ = *msg;
   double tilt, roll, pitch;
@@ -2288,6 +2345,11 @@ void Status::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) 
 /* controlManagerCallback() //{ */
 
 void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
+
+  if (!initialized_) {
+    return; 
+  }
+
   control_manager_topic_[0].counter++;
   control_manager_                                                = *msg;
   control_manager_.active_tracker == "NullTracker" ? NullTracker_ = true : NullTracker_ = false;
@@ -2298,6 +2360,11 @@ void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsCon
 /* gainManagerCallback() //{ */
 
 void Status::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
+
+  if (!initialized_) {
+    return; 
+  }
+
   control_manager_topic_[1].counter++;
   gain_manager_ = *msg;
 }
@@ -2307,6 +2374,11 @@ void Status::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr&
 /* constraintManagerCallback() //{ */
 
 void Status::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
+
+  if (!initialized_) {
+    return; 
+  }
+
   control_manager_topic_[2].counter++;
   constraint_manager_ = *msg;
 }
@@ -2317,6 +2389,10 @@ void Status::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnost
 
 void Status::setServiceCallback(const std_msgs::String& msg) {
 
+  if (!initialized_) {
+    return; 
+  }
+
   if (std::find(service_input_vec_.begin(), service_input_vec_.end(), msg.data) == service_input_vec_.end()) {
     service_input_vec_.push_back(msg.data);
   }
@@ -2326,6 +2402,10 @@ void Status::setServiceCallback(const std_msgs::String& msg) {
 /* tfStaticCallback() //{ */
 
 void Status::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
+
+  if (!initialized_) {
+    return; 
+  }
 
   for (unsigned long i = 0; i < msg.transforms.size(); i++) {
 
@@ -2349,6 +2429,10 @@ void Status::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
 /* stringCallback() //{ */
 
 void Status::stringCallback(const ros::MessageEvent<std_msgs::String const>& event) {
+
+  if (!initialized_) {
+    return; 
+  }
 
   std::string pub_name = event.getPublisherName();
   std::string msg_str  = event.getMessage()->data;
@@ -2374,6 +2458,11 @@ void Status::stringCallback(const ros::MessageEvent<std_msgs::String const>& eve
 /* genericCallback() //{ */
 
 void Status::genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id) {
+
+  if (!initialized_) {
+    return; 
+  }
+
   generic_topic_vec_[id].counter++;
 }
 
