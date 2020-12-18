@@ -1,6 +1,9 @@
-# MRS UAV Status [![Build Status](https://github.com/ctu-mrs/mrs_uav_status/workflows/CI/badge.svg)](https://github.com/ctu-mrs/mrs_uav_status/actions)
+# MRS UAV Status
 
 ![](.fig/thumbnail.jpg)
+
+| Build status | [![Build Status](https://github.com/ctu-mrs/mrs_uav_status/workflows/Melodic/badge.svg)](https://github.com/ctu-mrs/mrs_uav_status/actions) | [![Build Status](https://github.com/ctu-mrs/mrs_uav_status/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/mrs_simulation/actions) |
+|--------------|---------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
 
 ## Real-time Terminal User Interface for monitoring and control
 
