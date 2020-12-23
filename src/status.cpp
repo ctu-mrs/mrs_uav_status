@@ -44,22 +44,11 @@
 #include <mrs_lib/transformer.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/attitude_converter.h>
-#include <mrs_lib/timer.h>
 
 #include <tf2_msgs/TFMessage.h>
 
 using namespace std;
 using topic_tools::ShapeShifter;
-
-//}
-
-/* using //{ */
-
-#if ROS_VERSION_MINIMUM(1, 15, 8)
-using Timer = mrs_lib::ThreadTimer;
-#else
-using Timer = mrs_lib::ROSTimer;
-#endif
 
 //}
 
@@ -91,8 +80,8 @@ private:
 
   // | ------------------------- Timers ------------------------- |
 
-  Timer status_timer_;
-  Timer resize_timer_;
+  ros::Timer status_timer_;
+  ros::Timer resize_timer_;
 
   void statusTimer(const ros::TimerEvent& event);
   void resizeTimer(const ros::TimerEvent& event);
@@ -374,8 +363,8 @@ Status::Status() {
 
   // | ------------------------- Timers ------------------------- |
 
-  status_timer_ = Timer(nh_, ros::Rate(10), &Status::statusTimer, this);
-  resize_timer_ = Timer(nh_, ros::Rate(1), &Status::resizeTimer, this);
+  status_timer_ = nh_.createTimer(ros::Rate(10), &Status::statusTimer, this);
+  resize_timer_ = nh_.createTimer(ros::Rate(1), &Status::resizeTimer, this);
 
   // | ----------------------- Subscribers ---------------------- |
 
