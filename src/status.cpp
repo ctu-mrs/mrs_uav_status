@@ -22,6 +22,7 @@
 
 #include <mrs_msgs/ReferenceStampedSrv.h>
 #include <mrs_msgs/Vec4.h>
+#include <mrs_msgs/TrajectoryReferenceSrv.h>
 #include <mrs_msgs/String.h>
 
 #include <std_msgs/String.h>
@@ -70,6 +71,7 @@ public:
   string _colorscheme_;
   bool   _rainbow_;
   bool   _debug_tilt_;
+  bool   _remote_mode_is_trajectory_;
 
   bool _light_ = false;
 
@@ -176,6 +178,8 @@ private:
 
   void remoteHandler(int key, WINDOW* win);
 
+  void remoteModeTrajectory(mrs_msgs::Vec4& goal);
+
   void setupGenericCallbacks();
 
   std::string callTerminal(const char* cmd);
@@ -216,6 +220,7 @@ private:
 
   ros::ServiceClient service_goto_reference_;
   ros::ServiceClient service_goto_fcu_;
+  ros::ServiceClient service_trajectory_reference_;
   ros::ServiceClient service_set_constraints_;
   ros::ServiceClient service_set_gains_;
   ros::ServiceClient service_set_controller_;
@@ -324,6 +329,7 @@ Status::Status() {
   param_loader.loadParam("rainbow", _rainbow_);
 
   param_loader.loadParam("debug_tilt", _debug_tilt_);
+  param_loader.loadParam("remote_mode_is_trajectory", _remote_mode_is_trajectory_);
 
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
@@ -387,15 +393,16 @@ Status::Status() {
 
   // | ------------------------ Services ------------------------ |
   //
-  service_goto_reference_    = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
-  service_goto_fcu_          = nh_.serviceClient<mrs_msgs::Vec4>("goto_fcu_out");
-  service_set_constraints_   = nh_.serviceClient<mrs_msgs::String>("set_constraints_out");
-  service_set_gains_         = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
-  service_set_controller_    = nh_.serviceClient<mrs_msgs::String>("set_controller_out");
-  service_set_tracker_       = nh_.serviceClient<mrs_msgs::String>("set_tracker_out");
-  service_set_lat_estimator_ = nh_.serviceClient<mrs_msgs::String>("set_odometry_lat_estimator_out");
-  service_set_alt_estimator_ = nh_.serviceClient<mrs_msgs::String>("set_odometry_alt_estimator_out");
-  service_hover_             = nh_.serviceClient<std_srvs::Trigger>("hover_out");
+  service_goto_reference_       = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
+  service_goto_fcu_             = nh_.serviceClient<mrs_msgs::Vec4>("goto_fcu_out");
+  service_trajectory_reference_ = nh_.serviceClient<mrs_msgs::TrajectoryReferenceSrv>("trajectory_reference_out");
+  service_set_constraints_      = nh_.serviceClient<mrs_msgs::String>("set_constraints_out");
+  service_set_gains_            = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
+  service_set_controller_       = nh_.serviceClient<mrs_msgs::String>("set_controller_out");
+  service_set_tracker_          = nh_.serviceClient<mrs_msgs::String>("set_tracker_out");
+  service_set_lat_estimator_    = nh_.serviceClient<mrs_msgs::String>("set_odometry_lat_estimator_out");
+  service_set_alt_estimator_    = nh_.serviceClient<mrs_msgs::String>("set_odometry_alt_estimator_out");
+  service_hover_                = nh_.serviceClient<std_srvs::Trigger>("hover_out");
 
   // mrs_lib profiler
   profiler_ = mrs_lib::Profiler(nh_, "Status", _profiler_enabled_);
@@ -503,7 +510,7 @@ Status::Status() {
 void Status::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   // TODO resizing causes screen flicker, should be called just before general refresh.
@@ -543,7 +550,7 @@ void Status::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
 void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   {
@@ -1116,8 +1123,11 @@ void Status::remoteHandler(int key, WINDOW* win) {
       if (turbo_remote_) {
         goal.request.goal[0] = 5.0;
       }
-
-      service_goto_fcu_.call(goal);
+      if (_remote_mode_is_trajectory_) {
+        remoteModeTrajectory(goal);
+      } else {
+        service_goto_fcu_.call(goal);
+      }
       remote_hover_ = true;
       break;
 
@@ -1130,7 +1140,11 @@ void Status::remoteHandler(int key, WINDOW* win) {
         goal.request.goal[0] = -5.0;
       }
 
-      service_goto_fcu_.call(goal);
+      if (_remote_mode_is_trajectory_) {
+        remoteModeTrajectory(goal);
+      } else {
+        service_goto_fcu_.call(goal);
+      }
       remote_hover_ = true;
       break;
 
@@ -1143,7 +1157,11 @@ void Status::remoteHandler(int key, WINDOW* win) {
         goal.request.goal[1] = 5.0;
       }
 
-      service_goto_fcu_.call(goal);
+      if (_remote_mode_is_trajectory_) {
+        remoteModeTrajectory(goal);
+      } else {
+        service_goto_fcu_.call(goal);
+      }
       remote_hover_ = true;
       break;
 
@@ -1156,7 +1174,11 @@ void Status::remoteHandler(int key, WINDOW* win) {
         goal.request.goal[1] = -5.0;
       }
 
-      service_goto_fcu_.call(goal);
+      if (_remote_mode_is_trajectory_) {
+        remoteModeTrajectory(goal);
+      } else {
+        service_goto_fcu_.call(goal);
+      }
       remote_hover_ = true;
       break;
 
@@ -1167,7 +1189,11 @@ void Status::remoteHandler(int key, WINDOW* win) {
         goal.request.goal[2] = 2.0;
       }
 
-      service_goto_fcu_.call(goal);
+      if (_remote_mode_is_trajectory_) {
+        remoteModeTrajectory(goal);
+      } else {
+        service_goto_fcu_.call(goal);
+      }
       remote_hover_ = true;
       break;
 
@@ -1178,7 +1204,11 @@ void Status::remoteHandler(int key, WINDOW* win) {
         goal.request.goal[2] = -2.0;
       }
 
-      service_goto_fcu_.call(goal);
+      if (_remote_mode_is_trajectory_) {
+        remoteModeTrajectory(goal);
+      } else {
+        service_goto_fcu_.call(goal);
+      }
       remote_hover_ = true;
       break;
 
@@ -1189,7 +1219,11 @@ void Status::remoteHandler(int key, WINDOW* win) {
         goal.request.goal[3] = 1.0;
       }
 
-      service_goto_fcu_.call(goal);
+      if (_remote_mode_is_trajectory_) {
+        remoteModeTrajectory(goal);
+      } else {
+        service_goto_fcu_.call(goal);
+      }
       remote_hover_ = true;
       break;
 
@@ -1200,7 +1234,11 @@ void Status::remoteHandler(int key, WINDOW* win) {
         goal.request.goal[3] = -1.0;
       }
 
-      service_goto_fcu_.call(goal);
+      if (_remote_mode_is_trajectory_) {
+        remoteModeTrajectory(goal);
+      } else {
+        service_goto_fcu_.call(goal);
+      }
       remote_hover_ = true;
       break;
 
@@ -1233,6 +1271,36 @@ void Status::remoteHandler(int key, WINDOW* win) {
       break;
   }
   wattroff(win, A_BOLD);
+}
+
+//}
+
+/* remoteModeTrajectory() //{ */
+
+void Status::remoteModeTrajectory(mrs_msgs::Vec4& goal) {
+  mrs_msgs::TrajectoryReferenceSrv traj;
+  mrs_msgs::TrajectoryReference tmp_traj;
+  tmp_traj.header.frame_id = _uav_name_ + "/fcu_untilted";
+  tmp_traj.use_heading     = true;
+  tmp_traj.fly_now         = true;
+  tmp_traj.loop            = false;
+  tmp_traj.dt              = 0.2;
+
+  mrs_msgs::Reference tmp_ref;
+  tmp_ref.position.x = 0.0;
+  tmp_ref.position.y = 0.0;
+  tmp_ref.position.z = 0.0;
+  tmp_ref.heading    = 0;
+
+  for (int i = 0; i < 10; i++) {
+    tmp_ref.position.x += goal.request.goal[0] / 10;
+    tmp_ref.position.y += goal.request.goal[1] / 10;
+    tmp_ref.position.z += goal.request.goal[2] / 10;
+    tmp_ref.heading += goal.request.goal[3] / 10;
+    tmp_traj.points.push_back(tmp_ref);
+  }
+  traj.request.trajectory = tmp_traj;
+  service_trajectory_reference_.call(traj);
 }
 
 //}
@@ -1690,7 +1758,7 @@ void Status::generalInfoThread() {
 void Status::setupGenericCallbacks() {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   generic_topic_vec_.clear();
@@ -2199,7 +2267,7 @@ void Status::printHelp() {
 void Status::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   uav_state_topic_[0].counter++;
@@ -2213,7 +2281,7 @@ void Status::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
 void Status::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   odom_diag_     = *msg;
@@ -2227,7 +2295,7 @@ void Status::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
 void Status::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   mavros_state_topic_[0].counter++;
@@ -2241,7 +2309,7 @@ void Status::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
 void Status::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   mavros_state_topic_[1].counter++;
@@ -2255,7 +2323,7 @@ void Status::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
 void Status::cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   mavros_state_topic_[2].counter++;
@@ -2269,7 +2337,7 @@ void Status::cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg) {
 void Status::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   mavros_state_topic_[3].counter++;
@@ -2283,7 +2351,7 @@ void Status::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
 void Status::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   mavros_local_ = *msg;
@@ -2336,7 +2404,7 @@ void Status::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) 
 void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   control_manager_topic_[0].counter++;
@@ -2351,7 +2419,7 @@ void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsCon
 void Status::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   control_manager_topic_[1].counter++;
@@ -2365,7 +2433,7 @@ void Status::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr&
 void Status::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   control_manager_topic_[2].counter++;
@@ -2379,7 +2447,7 @@ void Status::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnost
 void Status::setServiceCallback(const std_msgs::String& msg) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   if (std::find(service_input_vec_.begin(), service_input_vec_.end(), msg.data) == service_input_vec_.end()) {
@@ -2393,7 +2461,7 @@ void Status::setServiceCallback(const std_msgs::String& msg) {
 void Status::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   for (unsigned long i = 0; i < msg.transforms.size(); i++) {
@@ -2420,7 +2488,7 @@ void Status::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
 void Status::stringCallback(const ros::MessageEvent<std_msgs::String const>& event) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   std::string pub_name = event.getPublisherName();
@@ -2449,7 +2517,7 @@ void Status::stringCallback(const ros::MessageEvent<std_msgs::String const>& eve
 void Status::genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id) {
 
   if (!initialized_) {
-    return; 
+    return;
   }
 
   generic_topic_vec_[id].counter++;
