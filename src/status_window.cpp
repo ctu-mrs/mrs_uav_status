@@ -3,11 +3,13 @@
 /* Redraw() //{ */
 
 void StatusWindow::Redraw(void (Status::*fp)(WINDOW* win, double rate, short color, int topic), bool light, Status * obj) {
-  double interval = (ros::Time::now() - last_time_).toSec();
+
+  ros::Time time_now = ros::Time::now();
+  double interval = (time_now - last_time_).toSec();
+  last_time_ = time_now;
 
   werase(win_);
 
-  last_time_ = ros::Time::now();
 
   wattron(win_, A_BOLD);
 
