@@ -1801,8 +1801,7 @@ void Status::setupGenericCallbacks() {
     }
 
     callback = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { genericCallback(msg, topic_name, id); };
-    ros::VoidConstPtr shit;
-    ros::Subscriber   tmp_subscriber = nh_.subscribe(topic_name, 10, callback, shit, ros::TransportHints().tcpNoDelay());
+    ros::Subscriber   tmp_subscriber = nh_.subscribe(topic_name, 10, callback);
 
     generic_subscriber_vec_.push_back(tmp_subscriber);
   }
