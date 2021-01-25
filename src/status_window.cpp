@@ -2,14 +2,10 @@
 
 /* Redraw() //{ */
 
-void StatusWindow::Redraw(void (Status::*fp)(WINDOW* win, double rate, short color, int topic), bool light, Status * obj) {
+void StatusWindow::Redraw(void (Status::*fp)(WINDOW* win, double rate, short color, int topic), bool light, Status* obj) {
 
-  ros::Time time_now = ros::Time::now();
-  double interval = (time_now - last_time_).toSec();
-  last_time_ = time_now;
 
   werase(win_);
-
 
   wattron(win_, A_BOLD);
 
@@ -28,8 +24,12 @@ void StatusWindow::Redraw(void (Status::*fp)(WINDOW* win, double rate, short col
 
   for (unsigned long i = 0; i < topics_.size(); i++) {
 
+    ros::Time time_now = ros::Time::now();
+    double    interval = (time_now - topics_[i].last_time_).toSec();
+    topics_[i].last_time_         = time_now;
+
     double avg_rate    = 0.0;
-    avg_rate           = topics_[i].counter / interval;
+    avg_rate           = double(topics_[i].counter) / interval;
     topics_[i].counter = 0;
 
     topics_[i].rates[topics_[i].rates_iterator] = avg_rate;
@@ -39,12 +39,12 @@ void StatusWindow::Redraw(void (Status::*fp)(WINDOW* win, double rate, short col
       topics_[i].rates_iterator = 0;
     }
 
-    avg_rate = 0;
+    avg_rate = 0.0;
 
     for (unsigned long j = 0; j < topics_[i].rates.size(); j++) {
       avg_rate += topics_[i].rates[j];
     }
-    avg_rate = avg_rate / topics_[i].rates.size();
+    avg_rate = avg_rate / double(topics_[i].rates.size());
 
     tmp_color = RED;
     if (avg_rate > 0.9 * topics_[i].desired_rate) {

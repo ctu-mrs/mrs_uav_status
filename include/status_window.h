@@ -19,6 +19,5 @@ private:
   WINDOW*             win_;
   double              window_rate_;
   std::vector<topic>& topics_;
-  ros::Time           last_time_ = ros::Time::now();
 };
 

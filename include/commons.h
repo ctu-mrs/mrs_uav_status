@@ -55,6 +55,8 @@ struct topic
   unsigned long       rates_iterator;
   std::vector<double> rates;
 
+  ros::Time last_time_;
+
   topic(double desired_rate_in, double window_rate) {
     topic_name         = "NOT DEFINED";
     topic_display_name = "NOT DEFINED";
@@ -63,6 +65,7 @@ struct topic
     zero_counter       = 0;
     rates_iterator     = 0;
     rates.resize(BUFFER_SECS_LEN * window_rate);
+    last_time_ = ros::Time::now();
   }
 
   topic(std::string topic_name_in, std::string topic_display_name_in, double desired_rate_in, double window_rate) {
@@ -73,6 +76,7 @@ struct topic
     zero_counter       = 0;
     rates_iterator     = 0;
     rates.resize(BUFFER_SECS_LEN * window_rate);
+    last_time_ = ros::Time::now();
   }
 };
 

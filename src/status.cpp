@@ -374,21 +374,21 @@ Status::Status() {
 
   // | ----------------------- Subscribers ---------------------- |
 
-  uav_state_subscriber_          = nh_.subscribe("uav_state_in", 1, &Status::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
-  odom_diag_subscriber_          = nh_.subscribe("odom_diag_in", 1, &Status::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 1, &Status::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
-  attitude_cmd_subscriber_       = nh_.subscribe("cmd_attitude_in", 1, &Status::cmdAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_global_subscriber_      = nh_.subscribe("mavros_global_in", 1, &Status::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
-  battery_subscriber_            = nh_.subscribe("battery_in", 1, &Status::batteryCallback, this, ros::TransportHints().tcpNoDelay());
-  control_manager_subscriber_    = nh_.subscribe("control_manager_in", 1, &Status::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 1, &Status::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 1, &Status::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  string_subscriber_             = nh_.subscribe("string_in", 1, &Status::stringCallback, this, ros::TransportHints().tcpNoDelay());
-  set_service_subscriber_        = nh_.subscribe("set_service_in", 1, &Status::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
+  uav_state_subscriber_          = nh_.subscribe("uav_state_in", 10, &Status::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
+  odom_diag_subscriber_          = nh_.subscribe("odom_diag_in", 10, &Status::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 10, &Status::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
+  attitude_cmd_subscriber_       = nh_.subscribe("cmd_attitude_in", 10, &Status::cmdAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_global_subscriber_      = nh_.subscribe("mavros_global_in", 10, &Status::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
+  battery_subscriber_            = nh_.subscribe("battery_in", 10, &Status::batteryCallback, this, ros::TransportHints().tcpNoDelay());
+  control_manager_subscriber_    = nh_.subscribe("control_manager_in", 10, &Status::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 10, &Status::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 10, &Status::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  string_subscriber_             = nh_.subscribe("string_in", 10, &Status::stringCallback, this, ros::TransportHints().tcpNoDelay());
+  set_service_subscriber_        = nh_.subscribe("set_service_in", 10, &Status::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
   tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &Status::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
 
   if (_debug_tilt_) {
-    mavros_local_subscriber_ = nh_.subscribe("mavros_local_in", 1, &Status::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
+    mavros_local_subscriber_ = nh_.subscribe("mavros_local_in", 10, &Status::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
   }
 
   // | ------------------------ Services ------------------------ |
