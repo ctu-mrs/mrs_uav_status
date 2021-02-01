@@ -446,10 +446,6 @@ Status::Status() {
     generic_topic_input_vec_.push_back("mavros/distance_sensor/garmin Garmin_pix 80+");
   }
 
-  if (_run_type_ == "simulation") {
-    generic_topic_input_vec_.push_back("garmin/range Garmin_Down 80+");
-  }
-
   for (unsigned long i = 0; i < results.size(); i++) {
     if (results[i] == "garmin_down" && _pixgarm_ == false) {
       generic_topic_input_vec_.push_back("garmin/range Garmin_Down 80+");
