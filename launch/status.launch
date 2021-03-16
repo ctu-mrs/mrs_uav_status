@@ -14,7 +14,7 @@
   <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
   <arg unless="$(arg debug)" name="launch_prefix" value="" />
 
-  <arg name="config_file" default="$(find mrs_uav_status)/config/status.yaml"/>
+  <arg name="config_file" default=""/>
 
   <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f330')" name="UAV_MASS" default="1.35" />
   <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f450')" name="UAV_MASS" default="2.0" />
@@ -39,7 +39,8 @@
       <param name="colorscheme" value="$(arg COLORSCHEME)" />
       <param name="rainbow" type="bool" value="$(arg RAINBOW)" />
 
-      <rosparam file="$(arg config_file)" />
+      <rosparam file="$(find mrs_uav_status)/config/default.yaml" command="load" />
+      <rosparam if="$(eval not arg('config_file') == '')" file="$(arg config_file)" />
 
         <!-- Subscribers -->
       <remap from="~uav_state_in" to="odometry/uav_state" />
