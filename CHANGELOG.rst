@@ -2,6 +2,13 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* python -> c++ implementation
+* + service call handling
+* + topic visualization
+* Contributors: Dan Hert, Matej Petrlik, Pavel Petracek, Robert Penicka, Tomas Baca, Viktor Walter, afzal
+
 0.0.5 (2020-02-26)
 ------------------
 * Blinkengripper
