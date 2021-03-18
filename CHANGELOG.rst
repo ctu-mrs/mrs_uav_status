@@ -2,6 +2,13 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Major release
+* allow loading of custom configs overriding only part of variables of the default.yaml file
+* remove ALOAM from static TF list
+* Contributors: Pavel Petracek
+
 0.0.6 (2021-03-16)
 ------------------
 * python -> c++ implementation
