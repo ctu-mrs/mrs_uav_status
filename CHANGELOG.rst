@@ -2,8 +2,8 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2021-03-18)
+------------------
 * Major release
 * allow loading of custom configs overriding only part of variables of the default.yaml file
 * remove ALOAM from static TF list
