@@ -21,7 +21,7 @@
 #include <mrs_msgs/OdometryDiag.h>
 
 #include <mrs_msgs/ReferenceStampedSrv.h>
-#include <mrs_msgs/Vec4.h>
+#include <mrs_msgs/Reference.h>
 #include <mrs_msgs/TrajectoryReferenceSrv.h>
 #include <mrs_msgs/String.h>
 
@@ -113,6 +113,7 @@ private:
   void printLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
   void printLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
   void printServiceResult(bool success, string msg);
+  void printError(string msg);
   void printDebug(string msg);
   void printHelp();
 
@@ -178,7 +179,7 @@ private:
 
   void remoteHandler(int key, WINDOW* win);
 
-  void remoteModeTrajectory(mrs_msgs::Vec4& goal);
+  void remoteModeFly(mrs_msgs::Reference& goal);
 
   void setupGenericCallbacks();
 
@@ -219,7 +220,6 @@ private:
   // | --------------------- Service Clients -------------------- |
 
   ros::ServiceClient service_goto_reference_;
-  ros::ServiceClient service_goto_fcu_;
   ros::ServiceClient service_trajectory_reference_;
   ros::ServiceClient service_set_constraints_;
   ros::ServiceClient service_set_gains_;
@@ -280,6 +280,8 @@ private:
 
   string old_constraints;
 
+  std::unique_ptr<mrs_lib::Transformer> transformer_;
+
   // | ---------------------- Flight timer ---------------------- |
 
   unsigned long     secs_flown = 0;
@@ -288,11 +290,14 @@ private:
 
   // | -------------------- Switches, states -------------------- |
 
-  bool remote_hover_ = false;
-  bool turbo_remote_ = false;
+  bool remote_hover_  = false;
+  bool turbo_remote_  = false;
+  bool remote_global_ = false;
 
 
-  bool is_flying_   = false;
+  bool is_flying_          = false;
+  bool is_flying_normally_ = false;
+
   bool NullTracker_ = true;
 
   status_state state = STANDARD;
@@ -394,7 +399,6 @@ Status::Status() {
   // | ------------------------ Services ------------------------ |
   //
   service_goto_reference_       = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
-  service_goto_fcu_             = nh_.serviceClient<mrs_msgs::Vec4>("goto_fcu_out");
   service_trajectory_reference_ = nh_.serviceClient<mrs_msgs::TrajectoryReferenceSrv>("trajectory_reference_out");
   service_set_constraints_      = nh_.serviceClient<mrs_msgs::String>("set_constraints_out");
   service_set_gains_            = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
@@ -603,8 +607,11 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       switch (key_in) {
 
         case 'R':
-          remote_hover_ = false;
-          state         = REMOTE;
+
+          if (is_flying_normally_) {
+            remote_hover_ = false;
+            state         = REMOTE;
+          }
           break;
 
         case 'm':
@@ -1091,6 +1098,12 @@ void Status::remoteHandler(int key, WINDOW* win) {
   wattron(win, COLOR_PAIR(RED));
   mvwprintw(win, 0, 40, "REMOTE MODE IS ACTIVE, YOU HAVE CONTROL");
 
+  if (remote_global_) {
+    mvwprintw(win, 0, 90, "GLOBAL MODE");
+  } else {
+    mvwprintw(win, 0, 90, "LOCAL MODE");
+  }
+
   if (turbo_remote_) {
     wattron(win, A_BLINK);
     mvwprintw(win, 0, 32, "!TURBO!");
@@ -1100,163 +1113,142 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
   wattroff(win, COLOR_PAIR(RED));
 
-  mrs_msgs::Vec4    goal;
-  mrs_msgs::String  string_service;
-  std_srvs::Trigger trig;
+  mrs_msgs::Reference reference;
+  mrs_msgs::String    string_service;
+  std_srvs::Trigger   trig;
 
-  goal.request.goal[0] = 0.0;
-  goal.request.goal[1] = 0.0;
-  goal.request.goal[2] = 0.0;
-  goal.request.goal[3] = 0.0;
+  reference.position.x = 0.0;
+  reference.position.y = 0.0;
+  reference.position.z = 0.0;
+  reference.heading    = 0.0;
 
   switch (key) {
 
     case 'w':
     case 'k':
     case KEY_UP:
-      goal.request.goal[0] = 2.0;
+      reference.position.x = 2.0;
 
       if (turbo_remote_) {
-        goal.request.goal[0] = 5.0;
+        reference.position.x = 5.0;
       }
-      if (_remote_mode_is_trajectory_) {
-        remoteModeTrajectory(goal);
-      } else {
-        service_goto_fcu_.call(goal);
-      }
+      remoteModeFly(reference);
       remote_hover_ = true;
       break;
 
     case 's':
     case 'j':
     case KEY_DOWN:
-      goal.request.goal[0] = -2.0;
+      reference.position.x = -2.0;
 
       if (turbo_remote_) {
-        goal.request.goal[0] = -5.0;
+        reference.position.x = -5.0;
       }
 
-      if (_remote_mode_is_trajectory_) {
-        remoteModeTrajectory(goal);
-      } else {
-        service_goto_fcu_.call(goal);
-      }
+      remoteModeFly(reference);
       remote_hover_ = true;
       break;
 
     case 'a':
     case 'h':
     case KEY_LEFT:
-      goal.request.goal[1] = 2.0;
+      reference.position.y = 2.0;
 
       if (turbo_remote_) {
-        goal.request.goal[1] = 5.0;
+        reference.position.y = 5.0;
       }
 
-      if (_remote_mode_is_trajectory_) {
-        remoteModeTrajectory(goal);
-      } else {
-        service_goto_fcu_.call(goal);
-      }
+      remoteModeFly(reference);
       remote_hover_ = true;
       break;
 
     case 'd':
     case 'l':
     case KEY_RIGHT:
-      goal.request.goal[1] = -2.0;
+      reference.position.y = -2.0;
 
       if (turbo_remote_) {
-        goal.request.goal[1] = -5.0;
+        reference.position.y = -5.0;
       }
 
-      if (_remote_mode_is_trajectory_) {
-        remoteModeTrajectory(goal);
-      } else {
-        service_goto_fcu_.call(goal);
-      }
+      remoteModeFly(reference);
       remote_hover_ = true;
       break;
 
     case 'r':
-      goal.request.goal[2] = 1.0;
+      reference.position.z = 1.0;
 
       if (turbo_remote_) {
-        goal.request.goal[2] = 2.0;
+        reference.position.z = 2.0;
       }
 
-      if (_remote_mode_is_trajectory_) {
-        remoteModeTrajectory(goal);
-      } else {
-        service_goto_fcu_.call(goal);
-      }
+      remoteModeFly(reference);
       remote_hover_ = true;
       break;
 
     case 'f':
-      goal.request.goal[2] = -1.0;
+      reference.position.z = -1.0;
 
       if (turbo_remote_) {
-        goal.request.goal[2] = -2.0;
+        reference.position.z = -2.0;
       }
 
-      if (_remote_mode_is_trajectory_) {
-        remoteModeTrajectory(goal);
-      } else {
-        service_goto_fcu_.call(goal);
-      }
+      remoteModeFly(reference);
       remote_hover_ = true;
       break;
 
     case 'q':
-      goal.request.goal[3] = 0.5;
+      reference.heading = 0.5;
 
       if (turbo_remote_) {
-        goal.request.goal[3] = 1.0;
+        reference.heading = 1.0;
       }
 
-      if (_remote_mode_is_trajectory_) {
-        remoteModeTrajectory(goal);
-      } else {
-        service_goto_fcu_.call(goal);
-      }
+      remoteModeFly(reference);
       remote_hover_ = true;
       break;
 
     case 'e':
-      goal.request.goal[3] = -0.5;
+      reference.heading = -0.5;
 
       if (turbo_remote_) {
-        goal.request.goal[3] = -1.0;
+        reference.heading = -1.0;
       }
 
-      if (_remote_mode_is_trajectory_) {
-        remoteModeTrajectory(goal);
-      } else {
-        service_goto_fcu_.call(goal);
-      }
+      remoteModeFly(reference);
       remote_hover_ = true;
       break;
 
     case 'T':
 
-      if (turbo_remote_) {
+      if (is_flying_normally_) {
 
-        turbo_remote_                = false;
-        string_service.request.value = old_constraints;
-        service_set_constraints_.call(string_service);
-        printServiceResult(string_service.response.success, string_service.response.message);
+        if (turbo_remote_) {
 
-      } else {
+          turbo_remote_                = false;
+          string_service.request.value = old_constraints;
+          service_set_constraints_.call(string_service);
+          printServiceResult(string_service.response.success, string_service.response.message);
 
-        turbo_remote_                = true;
-        old_constraints              = constraint_manager_.current_name;
-        string_service.request.value = constraint_manager_.available[constraint_manager_.available.size() - 1];
-        service_set_constraints_.call(string_service);
-        printServiceResult(string_service.response.success, string_service.response.message);
+        } else {
+          turbo_remote_                = true;
+          old_constraints              = constraint_manager_.current_name;
+          string_service.request.value = constraint_manager_.available[constraint_manager_.available.size() - 1];
+          service_set_constraints_.call(string_service);
+          printServiceResult(string_service.response.success, string_service.response.message);
+        }
       }
 
       break;
+
+    case 'G':
+
+      if (is_flying_normally_) {
+        remote_global_ = !remote_global_;
+      }
+
+      break;
+
 
     default:
       if (remote_hover_) {
@@ -1271,28 +1263,83 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
 //}
 
-/* remoteModeTrajectory() //{ */
+/* remoteModeFly() //{ */
 
-void Status::remoteModeTrajectory(mrs_msgs::Vec4& goal) {
+void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
+
+  if (!_remote_mode_is_trajectory_) {
+
+    mrs_msgs::ReferenceStampedSrv reference;
+
+    if (remote_global_) {
+
+      double heading;
+
+      try {
+        heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
+      }
+      catch (...) {
+        heading = 0;
+        printError("Error in heading extraction from uav_state");
+      }
+
+      reference.request.reference.position.x = uav_state_.pose.position.x + ref_in.position.x;
+      reference.request.reference.position.y = uav_state_.pose.position.y + ref_in.position.y;
+      reference.request.reference.position.z = uav_state_.pose.position.z + ref_in.position.z;
+      reference.request.reference.heading    = heading + ref_in.heading;
+      reference.request.header.frame_id      = uav_state_.header.frame_id;
+    } else {
+
+      reference.request.reference       = ref_in;
+      reference.request.header.frame_id = _uav_name_ + "/fcu_untilted";
+    }
+
+    reference.request.header.stamp = ros::Time::now();
+    service_goto_reference_.call(reference);
+
+    return;
+  }
+
   mrs_msgs::TrajectoryReferenceSrv traj;
-  mrs_msgs::TrajectoryReference tmp_traj;
-  tmp_traj.header.frame_id = _uav_name_ + "/fcu_untilted";
-  tmp_traj.use_heading     = true;
-  tmp_traj.fly_now         = true;
-  tmp_traj.loop            = false;
-  tmp_traj.dt              = 0.2;
+  mrs_msgs::TrajectoryReference    tmp_traj;
+  tmp_traj.use_heading = true;
+  tmp_traj.fly_now     = true;
+  tmp_traj.loop        = false;
+  tmp_traj.dt          = 0.2;
 
   mrs_msgs::Reference tmp_ref;
-  tmp_ref.position.x = 0.0;
-  tmp_ref.position.y = 0.0;
-  tmp_ref.position.z = 0.0;
-  tmp_ref.heading    = 0;
+  if (remote_global_) {
+
+    double heading;
+
+    try {
+      heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
+    }
+    catch (...) {
+      heading = 0;
+      printError("Error in heading extraction from uav_state");
+    }
+
+    tmp_ref.position.x       = uav_state_.pose.position.x;
+    tmp_ref.position.y       = uav_state_.pose.position.y;
+    tmp_ref.position.z       = uav_state_.pose.position.z;
+    tmp_ref.heading          = heading;
+    tmp_traj.header.frame_id = uav_state_.header.frame_id;
+
+  } else {
+
+    tmp_ref.position.x       = 0.0;
+    tmp_ref.position.y       = 0.0;
+    tmp_ref.position.z       = 0.0;
+    tmp_ref.heading          = 0;
+    tmp_traj.header.frame_id = _uav_name_ + "/fcu_untilted";
+  }
 
   for (int i = 0; i < 10; i++) {
-    tmp_ref.position.x += goal.request.goal[0] / 10;
-    tmp_ref.position.y += goal.request.goal[1] / 10;
-    tmp_ref.position.z += goal.request.goal[2] / 10;
-    tmp_ref.heading += goal.request.goal[3] / 10;
+    tmp_ref.position.x += ref_in.position.x / 10;
+    tmp_ref.position.y += ref_in.position.y / 10;
+    tmp_ref.position.z += ref_in.position.z / 10;
+    tmp_ref.heading += ref_in.heading / 10;
     tmp_traj.points.push_back(tmp_ref);
   }
   traj.request.trajectory = tmp_traj;
@@ -1671,6 +1718,9 @@ void Status::flightTimeHandler(WINDOW* win) {
   if (NullTracker_) {
 
     is_flying_ = false;
+    if (state == REMOTE) {
+      state = STANDARD;
+    }
 
   } else {
 
@@ -1796,8 +1846,8 @@ void Status::setupGenericCallbacks() {
       topic_name = "/" + _uav_name_ + "/" + generic_topic_vec_[i].topic_name;
     }
 
-    callback = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { genericCallback(msg, topic_name, id); };
-    ros::Subscriber   tmp_subscriber = nh_.subscribe(topic_name, 10, callback);
+    callback                       = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { genericCallback(msg, topic_name, id); };
+    ros::Subscriber tmp_subscriber = nh_.subscribe(topic_name, 10, callback);
 
     generic_subscriber_vec_.push_back(tmp_subscriber);
   }
@@ -2107,6 +2157,7 @@ void Status::printServiceResult(bool success, string msg) {
   wattron(bottom_window_, A_BOLD);
   wattron(bottom_window_, COLOR_PAIR(GREEN));
 
+
   if (success) {
 
     printLimitedString(bottom_window_, 0, 0, "Service call success: " + msg, 120);
@@ -2205,6 +2256,19 @@ void Status::printNoData(WINDOW* win, int y, int x, string text) {
   wattron(win, COLOR_PAIR(RED));
   mvwprintw(win, y, x, text.c_str());
   printNoData(win, y, x + text.length());
+}
+
+//}
+
+/* printError() //{ */
+
+void Status::printError(string msg) {
+
+  wattron(debug_window_, COLOR_PAIR(RED));
+  printLimitedString(debug_window_, 0, 0, msg, 120);
+  wattroff(debug_window_, COLOR_PAIR(RED));
+
+  wrefresh(debug_window_);
 }
 
 //}
@@ -2405,6 +2469,7 @@ void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsCon
   control_manager_topic_[0].counter++;
   control_manager_                                                = *msg;
   control_manager_.active_tracker == "NullTracker" ? NullTracker_ = true : NullTracker_ = false;
+  control_manager_.flying_normally ? is_flying_normally_ = true : is_flying_normally_ = false;
 }
 
 //}
