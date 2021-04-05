@@ -22,7 +22,7 @@ tf_static_list: [
       "bluefox_optflow_optical optic_flow/velocity Optflow Vel 50",
       "rs_d435/link rs_d435/color/camera_info Realsense 30",
       "rplidar rplidar/scan RPlidar 10",
-      "os_sensor os_cloud_nodelet/diag Ouster 10",
+      "os_sensor os_cloud_nodelet/is_alive Ouster 10",
       "uvcam_left uvdar_bluefox/left/camera_info UV_BFox_Left 70",
       "uvcam_right uvdar_bluefox/right/camera_info UV_BFox_Right 70",
       "picoflexx pico_flexx/camera_info Picoflexx 5"
