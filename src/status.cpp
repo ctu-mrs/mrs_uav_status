@@ -24,6 +24,7 @@
 #include <mrs_msgs/Reference.h>
 #include <mrs_msgs/TrajectoryReferenceSrv.h>
 #include <mrs_msgs/String.h>
+#include <mrs_msgs/UavStatus.h>
 
 #include <std_msgs/String.h>
 
@@ -79,6 +80,9 @@ private:
   ros::NodeHandle nh_;
 
   std::mutex mutex_general_info_thread_;
+  std::mutex mutex_status_msg_;
+
+  mrs_msgs::UavStatus uav_status_;
 
   // | ------------------------- Timers ------------------------- |
 
@@ -102,7 +106,7 @@ private:
   void setServiceCallback(const std_msgs::String& msg);
   void tfStaticCallback(const tf2_msgs::TFMessage& msg);
   void mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg);
-  void mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg);
+  /* void mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg); */
 
   // generic callback, for any topic, to monitor its rate
   void genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
@@ -393,7 +397,7 @@ Status::Status() {
   tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &Status::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
 
   if (_debug_tilt_) {
-    mavros_local_subscriber_ = nh_.subscribe("mavros_local_in", 10, &Status::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
+    /* mavros_local_subscriber_ = nh_.subscribe("mavros_local_in", 10, &Status::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay()); */
   }
 
   // | ------------------------ Services ------------------------ |
@@ -1082,6 +1086,7 @@ bool Status::gotoMenuHandler(int key_in) {
   }
 
   wrefresh(menu_vec_[0].getWin());
+  return false;
 }
 
 //}
@@ -2330,7 +2335,26 @@ void Status::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
   }
 
   uav_state_topic_[0].counter++;
-  uav_state_ = *msg;
+  /* uav_state_ = *msg; */
+
+  double heading;
+
+  try {
+    heading = mrs_lib::AttitudeConverter(msg->pose.orientation).getHeading();
+  }
+  catch (...) {
+    heading = 0;
+    printError("Error in heading extraction from uav_state");
+  }
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.odom_x     = msg->pose.position.x;
+    uav_status_.odom_y     = msg->pose.position.y;
+    uav_status_.odom_z     = msg->pose.position.z;
+    uav_status_.odom_hdg   = heading;
+    uav_status_.odom_frame = msg->header.frame_id;
+  }
 }
 
 //}
@@ -2343,8 +2367,33 @@ void Status::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
     return;
   }
 
-  odom_diag_     = *msg;
+  /* odom_diag_     = *msg; */
   has_odom_diag_ = true;
+
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+
+    uav_status_.odom_estimators_hori = msg->available_lat_estimators;
+
+    for (size_t i = 0; i < uav_status_.odom_estimators_hori.size(); i++) {
+      if ((uav_status_.odom_estimators_hori[i] == msg->estimator_type.name) && i != 0) {
+        // put the active estimator as first in the vector
+        std::swap(uav_status_.odom_estimators_hori[0], uav_status_.odom_estimators_hori[i]);
+      }
+    }
+
+    uav_status_.odom_estimators_vert = msg->available_alt_estimators;
+
+    for (size_t i = 0; i < uav_status_.odom_estimators_vert.size(); i++) {
+      if ((uav_status_.odom_estimators_vert[i] == msg->altitude_type.name) && i != 0) {
+        // put the active estimator as first in the vector
+        std::swap(uav_status_.odom_estimators_vert[0], uav_status_.odom_estimators_vert[i]);
+      }
+    }
+
+    /* TODO - Matejuv restik uav_status_.odom_estimators_head = ; */
+  }
 }
 
 //}
@@ -2358,7 +2407,13 @@ void Status::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
   }
 
   mavros_state_topic_[0].counter++;
-  mavros_state_ = *msg;
+  /* mavros_state_ = *msg; */
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.mavros_state = msg->armed;
+    uav_status_.mavros_mode  = msg->mode;
+  }
 }
 
 //}
@@ -2372,7 +2427,14 @@ void Status::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
   }
 
   mavros_state_topic_[1].counter++;
-  battery_ = *msg;
+
+  /* battery_ = *msg; */
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.battery_volt = msg->voltage;
+    uav_status_.battery_curr = msg->current;
+  }
 }
 
 //}
@@ -2386,7 +2448,13 @@ void Status::cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg) {
   }
 
   mavros_state_topic_[2].counter++;
-  cmd_attitude_ = *msg;
+  /* cmd_attitude_ = *msg; */
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.thrust        = msg->thrust;
+    uav_status_.mass_estimate = msg->total_mass;
+  }
 }
 
 //}
@@ -2400,61 +2468,67 @@ void Status::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
   }
 
   mavros_state_topic_[3].counter++;
-  mavros_global_ = *msg;
+  /* mavros_global_  = *msg; */
+  double gps_qual = (msg->position_covariance[0] + msg->position_covariance[4] + msg->position_covariance[8]) / 3;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.mavros_GPS_qual = gps_qual;
+  }
 }
 
 //}
 
 /* mavrosLocalCallback() //{ */
 
-void Status::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) {
+/* void Status::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) { */
 
-  if (!initialized_) {
-    return;
-  }
+/*   if (!initialized_) { */
+/*     return; */
+/*   } */
 
-  mavros_local_ = *msg;
-  double tilt, roll, pitch;
+/*   mavros_local_ = *msg; */
+/*   double tilt, roll, pitch; */
 
-  geometry_msgs::Vector3 z_vec = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getVectorZ();
-  roll                         = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getRoll() * 57.2958;
-  pitch                        = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getPitch() * 57.2958;
+/*   geometry_msgs::Vector3 z_vec = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getVectorZ(); */
+/*   roll                         = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getRoll() * 57.2958; */
+/*   pitch                        = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getPitch() * 57.2958; */
 
-  try {
-    tilt = acos(z_vec.z) * 57.2958;
-  }
-  catch (int e) {
-    tilt = -666;
-  }
+/*   try { */
+/*     tilt = acos(z_vec.z) * 57.2958; */
+/*   } */
+/*   catch (int e) { */
+/*     tilt = -666; */
+/*   } */
 
-  std::stringstream stream;
-  stream << std::fixed << std::setprecision(2) << "tilt: " << tilt << " deg,\n roll: " << roll << ", pitch: " << pitch;
+/*   std::stringstream stream; */
+/*   stream << std::fixed << std::setprecision(2) << "tilt: " << tilt << " deg,\n roll: " << roll << ", pitch: " << pitch; */
 
-  std::string display_msg = stream.str();
-  std::string pub_name    = "pixhawk";
+/*   std::string display_msg = stream.str(); */
+/*   std::string pub_name    = "pixhawk"; */
 
-  if (tilt < 10) {
-    display_msg = "-g " + display_msg;
-  } else {
-    display_msg = "-r " + display_msg;
-  }
+/*   if (tilt < 10) { */
+/*     display_msg = "-g " + display_msg; */
+/*   } else { */
+/*     display_msg = "-r " + display_msg; */
+/*   } */
 
-  bool contains = false;
+/*   bool contains = false; */
 
-  for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
-    if (string_info_vec_[i].publisher_name == pub_name) {
-      contains                           = true;
-      string_info_vec_[i].display_string = display_msg;
-      string_info_vec_[i].last_time      = ros::Time::now();
-      break;
-    }
-  }
+/*   for (unsigned long i = 0; i < string_info_vec_.size(); i++) { */
+/*     if (string_info_vec_[i].publisher_name == pub_name) { */
+/*       contains                           = true; */
+/*       string_info_vec_[i].display_string = display_msg; */
+/*       string_info_vec_[i].last_time      = ros::Time::now(); */
+/*       break; */
+/*     } */
+/*   } */
 
-  if (!contains) {
-    string_info tmp(pub_name, display_msg);
-    string_info_vec_.push_back(tmp);
-  }
-}
+/*   if (!contains) { */
+/*     string_info tmp(pub_name, display_msg); */
+/*     string_info_vec_.push_back(tmp); */
+/*   } */
+/* } */
 
 //}
 
@@ -2467,9 +2541,34 @@ void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsCon
   }
 
   control_manager_topic_[0].counter++;
-  control_manager_                                                = *msg;
-  control_manager_.active_tracker == "NullTracker" ? NullTracker_ = true : NullTracker_ = false;
-  control_manager_.flying_normally ? is_flying_normally_ = true : is_flying_normally_ = false;
+  /* control_manager_                                                = *msg; */
+  /* control_manager_.active_tracker == "NullTracker" ? NullTracker_ = true : NullTracker_ = false; */
+  /* control_manager_.flying_normally ? is_flying_normally_ = true : is_flying_normally_ = false; */
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+
+    uav_status_.trackers    = msg->available_trackers;
+    uav_status_.controllers = msg->available_controllers;
+
+    for (size_t i = 0; i < uav_status_.trackers.size(); i++) {
+      if ((uav_status_.trackers[i] == msg->active_tracker) && i != 0) {
+        // put the active estimator as first in the vector
+        std::swap(uav_status_.trackers[0], uav_status_.trackers[i]);
+      }
+    }
+
+    for (size_t i = 0; i < uav_status_.controllers.size(); i++) {
+      if ((uav_status_.controllers[i] == msg->active_controller) && i != 0) {
+        // put the active estimator as first in the vector
+        std::swap(uav_status_.controllers[0], uav_status_.controllers[i]);
+      }
+    }
+
+    uav_status_.flying_normally   = msg->flying_normally;
+    uav_status_.have_goal         = msg->tracker_status.have_goal;
+    uav_status_.callbacks_enabled = msg->tracker_status.callbacks_enabled;
+  }
 }
 
 //}
@@ -2483,7 +2582,20 @@ void Status::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr&
   }
 
   control_manager_topic_[1].counter++;
-  gain_manager_ = *msg;
+  /* gain_manager_ = *msg; */
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+
+    uav_status_.gains = msg->available;
+
+    for (size_t i = 0; i < uav_status_.gains.size(); i++) {
+      if ((uav_status_.gains[i] == msg->current_name) && i != 0) {
+        // put the active estimator as first in the vector
+        std::swap(uav_status_.gains[0], uav_status_.gains[i]);
+      }
+    }
+  }
 }
 
 //}
@@ -2497,7 +2609,20 @@ void Status::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnost
   }
 
   control_manager_topic_[2].counter++;
-  constraint_manager_ = *msg;
+  /* constraint_manager_ = *msg; */
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+
+    uav_status_.constraints = msg->available;
+
+    for (size_t i = 0; i < uav_status_.constraints.size(); i++) {
+      if ((uav_status_.constraints[i] == msg->current_name) && i != 0) {
+        // put the active estimator as first in the vector
+        std::swap(uav_status_.constraints[0], uav_status_.constraints[i]);
+      }
+    }
+  }
 }
 
 //}
@@ -2510,8 +2635,12 @@ void Status::setServiceCallback(const std_msgs::String& msg) {
     return;
   }
 
-  if (std::find(service_input_vec_.begin(), service_input_vec_.end(), msg.data) == service_input_vec_.end()) {
-    service_input_vec_.push_back(msg.data);
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+
+    if (std::find(uav_status_.custon_services.begin(), uav_status_.custon_services.end(), msg.data) == uav_status_.custon_services.end()) {
+      uav_status_.custon_services.push_back(msg.data);
+    }
   }
 }
 //}
@@ -2533,8 +2662,9 @@ void Status::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
 
     for (unsigned long j = 0; j < tf_static_list_compare_.size(); j++) {
       if (tf_static_list_compare_[j] == frame_name && uav_name == _uav_name_) {
-        if (std::find(generic_topic_input_vec_.begin(), generic_topic_input_vec_.end(), tf_static_list_add_[j]) == generic_topic_input_vec_.end())
-          generic_topic_input_vec_.push_back(tf_static_list_add_[j]);
+        std::scoped_lock lock(mutex_status_msg_);
+        if (std::find(uav_status_.custom_topic_hz.begin(), uav_status_.custom_topic_hz.end(), tf_static_list_add_[j]) == uav_status_.custom_topic_hz.end())
+          uav_status_.custom_topic_names.push_back(tf_static_list_add_[j]);
       }
     }
   }
@@ -2555,7 +2685,7 @@ void Status::stringCallback(const ros::MessageEvent<std_msgs::String const>& eve
   std::string msg_str  = event.getMessage()->data;
 
   bool contains = false;
-
+/* uav_status_.custom_string_outputs */
   for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
     if (string_info_vec_[i].publisher_name == pub_name) {
       contains                           = true;
