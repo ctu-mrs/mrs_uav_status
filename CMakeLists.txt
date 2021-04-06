@@ -32,7 +32,7 @@ include_directories(include
   ${CURSES_INCLUDE_DIR}
 )
 
-add_executable(mrs_uav_status src/status.cpp src/status_window.cpp src/menu.cpp src/input_box.cpp)
+add_executable(mrs_uav_status src/status.cpp src/menu.cpp src/topic_info.cpp src/input_box.cpp)
 
 add_dependencies(mrs_uav_status ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 

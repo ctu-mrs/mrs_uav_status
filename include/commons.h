@@ -92,17 +92,22 @@ struct service
   }
 };
 
-/* struct string_info */
-/* { */
-/*   std::string publisher_name; */
-/*   std::string display_string; */
-/*   ros::Time   last_time; */
+struct topic_status
+{
+  ros::Time           last_time;
+  int                 counter;
+  double              window_rate;
+  std::vector<double> rates;
+  size_t              rates_iterator = 0;
 
-/*   string_info(std::string publisher_name_in, std::string display_string_in) { */
-/*     publisher_name = publisher_name_in; */
-/*     display_string = display_string_in; */
-/*     last_time      = ros::Time::now(); */
-/*   } */
-/* }; */
+  topic_status(double window_rate_in, int buffer_len) {
+    window_rate = window_rate_in;
+    rates.resize(buffer_len * int(window_rate));
+    rates.assign(rates.size(), 0.0);
+    rates_iterator = 0;
+    last_time      = ros::Time::now();
+    counter        = 0;
+  }
+};
 
 #endif

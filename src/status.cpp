@@ -1,8 +1,9 @@
 /* INCLUDES //{ */
 
-#include <status_window.h>
+/* #include <status_window.h> */
 #include <menu.h>
 #include <input_box.h>
+#include <topic_info.h>
 #include <commons.h>
 #include <mrs_lib/profiler.h>
 
@@ -13,6 +14,7 @@
 
 #include <topic_tools/shape_shifter.h>  // for generic topic subscribers
 
+#include <mrs_msgs/UavStatus.h>
 #include <mrs_msgs/UavState.h>
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 #include <mrs_msgs/GainManagerDiagnostics.h>
@@ -127,19 +129,29 @@ private:
 
   // | ------------------------- Windows ------------------------ |
 
+  void uavStateHandler(WINDOW* win);
+  void controlManagerHandler(WINDOW* win);
   void genericTopicHandler(WINDOW* win, double rate, short color, int topic);
-  void uavStateHandler(WINDOW* win, double rate, short color, int topic);
   void mavrosStateHandler(WINDOW* win, double rate, short color, int topic);
-  void controlManagerHandler(WINDOW* win, double rate, short color, int topic);
   void stringHandler(WINDOW* win, double rate, short color, int topic);
 
-  double uav_state_window_rate_       = 10;
-  double control_manager_window_rate_ = 1;
-  double mavros_state_window_rate_    = 1;
-  double general_info_window_rate_    = 1;
-  double generic_topic_window_rate_   = 1;
+  int BUFFER_LEN_SECS = 4;
+
+  TopicInfo uav_state_ts_{10, BUFFER_LEN_SECS};
+  TopicInfo control_manager_ts_{1, BUFFER_LEN_SECS};
+
+
+  double mavros_state_window_rate_  = 1;
+  double general_info_window_rate_  = 1;
+  double generic_topic_window_rate_ = 1;
 
   // General info window
+
+  void getCpuLoad();
+  void getMemLoad();
+  void getCpuFreq();
+  void getDiskSpace();
+
   void printCpuLoad(WINDOW* win);
   void printCpuFreq(WINDOW* win);
   void printMemLoad(WINDOW* win);
@@ -150,18 +162,18 @@ private:
   long last_gigas_ = 0;
 
   // Custom windows
-  StatusWindow* uav_state_window_;
-  vector<topic> uav_state_topic_;
+  WINDOW* uav_state_window_;
+  WINDOW* control_manager_window_;
 
-  StatusWindow* mavros_state_window_;
+  /* StatusWindow* mavros_state_window_; */
   vector<topic> mavros_state_topic_;
 
-  StatusWindow* control_manager_window_;
+  /* StatusWindow* control_manager_window_; */
   vector<topic> control_manager_topic_;
 
-  StatusWindow*       string_window_;
-  vector<string_info> string_info_vec_;
-  vector<topic>       string_topic_;
+  /* StatusWindow* string_window_; */
+  /* vector<string_info> string_info_vec_; */
+  vector<topic> string_topic_;
 
   // Vanilla windows
   WINDOW* top_bar_window_;
@@ -173,9 +185,11 @@ private:
 
   bool help_active_ = false;
 
-  StatusWindow* generic_topic_window_;
+  /* StatusWindow* generic_topic_window_; */
 
   // | ---------------------- Misc routines --------------------- |
+
+  void prefillUavStatus();
 
   void generalInfoThread();
 
@@ -321,6 +335,8 @@ Status::Status() {
   nh_ = ros::NodeHandle("~");
 
   // | ---------------------- Param loader ---------------------- |
+
+  prefillUavStatus();
 
   mrs_lib::ParamLoader param_loader(nh_, "Status");
 
@@ -471,26 +487,26 @@ Status::Status() {
   // |            Window creation and topic association           |
   // --------------------------------------------------------------
 
-  uav_state_topic_.push_back(topic{100.0, uav_state_window_rate_});
+  uav_state_window_       = newwin(6, 26, 5, 1);
+  control_manager_window_ = newwin(4, 26, 1, 1);
 
-  uav_state_window_ = new StatusWindow(6, 26, 5, 1, uav_state_topic_, uav_state_window_rate_);
 
-  control_manager_topic_.push_back(topic{10.0, control_manager_window_rate_});
-  control_manager_topic_.push_back(topic{1.0, control_manager_window_rate_});
-  control_manager_topic_.push_back(topic{1.0, control_manager_window_rate_});
+  /* control_manager_topic_.push_back(topic{10.0, control_manager_window_rate_}); */
+  /* control_manager_topic_.push_back(topic{1.0, control_manager_window_rate_}); */
+  /* control_manager_topic_.push_back(topic{1.0, control_manager_window_rate_}); */
 
-  control_manager_window_ = new StatusWindow(4, 26, 1, 1, control_manager_topic_, control_manager_window_rate_);
+  /* control_manager_window_ = new StatusWindow(4, 26, 1, 1, control_manager_topic_, control_manager_window_rate_); */
 
   mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
   mavros_state_topic_.push_back(topic{1.0, mavros_state_window_rate_});
   mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
   mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
 
-  mavros_state_window_ = new StatusWindow(6, 25, 5, 27, mavros_state_topic_, mavros_state_window_rate_);
+  /* mavros_state_window_ = new StatusWindow(6, 25, 5, 27, mavros_state_topic_, mavros_state_window_rate_); */
 
-  generic_topic_window_ = new StatusWindow(10, 25, 1, 52, generic_topic_vec_, generic_topic_window_rate_);
+  /* generic_topic_window_ = new StatusWindow(10, 25, 1, 52, generic_topic_vec_, generic_topic_window_rate_); */
 
-  string_window_ = new StatusWindow(10, 32, 1, 77, string_topic_, generic_topic_window_rate_);
+  /* string_window_ = new StatusWindow(10, 32, 1, 77, string_topic_, generic_topic_window_rate_); */
 
   general_info_window_ = newwin(4, 25, 1, 27);
 
@@ -556,10 +572,10 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   if (!initialized_) {
     return;
   }
-
+ROS_INFO("[%s]: timer start", ros::this_node::getName().c_str());
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
-    uav_state_window_->Redraw(&Status::uavStateHandler, _light_, this);
+    uavStateHandler(uav_state_window_);
   }
 
   hz_counter_++;
@@ -569,117 +585,116 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
     hz_counter_ = 0;
 
     {
-      mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
-      mavros_state_window_->Redraw(&Status::mavrosStateHandler, _light_, this);
-    }
-    {
+        /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler"); */
+        /* mavros_state_window_->getHz(); */
+        /* mavros_state_window_->Redraw(&Status::mavrosStateHandler, _light_, this); */
+    } {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
-      control_manager_window_->Redraw(&Status::controlManagerHandler, _light_, this);
+      controlManagerHandler(control_manager_window_);
     }
     {
-      mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
-      generic_topic_window_->Redraw(&Status::genericTopicHandler, _light_, this);
+        /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler"); */
+        /* generic_topic_window_->Redraw(&Status::genericTopicHandler, _light_, this); */
+    } {
+      /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler"); */
+      /* string_window_->Redraw(&Status::stringHandler, _light_, this); */
     }
-    {
-      mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
-      string_window_->Redraw(&Status::stringHandler, _light_, this);
-    }
   }
 
-  {
-    std::scoped_lock lock(mutex_general_info_thread_);
-    wrefresh(general_info_window_);
-  }
+  /* { */
+  /*   std::scoped_lock lock(mutex_general_info_thread_); */
+  /*   wrefresh(general_info_window_); */
+  /* } */
 
-  wclear(top_bar_window_);
+  /* wclear(top_bar_window_); */
 
-  if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
-    wclear(bottom_window_);
-  }
+  /* if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) { */
+  /*   wclear(bottom_window_); */
+  /* } */
 
-  flightTimeHandler(top_bar_window_);
+  /* flightTimeHandler(top_bar_window_); */
 
-  printHelp();
+  /* printHelp(); */
 
 
-  int key_in = getch();
+  /* int key_in = getch(); */
 
-  switch (state) {
+  /* switch (state) { */
 
-    case STANDARD:
+  /*   case STANDARD: */
 
-      switch (key_in) {
+  /*     switch (key_in) { */
 
-        case 'R':
+  /*       case 'R': */
 
-          if (is_flying_normally_) {
-            remote_hover_ = false;
-            state         = REMOTE;
-          }
-          break;
+  /*         if (is_flying_normally_) { */
+  /*           remote_hover_ = false; */
+  /*           state         = REMOTE; */
+  /*         } */
+  /*         break; */
 
-        case 'm':
-          setupMainMenu();
-          state = MAIN_MENU;
-          break;
+  /*       case 'm': */
+  /*         setupMainMenu(); */
+  /*         state = MAIN_MENU; */
+  /*         break; */
 
-        case 'g':
-          setupGotoMenu();
-          state = GOTO_MENU;
-          break;
+  /*       case 'g': */
+  /*         setupGotoMenu(); */
+  /*         state = GOTO_MENU; */
+  /*         break; */
 
-        case 'h':
-          help_active_ = !help_active_;
-          break;
+  /*       case 'h': */
+  /*         help_active_ = !help_active_; */
+  /*         break; */
 
-        default:
-          flushinp();
-          break;
-      }
+  /*       default: */
+  /*         flushinp(); */
+  /*         break; */
+  /*     } */
 
-      break;
+  /*     break; */
 
-    case REMOTE:
-      flushinp();
-      remoteHandler(key_in, top_bar_window_);
-      if (key_in == 'R' || key_in == KEY_ESC) {
+  /*   case REMOTE: */
+  /*     flushinp(); */
+  /*     remoteHandler(key_in, top_bar_window_); */
+  /*     if (key_in == 'R' || key_in == KEY_ESC) { */
 
-        if (turbo_remote_) {
+  /*       if (turbo_remote_) { */
 
-          turbo_remote_ = false;
-          mrs_msgs::String string_service;
-          string_service.request.value = old_constraints;
-          service_set_constraints_.call(string_service);
-          printServiceResult(string_service.response.success, string_service.response.message);
-        }
+  /*         turbo_remote_ = false; */
+  /*         mrs_msgs::String string_service; */
+  /*         string_service.request.value = old_constraints; */
+  /*         service_set_constraints_.call(string_service); */
+  /*         printServiceResult(string_service.response.success, string_service.response.message); */
+  /*       } */
 
-        state = STANDARD;
-      }
-      break;
+  /*       state = STANDARD; */
+  /*     } */
+  /*     break; */
 
-    case MAIN_MENU:
-      flushinp();
-      if (mainMenuHandler(key_in)) {
-        menu_vec_.clear();
-        submenu_vec_.clear();
-        state = STANDARD;
-      }
-      break;
+  /*   case MAIN_MENU: */
+  /*     flushinp(); */
+  /*     if (mainMenuHandler(key_in)) { */
+  /*       menu_vec_.clear(); */
+  /*       submenu_vec_.clear(); */
+  /*       state = STANDARD; */
+  /*     } */
+  /*     break; */
 
-    case GOTO_MENU:
-      flushinp();
-      if (gotoMenuHandler(key_in)) {
-        menu_vec_.clear();
-        submenu_vec_.clear();
-        state = STANDARD;
-      }
-      break;
-  }
+  /*   case GOTO_MENU: */
+  /*     flushinp(); */
+  /*     if (gotoMenuHandler(key_in)) { */
+  /*       menu_vec_.clear(); */
+  /*       submenu_vec_.clear(); */
+  /*       state = STANDARD; */
+  /*     } */
+  /*     break; */
+  /* } */
 
   wrefresh(top_bar_window_);
   wrefresh(bottom_window_);
 
-  refresh();
+  /* refresh(); */
 }
 
 
@@ -1357,60 +1372,60 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
 
 void Status::stringHandler(WINDOW* win, double rate, short color, int topic) {
 
-  if (string_info_vec_.empty()) {
-    wclear(win);
-  }
+  /* if (string_info_vec_.empty()) { */
+  /*   wclear(win); */
+  /* } */
 
-  for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
+  /* for (unsigned long i = 0; i < string_info_vec_.size(); i++) { */
 
-    if ((ros::Time::now() - string_info_vec_[i].last_time).toSec() > 10.0) {
-      string_info_vec_.erase(string_info_vec_.begin() + i);
-    } else {
+  /*   if ((ros::Time::now() - string_info_vec_[i].last_time).toSec() > 10.0) { */
+  /*     string_info_vec_.erase(string_info_vec_.begin() + i); */
+  /*   } else { */
 
-      printLimitedString(win, 1 + (3 * i), 1, string_info_vec_[i].publisher_name + ": ", 40);
+  /*     printLimitedString(win, 1 + (3 * i), 1, string_info_vec_[i].publisher_name + ": ", 40); */
 
-      int    tmp_color          = NORMAL;
-      bool   blink              = false;
-      string tmp_display_string = string_info_vec_[i].display_string;
+  /*     int    tmp_color          = NORMAL; */
+  /*     bool   blink              = false; */
+  /*     string tmp_display_string = string_info_vec_[i].display_string; */
 
-      if (tmp_display_string.at(0) == '-') {
+  /*     if (tmp_display_string.at(0) == '-') { */
 
-        if (tmp_display_string.at(1) == 'r') {
-          tmp_color = RED;
-        } else if (tmp_display_string.at(1) == 'R') {
-          tmp_color = RED;
-          blink     = true;
-        }
+  /*       if (tmp_display_string.at(1) == 'r') { */
+  /*         tmp_color = RED; */
+  /*       } else if (tmp_display_string.at(1) == 'R') { */
+  /*         tmp_color = RED; */
+  /*         blink     = true; */
+  /*       } */
 
-        else if (tmp_display_string.at(1) == 'y') {
-          tmp_color = YELLOW;
-        } else if (tmp_display_string.at(1) == 'Y') {
-          tmp_color = YELLOW;
-          blink     = true;
-        }
+  /*       else if (tmp_display_string.at(1) == 'y') { */
+  /*         tmp_color = YELLOW; */
+  /*       } else if (tmp_display_string.at(1) == 'Y') { */
+  /*         tmp_color = YELLOW; */
+  /*         blink     = true; */
+  /*       } */
 
-        else if (tmp_display_string.at(1) == 'g') {
-          tmp_color = GREEN;
-        } else if (tmp_display_string.at(1) == 'G') {
-          tmp_color = GREEN;
-          blink     = true;
-        }
+  /*       else if (tmp_display_string.at(1) == 'g') { */
+  /*         tmp_color = GREEN; */
+  /*       } else if (tmp_display_string.at(1) == 'G') { */
+  /*         tmp_color = GREEN; */
+  /*         blink     = true; */
+  /*       } */
 
-        if (tmp_color != NORMAL) {
-          tmp_display_string.erase(0, 3);
-        }
-      }
+  /*       if (tmp_color != NORMAL) { */
+  /*         tmp_display_string.erase(0, 3); */
+  /*       } */
+  /*     } */
 
-      if (blink) {
-        wattron(win, A_BLINK);
-      }
+  /*     if (blink) { */
+  /*       wattron(win, A_BLINK); */
+  /*     } */
 
-      wattron(win, COLOR_PAIR(tmp_color));
-      printLimitedString(win, 2 + (3 * i), 1, tmp_display_string, 40);
-      wattroff(win, COLOR_PAIR(tmp_color));
-      wattroff(win, A_BLINK);
-    }
-  }
+  /*     wattron(win, COLOR_PAIR(tmp_color)); */
+  /*     printLimitedString(win, 2 + (3 * i), 1, tmp_display_string, 40); */
+  /*     wattroff(win, COLOR_PAIR(tmp_color)); */
+  /*     wattroff(win, A_BLINK); */
+  /*   } */
+  /* } */
 }
 
 //}
@@ -1436,37 +1451,276 @@ void Status::genericTopicHandler(WINDOW* win, double rate, short color, int topi
 
 /* uavStateHandler() //{ */
 
-void Status::uavStateHandler(WINDOW* win, double rate, [[maybe_unused]] short color, [[maybe_unused]] int topic) {
+void Status::uavStateHandler(WINDOW* win) {
 
-  printLimitedDouble(win, 0, 12, "Odom %5.1f Hz", rate, 1000);
+  werase(win);
+  wattron(win, A_BOLD);
+  wattroff(win, A_STANDOUT);
+  box(win, 0, 0);
 
-  if (rate == 0) {
+  if (_light_) {
+    wattron(win, A_STANDOUT);
+  }
+
+  /* ros::Time time_now   = ros::Time::now(); */
+  /* double    interval   = (time_now - uav_state_ts_.last_time).toSec(); */
+  /* uav_state_ts_.last_time = time_now; */
+
+  /* double avg_rate    = uav_state_ts_.counter / interval; */
+  /* uav_state_ts_.counter = 0; */
+
+  /* uav_state_ts_.rates[uav_state_ts_.rates_iterator] = avg_rate; */
+  /* uav_state_ts_.rates_iterator++; */
+
+  /* if (uav_state_ts_.rates_iterator >= uav_state_ts_.rates.size()) { */
+  /*   uav_state_ts_.rates_iterator = 0; */
+  /* } */
+
+  /* avg_rate = 0.0; */
+
+  /* for (unsigned long i = 0; i < uav_state_ts_.rates.size(); i++) { */
+  /*   avg_rate += uav_state_ts_.rates[i]; */
+  /* } */
+  /* avg_rate = avg_rate / double(uav_state_ts_.rates.size()); */
+  ROS_INFO("[%s]: b1", ros::this_node::getName().c_str());
+  double avg_rate = uav_state_ts_.GetHz();
+  ROS_INFO("[%s]: b2", ros::this_node::getName().c_str());
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.odom_hz = avg_rate;
+  }
+  ROS_INFO("[%s]: b2", ros::this_node::getName().c_str());
+  ROS_INFO("[%s]: b2", ros::this_node::getName().c_str());
+  ROS_INFO("[%s]: b2", ros::this_node::getName().c_str());
+  ROS_INFO("[%s]: b2", ros::this_node::getName().c_str());
+
+  // TODO define at a better place
+  double uav_state_expected_rate = 100.0;
+
+  /* double      avg_rate; */
+  double      heading;
+  double      state_x;
+  double      state_y;
+  double      state_z;
+  std::string odom_frame;
+  std::string curr_estimator_hori;
+  std::string curr_estimator_vert;
+  std::string curr_estimator_hdg;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    avg_rate   = uav_status_.odom_hz;
+    heading    = uav_status_.odom_hdg;
+    state_x    = uav_status_.odom_x;
+    state_y    = uav_status_.odom_y;
+    state_z    = uav_status_.odom_z;
+    odom_frame = uav_status_.odom_frame;
+
+    uav_status_.odom_estimators_hori.empty() ? curr_estimator_hori = "NONE" : curr_estimator_hori = uav_status_.odom_estimators_hori[0];
+    uav_status_.odom_estimators_vert.empty() ? curr_estimator_vert = "NONE" : curr_estimator_vert = uav_status_.odom_estimators_vert[0];
+    uav_status_.odom_estimators_hdg.empty() ? curr_estimator_hdg = "NONE" : curr_estimator_hdg = uav_status_.odom_estimators_hdg[0];
+  }
+
+
+  int tmp_color = RED;
+  if (avg_rate > 0.9 * uav_state_expected_rate) {
+    tmp_color = GREEN;
+  } else if (avg_rate > 0.5 * uav_state_expected_rate) {
+    tmp_color = YELLOW;
+  }
+
+  wattron(win, COLOR_PAIR(tmp_color));
+
+  printLimitedDouble(win, 0, 12, "Odom %5.1f Hz", avg_rate, 1000);
+
+  if (avg_rate == 0) {
 
     printNoData(win, 0, 1);
 
   } else {
 
-    double heading;
-
-    try {
-      heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
-    }
-    catch (...) {
-      heading = 0;
-    }
-
-    printLimitedDouble(win, 1, 1, "X %7.2f", uav_state_.pose.position.x, 1000);
-    printLimitedDouble(win, 2, 1, "Y %7.2f", uav_state_.pose.position.y, 1000);
-    printLimitedDouble(win, 3, 1, "Z %7.2f", uav_state_.pose.position.z, 1000);
+    printLimitedDouble(win, 1, 1, "X %7.2f", state_x, 1000);
+    printLimitedDouble(win, 2, 1, "Y %7.2f", state_y, 1000);
+    printLimitedDouble(win, 3, 1, "Z %7.2f", state_z, 1000);
     printLimitedDouble(win, 4, 1, "hdg %5.2f", heading, 1000);
 
-    int pos = uav_state_.header.frame_id.find("/") + 1;
-    printLimitedString(win, 1, 11, uav_state_.header.frame_id.substr(pos, uav_state_.header.frame_id.length()), 15);
+    int pos = odom_frame.find("/") + 1;
+    printLimitedString(win, 1, 11, odom_frame.substr(pos, odom_frame.length()), 15);
 
-    printLimitedString(win, 2, 11, "Hori: " + uav_state_.estimator_horizontal.name, 15);
-    printLimitedString(win, 3, 11, "Vert: " + uav_state_.estimator_vertical.name, 15);
-    printLimitedString(win, 4, 11, "Head: " + uav_state_.estimator_heading.name, 15);
+    printLimitedString(win, 2, 11, "Hori: " + curr_estimator_hori, 15);
+    printLimitedString(win, 3, 11, "Vert: " + curr_estimator_vert, 15);
+    printLimitedString(win, 4, 11, "Head: " + curr_estimator_hdg, 15);
   }
+
+  wattroff(win, COLOR_PAIR(tmp_color));
+  wattroff(win, A_BOLD);
+  wrefresh(win);
+}
+
+//}
+
+/* controlManagerHandler() //{ */
+
+void Status::controlManagerHandler(WINDOW* win) {
+
+  werase(win);
+  wattron(win, A_BOLD);
+  wattroff(win, A_STANDOUT);
+  box(win, 0, 0);
+
+  if (_light_) {
+    wattron(win, A_STANDOUT);
+  }
+
+  /* ros::Time time_now         = ros::Time::now(); */
+  /* double    interval         = (time_now - control_manager_ts_.last_time).toSec(); */
+  /* control_manager_ts_.last_time = time_now; */
+
+  /* double avg_rate          = control_manager_ts_.counter / interval; */
+  /* control_manager_ts_.counter = 0; */
+
+  /* control_manager_ts_.rates[control_manager_ts_.rates_iterator] = avg_rate; */
+  /* control_manager_ts_.rates_iterator++; */
+
+  /* if (control_manager_ts_.rates_iterator >= control_manager_ts_.rates.size()) { */
+  /*   control_manager_ts_.rates_iterator = 0; */
+  /* } */
+
+  /* avg_rate = 0.0; */
+
+  /* for (unsigned long i = 0; i < control_manager_ts_.rates.size(); i++) { */
+  /*   avg_rate += control_manager_ts_.rates[i]; */
+  /* } */
+  /* avg_rate = avg_rate / double(control_manager_ts_.rates.size()); */
+
+  ROS_INFO("[%s]: a1", ros::this_node::getName().c_str());
+  double avg_rate = control_manager_ts_.GetHz();
+  ROS_INFO("[%s]: a2", ros::this_node::getName().c_str());
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.control_manager_diag_hz = avg_rate;
+  }
+
+  ROS_INFO("[%s]: a2", ros::this_node::getName().c_str());
+  ROS_INFO("[%s]: a2", ros::this_node::getName().c_str());
+  ROS_INFO("[%s]: a2", ros::this_node::getName().c_str());
+  // TODO define at a better place
+  double control_manager_expected_rate = 10.0;
+
+  double rate;
+  string curr_controller;
+  string curr_tracker;
+  string curr_gains;
+  string curr_constraints;
+  bool   callbacks_enabled;
+  bool   has_goal;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    rate = uav_status_.control_manager_diag_hz;
+
+    uav_status_.controllers.empty() ? curr_controller = "NONE" : curr_controller = uav_status_.controllers[0];
+    uav_status_.trackers.empty() ? curr_tracker = "NONE" : curr_tracker = uav_status_.trackers[0];
+    uav_status_.gains.empty() ? curr_gains = "NONE" : curr_gains = uav_status_.gains[0];
+    uav_status_.constraints.empty() ? curr_constraints = "NONE" : curr_constraints = uav_status_.constraints[0];
+
+    callbacks_enabled = uav_status_.callbacks_enabled;
+    has_goal          = uav_status_.have_goal;
+  }
+
+  int tmp_color = RED;
+  if (avg_rate > 0.9 * control_manager_expected_rate) {
+    tmp_color = GREEN;
+  } else if (avg_rate > 0.5 * control_manager_expected_rate) {
+    tmp_color = YELLOW;
+  }
+
+  wattron(win, COLOR_PAIR(tmp_color));
+
+  printLimitedString(win, 0, 10, "Control Manager", 15);
+
+  if (rate == 0.0) {
+
+    printNoData(win, 0, 1);
+
+    wattron(win, COLOR_PAIR(RED));
+    mvwprintw(win, 1, 1, "NO_CONTROLLER");
+    mvwprintw(win, 2, 1, "NO_TRACKER");
+    wattroff(win, COLOR_PAIR(tmp_color));
+
+  } else {
+    if (curr_controller != "Se3Controller") {
+      if (curr_controller != "MpcController") {
+        wattron(win, COLOR_PAIR(RED));
+      }
+      printLimitedString(win, 1, 1, curr_controller, 29);
+    } else {
+      mvwprintw(win, 1, 1, curr_controller.c_str());
+      wattron(win, COLOR_PAIR(NORMAL));
+      mvwprintw(win, 1, 1 + curr_controller.length(), "%s", "/");
+    }
+
+    wattron(win, COLOR_PAIR(tmp_color));
+
+    if (curr_tracker != "MpcTracker") {
+      if (curr_tracker == "LandoffTracker" && tmp_color != RED) {
+        wattron(win, COLOR_PAIR(YELLOW));
+      } else {
+        wattron(win, COLOR_PAIR(RED));
+      }
+
+      printLimitedString(win, 2, 1, curr_tracker, 29);
+
+    } else {
+      mvwprintw(win, 2, 1, curr_tracker.c_str());
+      wattron(win, COLOR_PAIR(NORMAL));
+      mvwprintw(win, 2, 1 + curr_tracker.length(), "%s", "/");
+      wattron(win, COLOR_PAIR(tmp_color));
+    }
+  }
+
+  if (!callbacks_enabled) {
+
+    wattron(win, COLOR_PAIR(RED));
+    mvwprintw(win, 1, 20, "NO_CB");
+    wattroff(win, COLOR_PAIR(RED));
+  }
+
+
+  if (has_goal) {
+
+    wattron(win, COLOR_PAIR(GREEN));
+    mvwprintw(win, 2, 21, "FLY");
+    wattroff(win, COLOR_PAIR(GREEN));
+
+  } else {
+
+    wattron(win, COLOR_PAIR(YELLOW));
+    mvwprintw(win, 2, 21, "IDLE");
+    wattroff(win, COLOR_PAIR(YELLOW));
+  }
+
+  if (curr_controller == "Se3Controller") {
+
+    if (rate == 0) {
+      printNoData(win, 1, 2 + curr_controller.length());
+    } else {
+      printLimitedString(win, 1, 2 + curr_controller.length(), curr_gains, 10);
+    }
+  }
+
+  if (curr_tracker == "MpcTracker") {
+    if (rate == 0) {
+      printNoData(win, 2, 2 + curr_tracker.length());
+    } else {
+      printLimitedString(win, 2, 2 + curr_tracker.length(), curr_constraints, 10);
+    }
+  }
+
+  wattroff(win, COLOR_PAIR(tmp_color));
+  wattroff(win, A_BOLD);
+  wrefresh(win);
 }
 
 //}
@@ -1610,108 +1864,6 @@ void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic
 
 //}
 
-/* controlManagerHandler() //{ */
-
-void Status::controlManagerHandler(WINDOW* win, double rate, short color, int topic) {
-
-  string controller;
-  string tracker;
-  controller = control_manager_.active_controller;
-  tracker    = control_manager_.active_tracker;
-
-  switch (topic) {
-    case 0:  // mavros state
-      printLimitedString(win, 0, 10, "Control Manager", 15);
-
-      if (rate == 0) {
-
-        printNoData(win, 0, 1);
-
-        wattron(win, COLOR_PAIR(RED));
-        mvwprintw(win, 1, 1, "NO_CONTROLLER");
-        mvwprintw(win, 2, 1, "NO_TRACKER");
-        wattron(win, COLOR_PAIR(color));
-
-      } else {
-        if (controller != "Se3Controller") {
-          if (controller != "MpcController") {
-            wattron(win, COLOR_PAIR(RED));
-          }
-          printLimitedString(win, 1, 1, controller, 29);
-        } else {
-          mvwprintw(win, 1, 1, controller.c_str());
-          wattron(win, COLOR_PAIR(NORMAL));
-          mvwprintw(win, 1, 1 + controller.length(), "%s", "/");
-        }
-
-        wattron(win, COLOR_PAIR(color));
-
-        if (tracker != "MpcTracker") {
-          if (tracker == "LandoffTracker" && color != RED) {
-            wattron(win, COLOR_PAIR(YELLOW));
-          } else {
-            wattron(win, COLOR_PAIR(RED));
-          }
-
-          printLimitedString(win, 2, 1, tracker, 29);
-
-        } else {
-          mvwprintw(win, 2, 1, tracker.c_str());
-          wattron(win, COLOR_PAIR(NORMAL));
-          mvwprintw(win, 2, 1 + tracker.length(), "%s", "/");
-          wattron(win, COLOR_PAIR(color));
-        }
-      }
-
-      if (!control_manager_.tracker_status.callbacks_enabled) {
-
-        wattron(win, COLOR_PAIR(RED));
-        mvwprintw(win, 1, 20, "NO_CB");
-        wattroff(win, COLOR_PAIR(RED));
-      }
-
-
-      if (control_manager_.tracker_status.have_goal) {
-
-        wattron(win, COLOR_PAIR(GREEN));
-        mvwprintw(win, 2, 21, "FLY");
-        wattroff(win, COLOR_PAIR(GREEN));
-
-      } else {
-
-        wattron(win, COLOR_PAIR(YELLOW));
-        mvwprintw(win, 2, 21, "IDLE");
-        wattroff(win, COLOR_PAIR(YELLOW));
-      }
-      break;
-
-    case 1:  // mavros state
-
-      if (controller == "Se3Controller") {
-
-        if (rate == 0) {
-          printNoData(win, 1, 2 + controller.length());
-        } else {
-          printLimitedString(win, 1, 2 + controller.length(), gain_manager_.current_name, 10);
-        }
-      }
-      break;
-
-    case 2:  // mavros state
-
-      if (tracker == "MpcTracker") {
-        if (rate == 0) {
-          printNoData(win, 2, 2 + tracker.length());
-        } else {
-          printLimitedString(win, 2, 2 + tracker.length(), constraint_manager_.current_name, 10);
-        }
-      }
-      break;
-  }
-}
-
-//}
-
 /* flightTimeHandler() //{ */
 
 void Status::flightTimeHandler(WINDOW* win) {
@@ -1792,6 +1944,11 @@ void Status::generalInfoThread() {
         wattron(general_info_window_, A_STANDOUT);
       }
 
+      getCpuLoad();
+      getMemLoad();
+      getCpuFreq();
+      getDiskSpace();
+
       printCpuLoad(general_info_window_);
       printMemLoad(general_info_window_);
       printCpuFreq(general_info_window_);
@@ -1856,6 +2013,52 @@ void Status::setupGenericCallbacks() {
 
     generic_subscriber_vec_.push_back(tmp_subscriber);
   }
+}
+
+//}
+
+/* prefillUavStatus() //{ */
+
+void Status::prefillUavStatus() {
+
+  std::scoped_lock lock(mutex_status_msg_);
+  uav_status_.control_manager_diag_hz = 0.0;
+  uav_status_.controllers.clear();
+  uav_status_.gains.clear();
+  uav_status_.trackers.clear();
+  uav_status_.constraints.clear();
+  uav_status_.fly_state  = "N/A";
+  uav_status_.odom_hz    = 0.0;
+  uav_status_.odom_x     = 0.0;
+  uav_status_.odom_y     = 0.0;
+  uav_status_.odom_z     = 0.0;
+  uav_status_.odom_hdg   = 0.0;
+  uav_status_.odom_frame = "N/A";
+  uav_status_.odom_estimators_hori.clear();
+  uav_status_.odom_estimators_vert.clear();
+  uav_status_.odom_estimators_hdg.clear();
+  uav_status_.cpu_load         = 0.0;
+  uav_status_.cpu_ghz          = 0.0;
+  uav_status_.free_ram         = 0.0;
+  uav_status_.free_hdd         = 0.0;
+  uav_status_.mavros_hz        = 0.0;
+  uav_status_.mavros_state     = "N/A";
+  uav_status_.mavros_mode      = "N/A";
+  uav_status_.mavros_GPS_state = "N/A";
+  uav_status_.mavros_GPS_qual  = "N/A";
+  uav_status_.battery_volt     = 0.0;
+  uav_status_.battery_curr     = 0.0;
+  uav_status_.thrust           = 0.0;
+  uav_status_.mass_estimate    = 0.0;
+  uav_status_.mass_set         = 0.0;
+  uav_status_.custom_topic_names.clear();
+  uav_status_.custom_topic_hz.clear();
+  uav_status_.custom_topic_hz_expected.clear();
+  uav_status_.custom_string_outputs.clear();
+  uav_status_.custom_services.clear();
+  uav_status_.flying_normally   = false;
+  uav_status_.have_goal         = false;
+  uav_status_.callbacks_enabled = false;
 }
 
 //}
@@ -1939,6 +2142,196 @@ void Status::setupGotoMenu() {
   for (int i = 0; i < 4; i++) {
     InputBox tmpbox(8, menu.getWin(), goto_double_vec_[i]);
     goto_menu_inputs_.push_back(tmpbox);
+  }
+}
+
+//}
+
+//}
+
+/* CPU/MEM/HDD GET FUNCTIONS //{ */
+
+/* getMemLoad() //{ */
+
+void Status::getMemLoad() {
+
+  ifstream file("/proc/meminfo");
+  string   line1, line2, line3, line4;
+  getline(file, line1);
+  getline(file, line2);
+  getline(file, line3);
+  getline(file, line4);
+  file.close();
+
+  vector<string> results;
+  boost::split(results, line1, [](char c) { return c == ' '; });
+
+  double ram_total;
+  double ram_free;
+  double ram_used;
+  double buffers;
+
+  for (unsigned long i = 1; i < results.size(); i++) {
+
+    if (isdigit(results[i].front())) {
+      try {
+        ram_total = double(stol(results[i])) / 1048576;
+      }
+      catch (const invalid_argument& e) {
+        ram_total = 0.0;
+      }
+      break;
+    }
+  }
+
+  boost::split(results, line3, [](char c) { return c == ' '; });
+
+  for (unsigned long i = 1; i < results.size(); i++) {
+
+    if (isdigit(results[i].front())) {
+      try {
+        ram_free = double(stol(results[i])) / 1048576;
+      }
+      catch (const invalid_argument& e) {
+        ram_free = 0.0;
+      }
+      break;
+    }
+  }
+
+  boost::split(results, line4, [](char c) { return c == ' '; });
+
+  for (unsigned long i = 1; i < results.size(); i++) {
+
+    if (isdigit(results[i].front())) {
+      try {
+        buffers = double(stol(results[i])) / 1048576;
+      }
+      catch (const invalid_argument& e) {
+        buffers = 0.0;
+      }
+      break;
+    }
+  }
+
+  ram_used = ram_total - (ram_free + buffers);
+
+  int    tmp_color = GREEN;
+  double ram_ratio = ram_used / ram_total;
+  if (ram_ratio > 0.8) {
+    tmp_color = RED;
+  } else if (ram_ratio > 0.6) {
+    tmp_color = YELLOW;
+  }
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.free_ram = ram_free + buffers;
+  }
+}
+
+//}
+
+/* getCpuLoad() //{ */
+
+void Status::getCpuLoad() {
+
+  ifstream file("/proc/stat");
+  string   line;
+  getline(file, line);
+  file.close();
+
+  vector<string> results;
+  boost::split(results, line, [](char c) { return c == ' '; });
+
+  long idle;
+  long non_idle;
+  long total;
+
+  try {
+    idle     = stol(results[5]) + stol(results[6]);
+    non_idle = stol(results[2]) + stol(results[3]) + stol(results[4]) + stol(results[7]) + stol(results[8]) + stol(results[9]);
+    total    = idle + non_idle;
+  }
+  catch (const invalid_argument& e) {
+    idle     = 0;
+    non_idle = 0;
+    total    = 0;
+  }
+
+  long total_diff = total - last_total_;
+  long idle_diff  = idle - last_idle_;
+
+  double cpu_load = 100 * (double(total_diff - idle_diff) / double(total_diff));
+
+  last_total_ = total;
+  last_idle_  = idle;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.cpu_load = cpu_load;
+  }
+}
+
+//}
+
+/* getCpuFreq() //{ */
+
+void Status::getCpuFreq() {
+
+  ifstream file("/sys/devices/system/cpu/online");
+  string   line;
+  getline(file, line);
+  file.close();
+
+  vector<string> results;
+  boost::split(results, line, [](char c) { return c == '-'; });
+
+  int num_cores;
+
+  try {
+    num_cores = stoi(results[1]) + 1;
+  }
+  catch (const invalid_argument& e) {
+    num_cores = 0;
+  }
+
+  long cpu_freq = 0;
+
+  for (int i = 0; i < num_cores; i++) {
+    string   filename = "/sys/devices/system/cpu/cpu" + to_string(i) + "/cpufreq/scaling_cur_freq";
+    ifstream file(filename.c_str());
+    getline(file, line);
+    file.close();
+    try {
+      cpu_freq += stol(line);
+    }
+    catch (const invalid_argument& e) {
+      cpu_freq = 0;
+    }
+  }
+
+  double avg_cpu_ghz = double(cpu_freq / num_cores) / 1048576;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.cpu_ghz = avg_cpu_ghz;
+  }
+}
+
+//}
+
+/* getDiskSpace() //{ */
+
+void Status::getDiskSpace() {
+
+  boost::filesystem::space_info si = boost::filesystem::space(".");
+
+  int gigas = round(si.available / 104857600);
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.free_hdd = gigas;
   }
 }
 
@@ -2334,8 +2727,7 @@ void Status::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
     return;
   }
 
-  uav_state_topic_[0].counter++;
-  /* uav_state_ = *msg; */
+  uav_state_ts_.Count();
 
   double heading;
 
@@ -2540,10 +2932,7 @@ void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsCon
     return;
   }
 
-  control_manager_topic_[0].counter++;
-  /* control_manager_                                                = *msg; */
-  /* control_manager_.active_tracker == "NullTracker" ? NullTracker_ = true : NullTracker_ = false; */
-  /* control_manager_.flying_normally ? is_flying_normally_ = true : is_flying_normally_ = false; */
+  control_manager_ts_.Count();
 
   {
     std::scoped_lock lock(mutex_status_msg_);
@@ -2561,7 +2950,7 @@ void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsCon
     for (size_t i = 0; i < uav_status_.controllers.size(); i++) {
       if ((uav_status_.controllers[i] == msg->active_controller) && i != 0) {
         // put the active estimator as first in the vector
-        std::swap(uav_status_.controllers[0], uav_status_.controllers[i]);
+        std::swap(uav_status_.controllers[0], uav_status_.trackers[i]);
       }
     }
 
@@ -2638,8 +3027,8 @@ void Status::setServiceCallback(const std_msgs::String& msg) {
   {
     std::scoped_lock lock(mutex_status_msg_);
 
-    if (std::find(uav_status_.custon_services.begin(), uav_status_.custon_services.end(), msg.data) == uav_status_.custon_services.end()) {
-      uav_status_.custon_services.push_back(msg.data);
+    if (std::find(uav_status_.custom_services.begin(), uav_status_.custom_services.end(), msg.data) == uav_status_.custom_services.end()) {
+      uav_status_.custom_services.push_back(msg.data);
     }
   }
 }
@@ -2663,7 +3052,8 @@ void Status::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
     for (unsigned long j = 0; j < tf_static_list_compare_.size(); j++) {
       if (tf_static_list_compare_[j] == frame_name && uav_name == _uav_name_) {
         std::scoped_lock lock(mutex_status_msg_);
-        if (std::find(uav_status_.custom_topic_hz.begin(), uav_status_.custom_topic_hz.end(), tf_static_list_add_[j]) == uav_status_.custom_topic_hz.end())
+        if (std::find(uav_status_.custom_topic_names.begin(), uav_status_.custom_topic_names.end(), tf_static_list_add_[j]) ==
+            uav_status_.custom_topic_names.end())
           uav_status_.custom_topic_names.push_back(tf_static_list_add_[j]);
       }
     }
@@ -2681,24 +3071,24 @@ void Status::stringCallback(const ros::MessageEvent<std_msgs::String const>& eve
     return;
   }
 
-  std::string pub_name = event.getPublisherName();
-  std::string msg_str  = event.getMessage()->data;
+  /*   std::string pub_name = event.getPublisherName(); */
+  /*   std::string msg_str  = event.getMessage()->data; */
 
-  bool contains = false;
-/* uav_status_.custom_string_outputs */
-  for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
-    if (string_info_vec_[i].publisher_name == pub_name) {
-      contains                           = true;
-      string_info_vec_[i].display_string = msg_str;
-      string_info_vec_[i].last_time      = ros::Time::now();
-      break;
-    }
-  }
+  /*   bool contains = false; */
+  /* /1* uav_status_.custom_string_outputs *1/ */
+  /*   for (unsigned long i = 0; i < string_info_vec_.size(); i++) { */
+  /*     if (string_info_vec_[i].publisher_name == pub_name) { */
+  /*       contains                           = true; */
+  /*       string_info_vec_[i].display_string = msg_str; */
+  /*       string_info_vec_[i].last_time      = ros::Time::now(); */
+  /*       break; */
+  /*     } */
+  /*   } */
 
-  if (!contains) {
-    string_info tmp(pub_name, msg_str);
-    string_info_vec_.push_back(tmp);
-  }
+  /*   if (!contains) { */
+  /*     string_info tmp(pub_name, msg_str); */
+  /*     string_info_vec_.push_back(tmp); */
+  /*   } */
 }
 //}
 
