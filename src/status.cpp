@@ -1082,6 +1082,7 @@ bool Status::gotoMenuHandler(int key_in) {
   }
 
   wrefresh(menu_vec_[0].getWin());
+  return false;
 }
 
 //}
