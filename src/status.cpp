@@ -572,7 +572,6 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   if (!initialized_) {
     return;
   }
-ROS_INFO("[%s]: timer start", ros::this_node::getName().c_str());
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
     uavStateHandler(uav_state_window_);
@@ -601,10 +600,10 @@ ROS_INFO("[%s]: timer start", ros::this_node::getName().c_str());
     }
   }
 
-  /* { */
-  /*   std::scoped_lock lock(mutex_general_info_thread_); */
-  /*   wrefresh(general_info_window_); */
-  /* } */
+  {
+    std::scoped_lock lock(mutex_general_info_thread_);
+    wrefresh(general_info_window_);
+  }
 
   /* wclear(top_bar_window_); */
 
@@ -1462,37 +1461,11 @@ void Status::uavStateHandler(WINDOW* win) {
     wattron(win, A_STANDOUT);
   }
 
-  /* ros::Time time_now   = ros::Time::now(); */
-  /* double    interval   = (time_now - uav_state_ts_.last_time).toSec(); */
-  /* uav_state_ts_.last_time = time_now; */
-
-  /* double avg_rate    = uav_state_ts_.counter / interval; */
-  /* uav_state_ts_.counter = 0; */
-
-  /* uav_state_ts_.rates[uav_state_ts_.rates_iterator] = avg_rate; */
-  /* uav_state_ts_.rates_iterator++; */
-
-  /* if (uav_state_ts_.rates_iterator >= uav_state_ts_.rates.size()) { */
-  /*   uav_state_ts_.rates_iterator = 0; */
-  /* } */
-
-  /* avg_rate = 0.0; */
-
-  /* for (unsigned long i = 0; i < uav_state_ts_.rates.size(); i++) { */
-  /*   avg_rate += uav_state_ts_.rates[i]; */
-  /* } */
-  /* avg_rate = avg_rate / double(uav_state_ts_.rates.size()); */
-  ROS_INFO("[%s]: b1", ros::this_node::getName().c_str());
   double avg_rate = uav_state_ts_.GetHz();
-  ROS_INFO("[%s]: b2", ros::this_node::getName().c_str());
   {
     std::scoped_lock lock(mutex_status_msg_);
     uav_status_.odom_hz = avg_rate;
   }
-  ROS_INFO("[%s]: b2", ros::this_node::getName().c_str());
-  ROS_INFO("[%s]: b2", ros::this_node::getName().c_str());
-  ROS_INFO("[%s]: b2", ros::this_node::getName().c_str());
-  ROS_INFO("[%s]: b2", ros::this_node::getName().c_str());
 
   // TODO define at a better place
   double uav_state_expected_rate = 100.0;
@@ -1572,39 +1545,13 @@ void Status::controlManagerHandler(WINDOW* win) {
     wattron(win, A_STANDOUT);
   }
 
-  /* ros::Time time_now         = ros::Time::now(); */
-  /* double    interval         = (time_now - control_manager_ts_.last_time).toSec(); */
-  /* control_manager_ts_.last_time = time_now; */
-
-  /* double avg_rate          = control_manager_ts_.counter / interval; */
-  /* control_manager_ts_.counter = 0; */
-
-  /* control_manager_ts_.rates[control_manager_ts_.rates_iterator] = avg_rate; */
-  /* control_manager_ts_.rates_iterator++; */
-
-  /* if (control_manager_ts_.rates_iterator >= control_manager_ts_.rates.size()) { */
-  /*   control_manager_ts_.rates_iterator = 0; */
-  /* } */
-
-  /* avg_rate = 0.0; */
-
-  /* for (unsigned long i = 0; i < control_manager_ts_.rates.size(); i++) { */
-  /*   avg_rate += control_manager_ts_.rates[i]; */
-  /* } */
-  /* avg_rate = avg_rate / double(control_manager_ts_.rates.size()); */
-
-  ROS_INFO("[%s]: a1", ros::this_node::getName().c_str());
   double avg_rate = control_manager_ts_.GetHz();
-  ROS_INFO("[%s]: a2", ros::this_node::getName().c_str());
 
   {
     std::scoped_lock lock(mutex_status_msg_);
     uav_status_.control_manager_diag_hz = avg_rate;
   }
 
-  ROS_INFO("[%s]: a2", ros::this_node::getName().c_str());
-  ROS_INFO("[%s]: a2", ros::this_node::getName().c_str());
-  ROS_INFO("[%s]: a2", ros::this_node::getName().c_str());
   // TODO define at a better place
   double control_manager_expected_rate = 10.0;
 
@@ -2166,19 +2113,19 @@ void Status::getMemLoad() {
   vector<string> results;
   boost::split(results, line1, [](char c) { return c == ' '; });
 
-  double ram_total;
-  double ram_free;
-  double ram_used;
+  double total_ram;
+  double free_ram;
+  double used_ram;
   double buffers;
 
   for (unsigned long i = 1; i < results.size(); i++) {
 
     if (isdigit(results[i].front())) {
       try {
-        ram_total = double(stol(results[i])) / 1048576;
+        total_ram = double(stol(results[i])) / 1048576;
       }
       catch (const invalid_argument& e) {
-        ram_total = 0.0;
+        total_ram = 0.0;
       }
       break;
     }
@@ -2190,10 +2137,10 @@ void Status::getMemLoad() {
 
     if (isdigit(results[i].front())) {
       try {
-        ram_free = double(stol(results[i])) / 1048576;
+        free_ram = double(stol(results[i])) / 1048576;
       }
       catch (const invalid_argument& e) {
-        ram_free = 0.0;
+        free_ram = 0.0;
       }
       break;
     }
@@ -2214,10 +2161,10 @@ void Status::getMemLoad() {
     }
   }
 
-  ram_used = ram_total - (ram_free + buffers);
+  used_ram = total_ram - (free_ram + buffers);
 
   int    tmp_color = GREEN;
-  double ram_ratio = ram_used / ram_total;
+  double ram_ratio = used_ram / total_ram;
   if (ram_ratio > 0.8) {
     tmp_color = RED;
   } else if (ram_ratio > 0.6) {
@@ -2226,7 +2173,8 @@ void Status::getMemLoad() {
 
   {
     std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.free_ram = ram_free + buffers;
+    uav_status_.free_ram  = free_ram + buffers;
+    uav_status_.total_ram = total_ram;
   }
 }
 
@@ -2345,69 +2293,19 @@ void Status::getDiskSpace() {
 
 void Status::printMemLoad(WINDOW* win) {
 
-  ifstream file("/proc/meminfo");
-  string   line1, line2, line3, line4;
-  getline(file, line1);
-  getline(file, line2);
-  getline(file, line3);
-  getline(file, line4);
-  file.close();
+  double total_ram;
+  double free_ram;
 
-  vector<string> results;
-  boost::split(results, line1, [](char c) { return c == ' '; });
-
-  double ram_total;
-  double ram_free;
-  double ram_used;
-  double buffers;
-
-  for (unsigned long i = 1; i < results.size(); i++) {
-
-    if (isdigit(results[i].front())) {
-      try {
-        ram_total = double(stol(results[i])) / 1048576;
-      }
-      catch (const invalid_argument& e) {
-        ram_total = 0.0;
-      }
-      break;
-    }
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    free_ram  = uav_status_.free_ram;
+    total_ram = uav_status_.free_ram;
   }
 
-  boost::split(results, line3, [](char c) { return c == ' '; });
-
-  for (unsigned long i = 1; i < results.size(); i++) {
-
-    if (isdigit(results[i].front())) {
-      try {
-        ram_free = double(stol(results[i])) / 1048576;
-      }
-      catch (const invalid_argument& e) {
-        ram_free = 0.0;
-      }
-      break;
-    }
-  }
-
-  boost::split(results, line4, [](char c) { return c == ' '; });
-
-  for (unsigned long i = 1; i < results.size(); i++) {
-
-    if (isdigit(results[i].front())) {
-      try {
-        buffers = double(stol(results[i])) / 1048576;
-      }
-      catch (const invalid_argument& e) {
-        buffers = 0.0;
-      }
-      break;
-    }
-  }
-
-  ram_used = ram_total - (ram_free + buffers);
+  double used_ram = total_ram - free_ram;
 
   int    tmp_color = GREEN;
-  double ram_ratio = ram_used / ram_total;
+  double ram_ratio = used_ram / total_ram;
   if (ram_ratio > 0.8) {
     tmp_color = RED;
   } else if (ram_ratio > 0.6) {
@@ -2416,7 +2314,7 @@ void Status::printMemLoad(WINDOW* win) {
 
   wattron(win, COLOR_PAIR(tmp_color));
 
-  printLimitedDouble(win, 2, 1, "RAM: %4.1f G", (ram_free + buffers), 100);
+  printLimitedDouble(win, 2, 1, "RAM: %4.1f G", free_ram, 100);
 }
 
 //}
@@ -2425,36 +2323,11 @@ void Status::printMemLoad(WINDOW* win) {
 
 void Status::printCpuLoad(WINDOW* win) {
 
-  ifstream file("/proc/stat");
-  string   line;
-  getline(file, line);
-  file.close();
-
-  vector<string> results;
-  boost::split(results, line, [](char c) { return c == ' '; });
-
-  long idle;
-  long non_idle;
-  long total;
-
-  try {
-    idle     = stol(results[5]) + stol(results[6]);
-    non_idle = stol(results[2]) + stol(results[3]) + stol(results[4]) + stol(results[7]) + stol(results[8]) + stol(results[9]);
-    total    = idle + non_idle;
+  double cpu_load;
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    cpu_load = uav_status_.cpu_load;
   }
-  catch (const invalid_argument& e) {
-    idle     = 0;
-    non_idle = 0;
-    total    = 0;
-  }
-
-  long total_diff = total - last_total_;
-  long idle_diff  = idle - last_idle_;
-
-  double cpu_load = 100 * (double(total_diff - idle_diff) / double(total_diff));
-
-  last_total_ = total;
-  last_idle_  = idle;
 
   int tmp_color = GREEN;
   if (cpu_load > 80.0) {
@@ -2474,40 +2347,11 @@ void Status::printCpuLoad(WINDOW* win) {
 
 void Status::printCpuFreq(WINDOW* win) {
 
-  ifstream file("/sys/devices/system/cpu/online");
-  string   line;
-  getline(file, line);
-  file.close();
-
-  vector<string> results;
-  boost::split(results, line, [](char c) { return c == '-'; });
-
-  int num_cores;
-
-  try {
-    num_cores = stoi(results[1]) + 1;
+  double avg_cpu_ghz;
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    avg_cpu_ghz = uav_status_.cpu_ghz;
   }
-  catch (const invalid_argument& e) {
-    num_cores = 0;
-  }
-
-  long cpu_freq = 0;
-
-  for (int i = 0; i < num_cores; i++) {
-    string   filename = "/sys/devices/system/cpu/cpu" + to_string(i) + "/cpufreq/scaling_cur_freq";
-    ifstream file(filename.c_str());
-    getline(file, line);
-    file.close();
-    try {
-      cpu_freq += stol(line);
-    }
-    catch (const invalid_argument& e) {
-      cpu_freq = 0;
-    }
-  }
-
-  double avg_cpu_ghz = double(cpu_freq / num_cores) / 1048576;
-
 
   wattron(win, COLOR_PAIR(GREEN));
   printLimitedDouble(win, 1, 16, "%4.2f GHz", avg_cpu_ghz, 10);
@@ -2519,9 +2363,11 @@ void Status::printCpuFreq(WINDOW* win) {
 
 void Status::printDiskSpace(WINDOW* win) {
 
-  boost::filesystem::space_info si = boost::filesystem::space(".");
-
-  int gigas = round(si.available / 104857600);
+  int gigas;
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    gigas = uav_status_.free_hdd;
+  }
 
   wattron(win, COLOR_PAIR(GREEN));
   if (gigas < 200 || gigas != last_gigas_) {
@@ -2537,7 +2383,6 @@ void Status::printDiskSpace(WINDOW* win) {
       printLimitedInt(win, 2, 14, "HDD: %i G", gigas / 10, 1000);
     }
   }
-  last_gigas_ = gigas;
 }
 
 //}
@@ -2950,7 +2795,7 @@ void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsCon
     for (size_t i = 0; i < uav_status_.controllers.size(); i++) {
       if ((uav_status_.controllers[i] == msg->active_controller) && i != 0) {
         // put the active estimator as first in the vector
-        std::swap(uav_status_.controllers[0], uav_status_.trackers[i]);
+        std::swap(uav_status_.controllers[0], uav_status_.controllers[i]);
       }
     }
 
@@ -2970,7 +2815,7 @@ void Status::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr&
     return;
   }
 
-  control_manager_topic_[1].counter++;
+  /* control_manager_topic_[1].counter++; */
   /* gain_manager_ = *msg; */
 
   {
@@ -2997,7 +2842,7 @@ void Status::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnost
     return;
   }
 
-  control_manager_topic_[2].counter++;
+  /* control_manager_topic_[2].counter++; */
   /* constraint_manager_ = *msg; */
 
   {
