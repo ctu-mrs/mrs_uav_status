@@ -108,7 +108,7 @@ private:
   void setServiceCallback(const std_msgs::String& msg);
   void tfStaticCallback(const tf2_msgs::TFMessage& msg);
   void mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg);
-  /* void mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg); */
+  void mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg);
 
   // generic callback, for any topic, to monitor its rate
   void genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
@@ -131,17 +131,20 @@ private:
 
   void uavStateHandler(WINDOW* win);
   void controlManagerHandler(WINDOW* win);
+  void mavrosStateHandler(WINDOW* win);
   void genericTopicHandler(WINDOW* win, double rate, short color, int topic);
-  void mavrosStateHandler(WINDOW* win, double rate, short color, int topic);
   void stringHandler(WINDOW* win, double rate, short color, int topic);
 
-  int BUFFER_LEN_SECS = 4;
+  int BUFFER_LEN_SECS = 2;
 
   TopicInfo uav_state_ts_{10, BUFFER_LEN_SECS};
   TopicInfo control_manager_ts_{1, BUFFER_LEN_SECS};
+  TopicInfo mavros_local_ts_{1, BUFFER_LEN_SECS};
+  TopicInfo mavros_global_ts_{1, BUFFER_LEN_SECS};
+  TopicInfo mavros_state_ts_{1, BUFFER_LEN_SECS};
+  TopicInfo mavros_cmd_ts_{1, BUFFER_LEN_SECS};
+  TopicInfo mavros_battery_ts_{1, BUFFER_LEN_SECS};
 
-
-  double mavros_state_window_rate_  = 1;
   double general_info_window_rate_  = 1;
   double generic_topic_window_rate_ = 1;
 
@@ -164,6 +167,7 @@ private:
   // Custom windows
   WINDOW* uav_state_window_;
   WINDOW* control_manager_window_;
+  WINDOW* mavros_state_window_;
 
   /* StatusWindow* mavros_state_window_; */
   vector<topic> mavros_state_topic_;
@@ -256,21 +260,9 @@ private:
   double _uav_mass_;
   string _sensors_;
   bool   _pixgarm_;
+  string _turbo_remote_constraints_;
 
   // | ------------------ Data storage, inputs ------------------ |
-  mavros_msgs::State         mavros_state_;
-  mrs_msgs::AttitudeCommand  cmd_attitude_;
-  sensor_msgs::NavSatFix     mavros_global_;
-  geometry_msgs::PoseStamped mavros_local_;
-  sensor_msgs::BatteryState  battery_;
-
-  mrs_msgs::UavState                     uav_state_;
-  mrs_msgs::OdometryDiag                 odom_diag_;
-  mrs_msgs::ControlManagerDiagnostics    control_manager_;
-  mrs_msgs::GainManagerDiagnostics       gain_manager_;
-  mrs_msgs::ConstraintManagerDiagnostics constraint_manager_;
-
-  bool has_odom_diag_ = false;
 
   vector<topic>           generic_topic_vec_;
   vector<string>          generic_topic_input_vec_;
@@ -313,8 +305,7 @@ private:
   bool remote_global_ = false;
 
 
-  bool is_flying_          = false;
-  bool is_flying_normally_ = false;
+  bool is_flying_ = false;
 
   bool NullTracker_ = true;
 
@@ -349,6 +340,7 @@ Status::Status() {
   param_loader.loadParam("uav_mass", _uav_mass_);
   param_loader.loadParam("sensors", _sensors_);
   param_loader.loadParam("pixgarm", _pixgarm_);
+  param_loader.loadParam("turbo_remote_constraints", _turbo_remote_constraints_);
 
   param_loader.loadParam("colorscheme", _colorscheme_);
   param_loader.loadParam("rainbow", _rainbow_);
@@ -411,10 +403,7 @@ Status::Status() {
   string_subscriber_             = nh_.subscribe("string_in", 10, &Status::stringCallback, this, ros::TransportHints().tcpNoDelay());
   set_service_subscriber_        = nh_.subscribe("set_service_in", 10, &Status::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
   tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &Status::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
-
-  if (_debug_tilt_) {
-    /* mavros_local_subscriber_ = nh_.subscribe("mavros_local_in", 10, &Status::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay()); */
-  }
+  mavros_local_subscriber_       = nh_.subscribe("mavros_local_in", 10, &Status::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
 
   // | ------------------------ Services ------------------------ |
   //
@@ -489,6 +478,7 @@ Status::Status() {
 
   uav_state_window_       = newwin(6, 26, 5, 1);
   control_manager_window_ = newwin(4, 26, 1, 1);
+  mavros_state_window_    = newwin(6, 25, 5, 27);
 
 
   /* control_manager_topic_.push_back(topic{10.0, control_manager_window_rate_}); */
@@ -497,10 +487,10 @@ Status::Status() {
 
   /* control_manager_window_ = new StatusWindow(4, 26, 1, 1, control_manager_topic_, control_manager_window_rate_); */
 
-  mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
-  mavros_state_topic_.push_back(topic{1.0, mavros_state_window_rate_});
-  mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
-  mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
+  /* mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_}); */
+  /* mavros_state_topic_.push_back(topic{1.0, mavros_state_window_rate_}); */
+  /* mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_}); */
+  /* mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_}); */
 
   /* mavros_state_window_ = new StatusWindow(6, 25, 5, 27, mavros_state_topic_, mavros_state_window_rate_); */
 
@@ -572,126 +562,142 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   if (!initialized_) {
     return;
   }
-  {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
-    uavStateHandler(uav_state_window_);
-  }
 
-  hz_counter_++;
+  bool _drone_mode_ = false;
 
-  if (hz_counter_ == 10) {
-
-    hz_counter_ = 0;
+  if (!_drone_mode_) {
 
     {
-        /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler"); */
-        /* mavros_state_window_->getHz(); */
-        /* mavros_state_window_->Redraw(&Status::mavrosStateHandler, _light_, this); */
-    } {
-      mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
-      controlManagerHandler(control_manager_window_);
+      mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
+      uavStateHandler(uav_state_window_);
     }
+
+    hz_counter_++;
+
+    if (hz_counter_ == 10) {
+
+      hz_counter_ = 0;
+
+      {
+        mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
+        mavrosStateHandler(mavros_state_window_);
+      }
+      {
+        mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
+        controlManagerHandler(control_manager_window_);
+      }
+      {
+          /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler"); */
+          /* generic_topic_window_->Redraw(&Status::genericTopicHandler, _light_, this); */
+      } {
+        /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler"); */
+        /* string_window_->Redraw(&Status::stringHandler, _light_, this); */
+      }
+    }
+
     {
-        /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler"); */
-        /* generic_topic_window_->Redraw(&Status::genericTopicHandler, _light_, this); */
-    } {
-      /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler"); */
-      /* string_window_->Redraw(&Status::stringHandler, _light_, this); */
+      std::scoped_lock lock(mutex_general_info_thread_);
+      wrefresh(general_info_window_);
     }
+
+    wclear(top_bar_window_);
+
+    if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
+      wclear(bottom_window_);
+    }
+
+    flightTimeHandler(top_bar_window_);
+
+    printHelp();
+
+
+    int  key_in = getch();
+    bool is_flying_normally_;
+
+    switch (state) {
+
+      case STANDARD:
+
+        switch (key_in) {
+
+          case 'R':
+
+
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            is_flying_normally_ = uav_status_.flying_normally;
+          }
+
+            if (is_flying_normally_) {
+              remote_hover_ = false;
+              state         = REMOTE;
+            }
+            break;
+
+          case 'm':
+            setupMainMenu();
+            state = MAIN_MENU;
+            break;
+
+          case 'g':
+            setupGotoMenu();
+            state = GOTO_MENU;
+            break;
+
+          case 'h':
+            help_active_ = !help_active_;
+            break;
+
+          default:
+            flushinp();
+            break;
+        }
+
+        break;
+
+      case REMOTE:
+        printDebug("REMOTE MODE should be running");
+        flushinp();
+        remoteHandler(key_in, top_bar_window_);
+        if (key_in == 'R' || key_in == KEY_ESC) {
+
+          if (turbo_remote_) {
+
+            turbo_remote_ = false;
+            mrs_msgs::String string_service;
+            string_service.request.value = old_constraints;
+            service_set_constraints_.call(string_service);
+            printServiceResult(string_service.response.success, string_service.response.message);
+          }
+
+          state = STANDARD;
+        }
+        break;
+
+      case MAIN_MENU:
+        flushinp();
+        if (mainMenuHandler(key_in)) {
+          menu_vec_.clear();
+          submenu_vec_.clear();
+          state = STANDARD;
+        }
+        break;
+
+      case GOTO_MENU:
+        flushinp();
+        if (gotoMenuHandler(key_in)) {
+          menu_vec_.clear();
+          submenu_vec_.clear();
+          state = STANDARD;
+        }
+        break;
+    }
+
+    wrefresh(top_bar_window_);
+    wrefresh(bottom_window_);
+  } else {
+    ROS_INFO_THROTTLE(1.0, "[%s]: Running in drone mode, no display is provided here.", ros::this_node::getName().c_str());
   }
-
-  {
-    std::scoped_lock lock(mutex_general_info_thread_);
-    wrefresh(general_info_window_);
-  }
-
-  /* wclear(top_bar_window_); */
-
-  /* if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) { */
-  /*   wclear(bottom_window_); */
-  /* } */
-
-  /* flightTimeHandler(top_bar_window_); */
-
-  /* printHelp(); */
-
-
-  /* int key_in = getch(); */
-
-  /* switch (state) { */
-
-  /*   case STANDARD: */
-
-  /*     switch (key_in) { */
-
-  /*       case 'R': */
-
-  /*         if (is_flying_normally_) { */
-  /*           remote_hover_ = false; */
-  /*           state         = REMOTE; */
-  /*         } */
-  /*         break; */
-
-  /*       case 'm': */
-  /*         setupMainMenu(); */
-  /*         state = MAIN_MENU; */
-  /*         break; */
-
-  /*       case 'g': */
-  /*         setupGotoMenu(); */
-  /*         state = GOTO_MENU; */
-  /*         break; */
-
-  /*       case 'h': */
-  /*         help_active_ = !help_active_; */
-  /*         break; */
-
-  /*       default: */
-  /*         flushinp(); */
-  /*         break; */
-  /*     } */
-
-  /*     break; */
-
-  /*   case REMOTE: */
-  /*     flushinp(); */
-  /*     remoteHandler(key_in, top_bar_window_); */
-  /*     if (key_in == 'R' || key_in == KEY_ESC) { */
-
-  /*       if (turbo_remote_) { */
-
-  /*         turbo_remote_ = false; */
-  /*         mrs_msgs::String string_service; */
-  /*         string_service.request.value = old_constraints; */
-  /*         service_set_constraints_.call(string_service); */
-  /*         printServiceResult(string_service.response.success, string_service.response.message); */
-  /*       } */
-
-  /*       state = STANDARD; */
-  /*     } */
-  /*     break; */
-
-  /*   case MAIN_MENU: */
-  /*     flushinp(); */
-  /*     if (mainMenuHandler(key_in)) { */
-  /*       menu_vec_.clear(); */
-  /*       submenu_vec_.clear(); */
-  /*       state = STANDARD; */
-  /*     } */
-  /*     break; */
-
-  /*   case GOTO_MENU: */
-  /*     flushinp(); */
-  /*     if (gotoMenuHandler(key_in)) { */
-  /*       menu_vec_.clear(); */
-  /*       submenu_vec_.clear(); */
-  /*       state = STANDARD; */
-  /*     } */
-  /*     break; */
-  /* } */
-
-  wrefresh(top_bar_window_);
-  wrefresh(bottom_window_);
 
   /* refresh(); */
 }
@@ -913,10 +919,9 @@ bool Status::mainMenuHandler(int key_in) {
         } else if (line == main_menu_text_.size() - 6) {
           // SET CONSTRAINTS
 
-          constraints_text_.clear();
-
-          for (unsigned long i = 0; i < constraint_manager_.available.size(); i++) {
-            constraints_text_.push_back(constraint_manager_.available[i]);
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            constraints_text_ = uav_status_.constraints;
           }
 
           int x;
@@ -933,10 +938,9 @@ bool Status::mainMenuHandler(int key_in) {
         } else if (line == main_menu_text_.size() - 5) {
           // SET GAINS
 
-          gains_text_.clear();
-
-          for (unsigned long i = 0; i < gain_manager_.available.size(); i++) {
-            gains_text_.push_back(gain_manager_.available[i]);
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            gains_text_ = uav_status_.gains;
           }
 
           int x;
@@ -953,8 +957,10 @@ bool Status::mainMenuHandler(int key_in) {
         } else if (line == main_menu_text_.size() - 4) {
           // SET CONTROLLER
 
-          controllers_text_.clear();
-          controllers_text_ = control_manager_.available_controllers;
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            controllers_text_ = uav_status_.controllers;
+          }
 
           int x;
           int y;
@@ -970,8 +976,10 @@ bool Status::mainMenuHandler(int key_in) {
         } else if (line == main_menu_text_.size() - 3) {
           // SET TRACKER
 
-          trackers_text_.clear();
-          trackers_text_ = control_manager_.available_trackers;
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            trackers_text_ = uav_status_.trackers;
+          }
 
           int x;
           int y;
@@ -987,15 +995,10 @@ bool Status::mainMenuHandler(int key_in) {
         } else if (line == main_menu_text_.size() - 2) {
           // SET LAT ODOMETRY SOURCE
 
-          odometry_lat_sources_text_.clear();
-
-
-          if (!has_odom_diag_) {
-            printServiceResult(false, "Did not receive odometry diagnostics! Check topic remaping.");
-            return false;
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            odometry_lat_sources_text_ = uav_status_.odom_estimators_hori;
           }
-
-          odometry_lat_sources_text_ = odom_diag_.available_lat_estimators;
 
           int x;
           int y;
@@ -1011,15 +1014,10 @@ bool Status::mainMenuHandler(int key_in) {
         } else if (line == main_menu_text_.size() - 1) {
           // SET LAT ODOMETRY SOURCE
 
-          odometry_alt_sources_text_.clear();
-
-
-          if (!has_odom_diag_) {
-            printServiceResult(false, "Did not receive odometry diagnostics! Check topic remaping.");
-            return false;
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            odometry_alt_sources_text_ = uav_status_.odom_estimators_vert;
           }
-
-          odometry_alt_sources_text_ = odom_diag_.available_alt_estimators;
 
           int x;
           int y;
@@ -1052,8 +1050,8 @@ bool Status::gotoMenuHandler(int key_in) {
   optional<tuple<int, int>> ret = menu_vec_[0].iterate(goto_menu_text_, key_in, false);
 
   if (ret.has_value()) {
-    int line = get<0>(ret.value());
-    int key  = get<1>(ret.value());
+    size_t line = get<0>(ret.value());
+    int    key  = get<1>(ret.value());
 
     if (line == 666 && key == 666) {
 
@@ -1073,8 +1071,13 @@ bool Status::gotoMenuHandler(int key_in) {
       reference.request.reference.position.y = goto_double_vec_[1];
       reference.request.reference.position.z = goto_double_vec_[2];
       reference.request.reference.heading    = goto_double_vec_[3];
-      reference.request.header.frame_id      = uav_state_.header.frame_id;
-      reference.request.header.stamp         = ros::Time::now();
+
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        reference.request.header.frame_id = uav_status_.odom_frame;
+      }
+
+      reference.request.header.stamp = ros::Time::now();
 
       service_goto_reference_.call(reference);
 
@@ -1091,8 +1094,8 @@ bool Status::gotoMenuHandler(int key_in) {
   }
 
 
-  for (unsigned long i = 0; i < goto_menu_inputs_.size(); i++) {
-    if (i == menu_vec_[0].getLine()) {
+  for (size_t i = 0; i < goto_menu_inputs_.size(); i++) {
+    if (int(i) == menu_vec_[0].getLine()) {
       goto_menu_inputs_[i].Print(i + 1, true);
     } else {
       goto_menu_inputs_[i].Print(i + 1, false);
@@ -1240,6 +1243,13 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
     case 'T':
 
+      bool is_flying_normally_;
+
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        is_flying_normally_ = uav_status_.flying_normally;
+      }
+
       if (is_flying_normally_) {
 
         if (turbo_remote_) {
@@ -1250,9 +1260,15 @@ void Status::remoteHandler(int key, WINDOW* win) {
           printServiceResult(string_service.response.success, string_service.response.message);
 
         } else {
-          turbo_remote_                = true;
-          old_constraints              = constraint_manager_.current_name;
-          string_service.request.value = constraint_manager_.available[constraint_manager_.available.size() - 1];
+
+          turbo_remote_ = true;
+
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            old_constraints = uav_status_.constraints[0];
+          }
+
+          string_service.request.value = _turbo_remote_constraints_;
           service_set_constraints_.call(string_service);
           printServiceResult(string_service.response.success, string_service.response.message);
         }
@@ -1262,6 +1278,11 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
     case 'G':
 
+
+    {
+      std::scoped_lock lock(mutex_status_msg_);
+      is_flying_normally_ = uav_status_.flying_normally;
+    }
       if (is_flying_normally_) {
         remote_global_ = !remote_global_;
       }
@@ -1292,21 +1313,26 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
 
     if (remote_global_) {
 
-      double heading;
+      double      odom_x;
+      double      odom_y;
+      double      odom_z;
+      double      odom_hdg;
+      std::string odom_frame;
 
-      try {
-        heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
-      }
-      catch (...) {
-        heading = 0;
-        printError("Error in heading extraction from uav_state");
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        odom_x     = uav_status_.odom_x;
+        odom_y     = uav_status_.odom_y;
+        odom_z     = uav_status_.odom_z;
+        odom_hdg   = uav_status_.odom_hdg;
+        odom_frame = uav_status_.odom_frame;
       }
 
-      reference.request.reference.position.x = uav_state_.pose.position.x + ref_in.position.x;
-      reference.request.reference.position.y = uav_state_.pose.position.y + ref_in.position.y;
-      reference.request.reference.position.z = uav_state_.pose.position.z + ref_in.position.z;
-      reference.request.reference.heading    = heading + ref_in.heading;
-      reference.request.header.frame_id      = uav_state_.header.frame_id;
+      reference.request.reference.position.x = odom_x + ref_in.position.x;
+      reference.request.reference.position.y = odom_y + ref_in.position.y;
+      reference.request.reference.position.z = odom_z + ref_in.position.z;
+      reference.request.reference.heading    = odom_hdg + ref_in.heading;
+      reference.request.header.frame_id      = odom_frame;
     } else {
 
       reference.request.reference       = ref_in;
@@ -1329,21 +1355,27 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
   mrs_msgs::Reference tmp_ref;
   if (remote_global_) {
 
-    double heading;
 
-    try {
-      heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
-    }
-    catch (...) {
-      heading = 0;
-      printError("Error in heading extraction from uav_state");
+    double      odom_x;
+    double      odom_y;
+    double      odom_z;
+    double      odom_hdg;
+    std::string odom_frame;
+
+    {
+      std::scoped_lock lock(mutex_status_msg_);
+      odom_x     = uav_status_.odom_x;
+      odom_y     = uav_status_.odom_y;
+      odom_z     = uav_status_.odom_z;
+      odom_hdg   = uav_status_.odom_hdg;
+      odom_frame = uav_status_.odom_frame;
     }
 
-    tmp_ref.position.x       = uav_state_.pose.position.x;
-    tmp_ref.position.y       = uav_state_.pose.position.y;
-    tmp_ref.position.z       = uav_state_.pose.position.z;
-    tmp_ref.heading          = heading;
-    tmp_traj.header.frame_id = uav_state_.header.frame_id;
+    tmp_ref.position.x       = odom_x;
+    tmp_ref.position.y       = odom_y;
+    tmp_ref.position.z       = odom_z;
+    tmp_ref.heading          = odom_hdg;
+    tmp_traj.header.frame_id = odom_frame;
 
   } else {
 
@@ -1674,141 +1706,191 @@ void Status::controlManagerHandler(WINDOW* win) {
 
 /* mavrosStateHandler() //{ */
 
-void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic) {
+void Status::mavrosStateHandler(WINDOW* win) {
 
-  string tmp_string;
+  werase(win);
+  wattron(win, A_BOLD);
+  wattroff(win, A_STANDOUT);
+  box(win, 0, 0);
 
-  switch (topic) {
-    case 0:  // mavros state
-      printLimitedDouble(win, 0, 9, "Mavros %5.1f Hz", rate, 1000);
-
-      if (rate == 0) {
-
-        printNoData(win, 0, 1);
-
-      } else {
-
-        if (mavros_state_.armed) {
-          tmp_string = "ARMED";
-        } else {
-          tmp_string = "DISARMED";
-          wattron(win, COLOR_PAIR(RED));
-        }
-
-        printLimitedString(win, 1, 1, "State: " + tmp_string, 15);
-        wattron(win, COLOR_PAIR(color));
-
-        if (mavros_state_.mode != "OFFBOARD") {
-          wattron(win, COLOR_PAIR(RED));
-        }
-
-        printLimitedString(win, 2, 1, "Mode:  " + mavros_state_.mode, 15);
-        wattron(win, COLOR_PAIR(color));
-      }
-
-      break;
-
-    case 1:  // battery
-      if (rate == 0) {
-
-        printNoData(win, 3, 1, "Batt:  ");
-
-      } else {
-
-        wattron(win, COLOR_PAIR(GREEN));
-
-        double voltage = battery_.voltage;
-        (voltage > 17.0) ? (voltage = voltage / 6) : (voltage = voltage / 4);
-
-        if (voltage < 3.6) {
-          wattron(win, COLOR_PAIR(RED));
-        } else if (voltage < 3.7 && color != RED) {
-          wattron(win, COLOR_PAIR(YELLOW));
-        }
-
-        printLimitedDouble(win, 3, 1, "Batt:  %4.2f V ", voltage, 10);
-        printLimitedDouble(win, 3, 15, "%5.2f A", battery_.current, 100);
-      }
-      break;
-
-    case 2:  // control manager cmd attitude
-      if (rate == 0) {
-
-        printNoData(win, 4, 1, "Thrst: ");
-
-      } else {
-
-        if (cmd_attitude_.thrust > 0.75) {
-          wattron(win, COLOR_PAIR(RED));
-        } else if (cmd_attitude_.thrust > 0.65 && color != RED) {
-          wattron(win, COLOR_PAIR(YELLOW));
-        }
-        printLimitedDouble(win, 4, 1, "Thrst: %4.2f", cmd_attitude_.thrust, 1.01);
-        wattron(win, COLOR_PAIR(color));
-
-        short  tmp_color = GREEN;
-        double mass_diff = fabs(cmd_attitude_.total_mass - _uav_mass_) / _uav_mass_;
-
-        if (mass_diff > 0.3) {
-
-          tmp_color = RED;
-
-        } else if (mass_diff > 0.2) {
-
-          tmp_color = YELLOW;
-        }
-
-        if (_uav_mass_ > 10.0 || cmd_attitude_.total_mass > 10.0) {
-
-          wattron(win, COLOR_PAIR(NORMAL));
-          printLimitedDouble(win, 4, 13, "%.1f/", _uav_mass_, 99.99);
-          wattron(win, COLOR_PAIR(tmp_color));
-          printLimitedDouble(win, 4, 18, "%.1f", cmd_attitude_.total_mass, 99.99);
-          printLimitedString(win, 4, 22, "kg", 2);
-
-        } else {
-
-          wattron(win, COLOR_PAIR(NORMAL));
-          printLimitedDouble(win, 4, 15, "%.1f/", _uav_mass_, 99.99);
-          wattron(win, COLOR_PAIR(tmp_color));
-          printLimitedDouble(win, 4, 19, "%.1f", cmd_attitude_.total_mass, 99.99);
-          printLimitedString(win, 4, 22, "kg", 2);
-        }
-      }
-
-
-      break;
-
-    case 3:  // mavros global
-      if (rate == 0) {
-
-        wattron(win, COLOR_PAIR(RED));
-        printLimitedString(win, 1, 18, "NO_GPS", 6);
-        wattroff(win, COLOR_PAIR(RED));
-
-      } else {
-
-        wattron(win, COLOR_PAIR(GREEN));
-        printLimitedString(win, 1, 18, "GPS_OK", 6);
-        wattroff(win, COLOR_PAIR(GREEN));
-
-        double gps_qual  = (mavros_global_.position_covariance[0] + mavros_global_.position_covariance[4] + mavros_global_.position_covariance[8]) / 3;
-        short  tmp_color = RED;
-
-        if (gps_qual < 5) {
-          tmp_color = GREEN;
-        } else if (gps_qual < 10) {
-          tmp_color = YELLOW;
-        }
-
-        wattron(win, COLOR_PAIR(tmp_color));
-        printLimitedDouble(win, 2, 17, "Q: %4.1f", gps_qual, 99.9);
-        wattroff(win, COLOR_PAIR(tmp_color));
-      }
-      break;
+  if (_light_) {
+    wattron(win, A_STANDOUT);
   }
-}
 
+  double local_rate   = mavros_local_ts_.GetHz();
+  double global_rate  = mavros_global_ts_.GetHz();
+  double state_rate   = mavros_state_ts_.GetHz();
+  double cmd_rate     = mavros_cmd_ts_.GetHz();
+  double battery_rate = mavros_battery_ts_.GetHz();
+
+  bool        armed;
+  std::string mode;
+  double      battery_volt;
+  double      battery_curr;
+  double      thrust;
+  double      mass_estimate;
+  double      mass_set;
+  double      gps_qual;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    armed         = uav_status_.mavros_armed;
+    mode          = uav_status_.mavros_mode;
+    battery_volt  = uav_status_.battery_volt;
+    thrust        = uav_status_.thrust;
+    mass_estimate = uav_status_.mass_estimate;
+    mass_set      = uav_status_.mass_set;
+    gps_qual      = uav_status_.mavros_gps_qual;
+  }
+
+  std::string tmp_string;
+
+  // TODO define at a better place
+  double mavros_local_expected_rate = 100.0;
+
+  int color = RED;
+  if (local_rate > 0.9 * mavros_local_expected_rate) {
+    color = GREEN;
+  } else if (local_rate > 0.5 * mavros_local_expected_rate) {
+    color = YELLOW;
+  }
+
+  wattron(win, COLOR_PAIR(color));
+  // mavros local is the main source of Mavros hz
+  printLimitedDouble(win, 0, 9, "Mavros %5.1f Hz", local_rate, 1000);
+  wattroff(win, COLOR_PAIR(color));
+
+  if (local_rate == 0) {
+
+    printNoData(win, 0, 1);
+  }
+
+
+  if (state_rate == 0) {
+
+    wattron(win, COLOR_PAIR(RED));
+    printLimitedString(win, 1, 1, "State: ", 15);
+    printNoData(win, 1, 9);
+    printLimitedString(win, 2, 1, "Mode: ", 15);
+    printNoData(win, 1, 9);
+    wattroff(win, COLOR_PAIR(RED));
+
+  } else {
+
+    if (armed) {
+      tmp_string = "ARMED";
+      wattron(win, COLOR_PAIR(GREEN));
+    } else {
+      tmp_string = "DISARMED";
+      wattron(win, COLOR_PAIR(RED));
+    }
+
+    printLimitedString(win, 1, 1, "State: " + tmp_string, 15);
+    wattron(win, COLOR_PAIR(color));
+
+    if (mode != "OFFBOARD") {
+      wattron(win, COLOR_PAIR(RED));
+    }
+
+    printLimitedString(win, 2, 1, "Mode:  " + mode, 15);
+    wattron(win, COLOR_PAIR(color));
+  }
+
+
+  if (battery_rate == 0) {
+
+    printNoData(win, 3, 1, "Batt:  ");
+
+  } else {
+
+    wattron(win, COLOR_PAIR(GREEN));
+
+    (battery_volt > 17.0) ? (battery_volt = battery_volt / 6) : (battery_volt = battery_volt / 4);
+
+    if (battery_volt < 3.6) {
+      wattron(win, COLOR_PAIR(RED));
+    } else if (battery_volt < 3.7 && color != RED) {
+      wattron(win, COLOR_PAIR(YELLOW));
+    }
+
+    printLimitedDouble(win, 3, 1, "Batt:  %4.2f V ", battery_volt, 10);
+    printLimitedDouble(win, 3, 15, "%5.2f A", battery_curr, 100);
+  }
+
+  if (cmd_rate == 0) {
+
+    printNoData(win, 4, 1, "Thrst: ");
+
+  } else {
+
+    if (thrust > 0.75) {
+      wattron(win, COLOR_PAIR(RED));
+    } else if (thrust > 0.65 && color != RED) {
+      wattron(win, COLOR_PAIR(YELLOW));
+    }
+    printLimitedDouble(win, 4, 1, "Thrst: %4.2f", thrust, 1.01);
+    wattron(win, COLOR_PAIR(color));
+
+    color            = GREEN;
+    double mass_diff = fabs(mass_estimate - mass_set) / mass_set;
+
+    if (mass_diff > 0.3) {
+
+      color = RED;
+
+    } else if (mass_diff > 0.2) {
+
+      color = YELLOW;
+    }
+
+    if (mass_set > 10.0 || mass_estimate > 10.0) {
+
+      wattron(win, COLOR_PAIR(NORMAL));
+      printLimitedDouble(win, 4, 13, "%.1f/", mass_set, 99.99);
+      wattron(win, COLOR_PAIR(color));
+      printLimitedDouble(win, 4, 18, "%.1f", mass_estimate, 99.99);
+      printLimitedString(win, 4, 22, "kg", 2);
+
+    } else {
+
+      wattron(win, COLOR_PAIR(NORMAL));
+      printLimitedDouble(win, 4, 15, "%.1f/", mass_set, 99.99);
+      wattron(win, COLOR_PAIR(color));
+      printLimitedDouble(win, 4, 19, "%.1f", mass_estimate, 99.99);
+      printLimitedString(win, 4, 22, "kg", 2);
+    }
+  }
+
+
+  if (global_rate == 0.0) {
+
+    wattron(win, COLOR_PAIR(RED));
+    printLimitedString(win, 1, 18, "NO_GPS", 6);
+    wattroff(win, COLOR_PAIR(RED));
+
+  } else {
+
+    wattron(win, COLOR_PAIR(GREEN));
+    printLimitedString(win, 1, 18, "GPS_OK", 6);
+    wattroff(win, COLOR_PAIR(GREEN));
+
+    color = RED;
+
+    if (gps_qual < 5.0) {
+      color = GREEN;
+    } else if (gps_qual < 10.0) {
+      color = YELLOW;
+    }
+
+    wattron(win, COLOR_PAIR(color));
+    printLimitedDouble(win, 2, 17, "Q: %4.1f", gps_qual, 99.9);
+    wattroff(win, COLOR_PAIR(color));
+  }
+
+  wattroff(win, COLOR_PAIR(color));
+  wattroff(win, A_BOLD);
+  wrefresh(win);
+}
 //}
 
 /* flightTimeHandler() //{ */
@@ -1989,10 +2071,10 @@ void Status::prefillUavStatus() {
   uav_status_.free_ram         = 0.0;
   uav_status_.free_hdd         = 0.0;
   uav_status_.mavros_hz        = 0.0;
-  uav_status_.mavros_state     = "N/A";
+  uav_status_.mavros_armed     = false;
   uav_status_.mavros_mode      = "N/A";
-  uav_status_.mavros_GPS_state = "N/A";
-  uav_status_.mavros_GPS_qual  = "N/A";
+  uav_status_.mavros_gps_state = "N/A";
+  uav_status_.mavros_gps_qual  = 0.0;
   uav_status_.battery_volt     = 0.0;
   uav_status_.battery_curr     = 0.0;
   uav_status_.thrust           = 0.0;
@@ -2074,13 +2156,20 @@ void Status::setupMainMenu() {
 
 void Status::setupGotoMenu() {
 
+  std::string odom_frame;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    odom_frame = uav_status_.odom_frame;
+  }
+
   goto_menu_inputs_.clear();
   goto_menu_text_.clear();
   goto_menu_text_.push_back(" X:                ");
   goto_menu_text_.push_back(" Y:                ");
   goto_menu_text_.push_back(" Z:                ");
   goto_menu_text_.push_back(" hdg:              ");
-  goto_menu_text_.push_back(" " + uav_state_.header.frame_id + " ");
+  goto_menu_text_.push_back(" " + odom_frame + " ");
 
   Menu menu(1, 32, goto_menu_text_);
   menu_vec_.push_back(menu);
@@ -2604,10 +2693,6 @@ void Status::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
     return;
   }
 
-  /* odom_diag_     = *msg; */
-  has_odom_diag_ = true;
-
-
   {
     std::scoped_lock lock(mutex_status_msg_);
 
@@ -2629,7 +2714,14 @@ void Status::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
       }
     }
 
-    /* TODO - Matejuv restik uav_status_.odom_estimators_head = ; */
+    uav_status_.odom_estimators_hdg = msg->available_hdg_estimators;
+
+    for (size_t i = 0; i < uav_status_.odom_estimators_hdg.size(); i++) {
+      if ((uav_status_.odom_estimators_hdg[i] == msg->heading_type.name) && i != 0) {
+        // put the active estimator as first in the vector
+        std::swap(uav_status_.odom_estimators_hdg[0], uav_status_.odom_estimators_hdg[i]);
+      }
+    }
   }
 }
 
@@ -2643,12 +2735,11 @@ void Status::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
     return;
   }
 
-  mavros_state_topic_[0].counter++;
-  /* mavros_state_ = *msg; */
+  mavros_state_ts_.Count();
 
   {
     std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.mavros_state = msg->armed;
+    uav_status_.mavros_armed = msg->armed;
     uav_status_.mavros_mode  = msg->mode;
   }
 }
@@ -2663,9 +2754,7 @@ void Status::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
     return;
   }
 
-  mavros_state_topic_[1].counter++;
-
-  /* battery_ = *msg; */
+  mavros_battery_ts_.Count();
 
   {
     std::scoped_lock lock(mutex_status_msg_);
@@ -2684,13 +2773,15 @@ void Status::cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg) {
     return;
   }
 
-  mavros_state_topic_[2].counter++;
+  /* mavros_state_topic_[2].counter++; */
   /* cmd_attitude_ = *msg; */
 
+  mavros_cmd_ts_.Count();
   {
     std::scoped_lock lock(mutex_status_msg_);
     uav_status_.thrust        = msg->thrust;
     uav_status_.mass_estimate = msg->total_mass;
+    uav_status_.mass_set      = _uav_mass_;
   }
 }
 
@@ -2704,13 +2795,13 @@ void Status::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
     return;
   }
 
-  mavros_state_topic_[3].counter++;
-  /* mavros_global_  = *msg; */
+  mavros_global_ts_.Count();
+
   double gps_qual = (msg->position_covariance[0] + msg->position_covariance[4] + msg->position_covariance[8]) / 3;
 
   {
     std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.mavros_GPS_qual = gps_qual;
+    uav_status_.mavros_gps_qual = gps_qual;
   }
 }
 
@@ -2718,54 +2809,55 @@ void Status::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
 
 /* mavrosLocalCallback() //{ */
 
-/* void Status::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) { */
+void Status::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) {
 
-/*   if (!initialized_) { */
-/*     return; */
-/*   } */
+  if (!initialized_) {
+    return;
+  }
+  mavros_local_ts_.Count();
 
-/*   mavros_local_ = *msg; */
-/*   double tilt, roll, pitch; */
+  /* mavros_local_ = *msg; */
+  /* double tilt, roll, pitch; */
 
-/*   geometry_msgs::Vector3 z_vec = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getVectorZ(); */
-/*   roll                         = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getRoll() * 57.2958; */
-/*   pitch                        = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getPitch() * 57.2958; */
+  /* geometry_msgs::Vector3 z_vec = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getVectorZ(); */
+  /* roll                         = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getRoll() * 57.2958; */
+  /* pitch                        = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getPitch() * 57.2958; */
 
-/*   try { */
-/*     tilt = acos(z_vec.z) * 57.2958; */
-/*   } */
-/*   catch (int e) { */
-/*     tilt = -666; */
-/*   } */
+  /* try { */
+  /*   tilt = acos(z_vec.z) * 57.2958; */
+  /* } */
+  /* catch (int e) { */
+  /*   tilt = -666; */
+  /* } */
 
-/*   std::stringstream stream; */
-/*   stream << std::fixed << std::setprecision(2) << "tilt: " << tilt << " deg,\n roll: " << roll << ", pitch: " << pitch; */
+  /* std::stringstream stream; */
+  /* stream << std::fixed << std::setprecision(2) << "tilt: " << tilt << " deg,\n roll: " << roll << ", pitch: " << pitch; */
 
-/*   std::string display_msg = stream.str(); */
-/*   std::string pub_name    = "pixhawk"; */
+  /* std::string display_msg = stream.str(); */
+  /* std::string pub_name    = "pixhawk"; */
 
-/*   if (tilt < 10) { */
-/*     display_msg = "-g " + display_msg; */
-/*   } else { */
-/*     display_msg = "-r " + display_msg; */
-/*   } */
+  /* if (tilt < 10) { */
+  /*   display_msg = "-g " + display_msg; */
+  /* } else { */
+  /*   display_msg = "-r " + display_msg; */
+  /* } */
 
-/*   bool contains = false; */
+  /* bool contains = false; */
 
-/*   for (unsigned long i = 0; i < string_info_vec_.size(); i++) { */
-/*     if (string_info_vec_[i].publisher_name == pub_name) { */
-/*       contains                           = true; */
-/*       string_info_vec_[i].display_string = display_msg; */
-/*       string_info_vec_[i].last_time      = ros::Time::now(); */
-/*       break; */
-/*     } */
-/*   } */
+  /* for (unsigned long i = 0; i < string_info_vec_.size(); i++) { */
+  /*   if (string_info_vec_[i].publisher_name == pub_name) { */
+  /*     contains                           = true; */
+  /*     string_info_vec_[i].display_string = display_msg; */
+  /*     string_info_vec_[i].last_time      = ros::Time::now(); */
+  /*     break; */
+  /*   } */
+  /* } */
 
-/*   if (!contains) { */
-/*     string_info tmp(pub_name, display_msg); */
-/*     string_info_vec_.push_back(tmp); */
-/*   } */
-/* } */
+  /* if (!contains) { */
+  /*   string_info tmp(pub_name, display_msg); */
+  /*   string_info_vec_.push_back(tmp); */
+  /* } */
+}
 
 //}
 
