@@ -7,6 +7,7 @@
 #include <ncurses.h>
 #include <form.h>
 
+#include <utility>
 #include <tuple>
 
 #include <boost/function.hpp>
@@ -44,40 +45,24 @@
 
 #define BUFFER_SECS_LEN 4
 
-struct topic
-{
-  std::string topic_name;
-  std::string topic_display_name;
-  int         counter;
-  double      desired_rate;
-  int         zero_counter;
+class TopicInfo {
 
-  unsigned long       rates_iterator;
-  std::vector<double> rates;
+public:
+  TopicInfo(double window_rate_in, int buffer_len, double desired_rate_in);
+  TopicInfo(double window_rate_in, int buffer_len, double desired_rate_in, std::string topic_name_in, std::string topic_display_name_in);
+  std::string GetTopicName();
+  std::tuple<double, int16_t> GetHz();
+  void   Count();
 
-  ros::Time last_time_;
-
-  topic(double desired_rate_in, double window_rate) {
-    topic_name         = "NOT DEFINED";
-    topic_display_name = "NOT DEFINED";
-    desired_rate       = desired_rate_in;
-    counter            = 0;
-    zero_counter       = 0;
-    rates_iterator     = 0;
-    rates.resize(BUFFER_SECS_LEN * window_rate);
-    last_time_ = ros::Time::now();
-  }
-
-  topic(std::string topic_name_in, std::string topic_display_name_in, double desired_rate_in, double window_rate) {
-    topic_name         = topic_name_in;
-    topic_display_name = topic_display_name_in;
-    desired_rate       = desired_rate_in;
-    counter            = 0;
-    zero_counter       = 0;
-    rates_iterator     = 0;
-    rates.resize(BUFFER_SECS_LEN * window_rate);
-    last_time_ = ros::Time::now();
-  }
+private:
+  ros::Time           last_time_;
+  int                 counter_;
+  std::string         topic_name_;
+  std::string         topic_display_name_;
+  double              window_rate_;
+  double              desired_rate_;
+  std::vector<double> rates_;
+  size_t              rates_iterator_;
 };
 
 struct service
