@@ -2187,6 +2187,7 @@ void Status::prefillUavStatus() {
   uav_status_.trackers.clear();
   uav_status_.constraints.clear();
   uav_status_.fly_state  = "N/A";
+  uav_status_.secs_flown  = 0;
   uav_status_.odom_hz    = 0.0;
   uav_status_.odom_x     = 0.0;
   uav_status_.odom_y     = 0.0;
