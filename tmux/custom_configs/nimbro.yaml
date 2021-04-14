@@ -32,8 +32,10 @@ services:
   - name: "/*/control_manager/trajectory_reference"
     type: mrs_msgs/TrajectoryReferenceSrv
   - name: "/*/control_manager/reference"
-    type: mrs_msgs/ReferenceSrv
+    type: mrs_msgs/ReferenceStampedSrv
   - name: "/*/uav_manager/land_home"
+    type: std_srvs/Trigger
+  - name: "/*/uav_manager/land"
     type: std_srvs/Trigger
   - name: "/*/control_manager/switch_controller"
     type: mrs_msgs/String
@@ -52,4 +54,4 @@ services:
   - name: "/*/odometry/change_hdg_estimator_type_string"
     type: mrs_msgs/String
   - name: "/*/control_manager/hover"
-    type: std_msgs/Trigger
+    type: std_srvs/Trigger
