@@ -28,11 +28,13 @@
 #define RED 103
 #define YELLOW 104
 #define BLUE 105
+#define ALWAYS_RED 106
 
 #define BACKGROUND_DEFAULT -1
 #define BACKGROUND_TRUE_BLACK 16
 
 #define COLOR_NICE_RED 196
+#define COLOR_DARK_RED 88
 
 #define COLOR_NICE_GREEN 82
 #define COLOR_DARK_GREEN 2
@@ -92,6 +94,19 @@ struct topic_status
     rates_iterator = 0;
     last_time      = ros::Time::now();
     counter        = 0;
+  }
+};
+
+struct string_info
+{
+  std::string publisher_name;
+  std::string display_string;
+  ros::Time   last_time;
+
+  string_info(std::string publisher_name_in, std::string display_string_in) {
+    publisher_name = publisher_name_in;
+    display_string = display_string_in;
+    last_time      = ros::Time::now();
   }
 };
 

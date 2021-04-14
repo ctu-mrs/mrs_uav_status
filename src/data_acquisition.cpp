@@ -102,7 +102,7 @@ private:
   void controlManagerHandler();
   void mavrosStateHandler();
   void genericTopicHandler();
-  /* void stringHandler(WINDOW* win, double rate, short color, int topic); */
+  void stringHandler();
 
   int BUFFER_LEN_SECS = 2;
 
@@ -170,7 +170,7 @@ private:
   ros::Subscriber tf_static_subscriber_;
 
   // | ----------------------- Publishers ---------------------- |
- 
+
   ros::Publisher uav_status_publisher_;
   ros::Publisher uav_status_short_publisher_;
 
@@ -190,6 +190,7 @@ private:
   vector<TopicInfo>       generic_topic_vec_;
   vector<string>          generic_topic_input_vec_;
   vector<ros::Subscriber> generic_subscriber_vec_;
+  vector<string_info>     string_info_vec_;
 
   vector<string> tf_static_list_compare_;
   vector<string> tf_static_list_add_;
@@ -392,9 +393,10 @@ void Acquisition::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       genericTopicHandler();
     }
     {
-        /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler"); */
-        /* string_window_->Redraw(&Acquisition::stringHandler, _light_, this); */
-    } {
+      mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
+      stringHandler();
+    }
+    {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("flightTimeHandler");
       flightTimeHandler();
     }
@@ -419,63 +421,23 @@ void Acquisition::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 /* stringHandler() //{ */
 
-/* void Acquisition::stringHandler(WINDOW* win, double rate, short color, int topic) { */
+void Acquisition::stringHandler() {
 
-/* if (string_info_vec_.empty()) { */
-/*   wclear(win); */
-/* } */
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.custom_string_outputs.clear();
+  }
 
-/* for (unsigned long i = 0; i < string_info_vec_.size(); i++) { */
+  for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
 
-/*   if ((ros::Time::now() - string_info_vec_[i].last_time).toSec() > 10.0) { */
-/*     string_info_vec_.erase(string_info_vec_.begin() + i); */
-/*   } else { */
-
-/*     printLimitedString(win, 1 + (3 * i), 1, string_info_vec_[i].publisher_name + ": ", 40); */
-
-/*     int    tmp_color          = NORMAL; */
-/*     bool   blink              = false; */
-/*     string tmp_display_string = string_info_vec_[i].display_string; */
-
-/*     if (tmp_display_string.at(0) == '-') { */
-
-/*       if (tmp_display_string.at(1) == 'r') { */
-/*         tmp_color = RED; */
-/*       } else if (tmp_display_string.at(1) == 'R') { */
-/*         tmp_color = RED; */
-/*         blink     = true; */
-/*       } */
-
-/*       else if (tmp_display_string.at(1) == 'y') { */
-/*         tmp_color = YELLOW; */
-/*       } else if (tmp_display_string.at(1) == 'Y') { */
-/*         tmp_color = YELLOW; */
-/*         blink     = true; */
-/*       } */
-
-/*       else if (tmp_display_string.at(1) == 'g') { */
-/*         tmp_color = GREEN; */
-/*       } else if (tmp_display_string.at(1) == 'G') { */
-/*         tmp_color = GREEN; */
-/*         blink     = true; */
-/*       } */
-
-/*       if (tmp_color != NORMAL) { */
-/*         tmp_display_string.erase(0, 3); */
-/*       } */
-/*     } */
-
-/*     if (blink) { */
-/*       wattron(win, A_BLINK); */
-/*     } */
-
-/*     wattron(win, COLOR_PAIR(tmp_color)); */
-/*     printLimitedString(win, 2 + (3 * i), 1, tmp_display_string, 40); */
-/*     wattroff(win, COLOR_PAIR(tmp_color)); */
-/*     wattroff(win, A_BLINK); */
-/*   } */
-/* } */
-/* } */
+    if ((ros::Time::now() - string_info_vec_[i].last_time).toSec() > 10.0) {
+      string_info_vec_.erase(string_info_vec_.begin() + i);
+    } else {
+      std::scoped_lock lock(mutex_status_msg_);
+      uav_status_.custom_string_outputs.push_back(string_info_vec_[i].display_string);
+    }
+  }
+}
 
 //}
 
@@ -1296,24 +1258,26 @@ void Acquisition::stringCallback(const ros::MessageEvent<std_msgs::String const>
     return;
   }
 
-  /*   std::string pub_name = event.getPublisherName(); */
-  /*   std::string msg_str  = event.getMessage()->data; */
+  std::string pub_name = event.getPublisherName();
+  std::string msg_str  = event.getMessage()->data;
 
-  /*   bool contains = false; */
-  /* /1* uav_status_.custom_string_outputs *1/ */
-  /*   for (unsigned long i = 0; i < string_info_vec_.size(); i++) { */
-  /*     if (string_info_vec_[i].publisher_name == pub_name) { */
-  /*       contains                           = true; */
-  /*       string_info_vec_[i].display_string = msg_str; */
-  /*       string_info_vec_[i].last_time      = ros::Time::now(); */
-  /*       break; */
-  /*     } */
-  /*   } */
+  bool contains = false;
 
-  /*   if (!contains) { */
-  /*     string_info tmp(pub_name, msg_str); */
-  /*     string_info_vec_.push_back(tmp); */
-  /*   } */
+  /* uav_status_.custom_string_outputs */
+
+  for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
+    if (string_info_vec_[i].publisher_name == pub_name) {
+      contains                           = true;
+      string_info_vec_[i].display_string = msg_str;
+      string_info_vec_[i].last_time      = ros::Time::now();
+      break;
+    }
+  }
+
+  if (!contains) {
+    string_info tmp(pub_name, msg_str);
+    string_info_vec_.push_back(tmp);
+  }
 }
 //}
 

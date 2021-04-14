@@ -49,11 +49,12 @@
       <remap from="~control_manager_in" to="control_manager/diagnostics" />
       <remap from="~gain_manager_in" to="gain_manager/diagnostics" />
       <remap from="~constraint_manager_in" to="constraint_manager/diagnostics" />
-      <remap from="~string_in" to="~display_string" />
-      <remap from="~set_service_in" to="~set_trigger_service" />
       <remap from="~tf_static_in" to="/tf_static" />
       <remap from="~mavros_global_in" to="mavros/global_position/global" />
       <remap from="~mavros_local_in" to="mavros/local_position/pose" />
+
+      <remap from="~string_in" to="mrs_uav_status/display_string" />
+      <remap from="~set_service_in" to="mrs_uav_status/set_trigger_service" />
 
         <!-- Publishers -->
       <remap from="~uav_status_out" to="mrs_uav_status/uav_status" />
