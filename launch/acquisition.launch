@@ -57,6 +57,7 @@
 
         <!-- Publishers -->
       <remap from="~uav_status_out" to="mrs_uav_status/uav_status" />
+      <remap from="~uav_status_short_out" to="mrs_uav_status/uav_status_short" />
 
 
     </node>

@@ -14,6 +14,7 @@
 #include <topic_tools/shape_shifter.h>  // for generic topic subscribers
 
 #include <mrs_msgs/UavStatus.h>
+#include <mrs_msgs/UavStatusShort.h>
 #include <mrs_msgs/UavState.h>
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 #include <mrs_msgs/GainManagerDiagnostics.h>
@@ -87,10 +88,12 @@ private:
 
   // | ------------------------- Timers ------------------------- |
 
-  ros::Timer status_timer_;
+  ros::Timer status_timer_fast_;
+  ros::Timer status_timer_slow_;
   ros::Timer resize_timer_;
 
-  void statusTimer(const ros::TimerEvent& event);
+  void statusTimerFast(const ros::TimerEvent& event);
+  void statusTimerSlow(const ros::TimerEvent& event);
   void resizeTimer(const ros::TimerEvent& event);
 
   // | --------------------- Print routines --------------------- |
@@ -133,10 +136,12 @@ private:
   // | ------------------------- Subscribers ------------------------ |
 
   ros::Subscriber uav_status_subscriber_;
+  ros::Subscriber uav_status_short_subscriber_;
 
   // | ------------------------- Callbacks ------------------------- |
 
   void uavStatusCallback(const mrs_msgs::UavStatusConstPtr&);
+  void uavStatusShortCallback(const mrs_msgs::UavStatusShortConstPtr&);
 
   // Custom windows
   WINDOW* uav_state_window_;
@@ -288,12 +293,14 @@ Status::Status() {
 
   // | ------------------------- Timers ------------------------- |
 
-  status_timer_ = nh_.createTimer(ros::Rate(1), &Status::statusTimer, this);
-  resize_timer_ = nh_.createTimer(ros::Rate(1), &Status::resizeTimer, this);
+  status_timer_fast_ = nh_.createTimer(ros::Rate(20), &Status::statusTimerFast, this);
+  status_timer_slow_ = nh_.createTimer(ros::Rate(1), &Status::statusTimerSlow, this);
+  resize_timer_      = nh_.createTimer(ros::Rate(1), &Status::resizeTimer, this);
 
   // | ------------------------ Subscribers ------------------------ |
 
   uav_status_subscriber_ = nh_.subscribe("uav_status_in", 10, &Status::uavStatusCallback, this, ros::TransportHints().tcpNoDelay());
+  uav_status_short_subscriber_ = nh_.subscribe("uav_status_short_in", 10, &Status::uavStatusShortCallback, this, ros::TransportHints().tcpNoDelay());
 
   // | ------------------------ Services ------------------------ |
   //
@@ -381,9 +388,9 @@ void Status::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 //}
 
-/* statusTimer //{ */
+/* statusTimerFast //{ */
 
-void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
+void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
 
   if (!initialized_) {
     return;
@@ -392,28 +399,6 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
     uavStateHandler(uav_state_window_);
-  }
-
-  {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
-    mavrosStateHandler(mavros_state_window_);
-  }
-  {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
-    controlManagerHandler(control_manager_window_);
-  }
-  {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
-    genericTopicHandler(generic_topic_window_);
-  }
-  {
-      /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler"); */
-      /* string_window_->Redraw(&Status::stringHandler, _light_, this); */
-  }
-
-  {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("generalInfoHandler");
-    generalInfoHandeler(general_info_window_);
   }
 
   wclear(top_bar_window_);
@@ -471,7 +456,6 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       break;
 
     case REMOTE:
-      printDebug("REMOTE MODE should be running");
       flushinp();
       remoteHandler(key_in, top_bar_window_);
       if (key_in == 'R' || key_in == KEY_ESC) {
@@ -520,6 +504,40 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   wrefresh(bottom_window_);
 
   /* refresh(); */
+}
+
+
+//}
+
+/* statusTimerSlow //{ */
+
+void Status::statusTimerSlow([[maybe_unused]] const ros::TimerEvent& event) {
+
+  if (!initialized_) {
+    return;
+  }
+
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
+    mavrosStateHandler(mavros_state_window_);
+  }
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
+    controlManagerHandler(control_manager_window_);
+  }
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
+    genericTopicHandler(generic_topic_window_);
+  }
+  {
+      /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler"); */
+      /* string_window_->Redraw(&Status::stringHandler, _light_, this); */
+  }
+
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("generalInfoHandler");
+    generalInfoHandeler(general_info_window_);
+  }
 }
 
 
@@ -1363,7 +1381,6 @@ void Status::genericTopicHandler(WINDOW* win) {
   if (!custom_topic_vec.empty()) {
     for (size_t i = 0; i < custom_topic_vec.size(); i++) {
 
-      printDebug(custom_topic_vec[i].topic_name);
       wattron(win, COLOR_PAIR(custom_topic_vec[i].topic_color));
       printLimitedString(win, 1 + i, 1, custom_topic_vec[i].topic_name, 15);
       printLimitedDouble(win, 1 + i, 16, "%5.1f Hz", custom_topic_vec[i].topic_hz, 1000);
@@ -1814,13 +1831,12 @@ void Status::flightTimeHandler(WINDOW* win) {
 
 void Status::generalInfoHandeler(WINDOW* win) {
 
+  wattron(win, COLOR_PAIR(NORMAL));
+  box(win, 0, 0);
 
   if (_light_) {
     wattron(win, A_STANDOUT);
   }
-
-  wattron(win, COLOR_PAIR(NORMAL));
-  box(win, 0, 0);
 
   wattron(win, A_BOLD);
 
@@ -1847,6 +1863,27 @@ void Status::uavStatusCallback(const mrs_msgs::UavStatusConstPtr& msg) {
   {
     std::scoped_lock lock(mutex_status_msg_);
     uav_status_ = *msg;
+  }
+}
+
+//}
+
+/* uavStatusShortCallback() //{ */
+
+void Status::uavStatusShortCallback(const mrs_msgs::UavStatusShortConstPtr& msg) {
+
+  if (!initialized_) {
+    return;
+  }
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.odom_x = msg->odom_x;
+    uav_status_.odom_y = msg->odom_y;
+    uav_status_.odom_z = msg->odom_z;
+    uav_status_.odom_hdg = msg->odom_hdg;
+    uav_status_.odom_color = msg->odom_color;
+    uav_status_.odom_hz = msg->odom_hz;
   }
 }
 
@@ -2334,7 +2371,7 @@ int main(int argc, char** argv) {
 
   Status status;
 
-  if (status._colorscheme_ == "COLORSCHEME_LIGHT") {
+  if (status._colorscheme_.find("COLORSCHEME_LIGHT") != std::string::npos) {
     init_pair(NORMAL, COLOR_BLACK, BACKGROUND_DEFAULT);
     init_pair(FIELD, COLOR_WHITE, 237);
     init_pair(GREEN, COLOR_DARK_GREEN, BACKGROUND_DEFAULT);
@@ -2343,9 +2380,9 @@ int main(int argc, char** argv) {
     status._light_ = true;
   }
 
+  /* DEBUG COLOR RAINBOW //{ */
   if (status._rainbow_) {
 
-    /* DEBUG COLOR RAINBOW //{ */
     int k = 0;
 
     for (int j = 0; j < 256; j++) {
@@ -2362,9 +2399,8 @@ int main(int argc, char** argv) {
     refresh();
     while (1) {
     }
-
-    //}
   }
+  //}
 
   while (ros::ok()) {
 
