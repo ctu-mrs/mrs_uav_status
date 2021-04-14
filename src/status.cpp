@@ -81,7 +81,6 @@ public:
 private:
   ros::NodeHandle nh_;
 
-  std::mutex mutex_general_info_thread_;
   std::mutex mutex_status_msg_;
 
   mrs_msgs::UavStatus uav_status_;
@@ -93,25 +92,6 @@ private:
 
   void statusTimer(const ros::TimerEvent& event);
   void resizeTimer(const ros::TimerEvent& event);
-
-  // | ------------------------ Callbacks ----------------------- |
-
-  void uavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
-  void odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg);
-  void mavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
-  void cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg);
-  void batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
-  void controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg);
-  void gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
-  void constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
-  void stringCallback(const ros::MessageEvent<std_msgs::String const>& event);
-  void setServiceCallback(const std_msgs::String& msg);
-  void tfStaticCallback(const tf2_msgs::TFMessage& msg);
-  void mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg);
-  void mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg);
-
-  // generic callback, for any topic, to monitor its rate
-  void genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
 
   // | --------------------- Print routines --------------------- |
 
@@ -133,35 +113,12 @@ private:
   void controlManagerHandler(WINDOW* win);
   void mavrosStateHandler(WINDOW* win);
   void genericTopicHandler(WINDOW* win);
+  void generalInfoHandeler(WINDOW* win);
   void stringHandler(WINDOW* win, double rate, short color, int topic);
 
-  int BUFFER_LEN_SECS = 2;
-
-  double uav_state_expected_rate_       = 100.0;
-  double control_manager_expected_rate_ = 10.0;
-  double mavros_local_expected_rate_    = 100.0;
-  double mavros_global_expected_rate_   = 100.0;
-  double mavros_state_expected_rate_    = 100.0;
-  double mavros_cmd_expected_rate_      = 100.0;
-  double mavros_battery_expected_rate_  = 0.5;
-
-  TopicInfo uav_state_ts_{10, BUFFER_LEN_SECS, uav_state_expected_rate_};
-  TopicInfo control_manager_ts_{1, BUFFER_LEN_SECS, control_manager_expected_rate_};
-  TopicInfo mavros_local_ts_{1, BUFFER_LEN_SECS, mavros_local_expected_rate_};
-  TopicInfo mavros_global_ts_{1, BUFFER_LEN_SECS, mavros_global_expected_rate_};
-  TopicInfo mavros_state_ts_{1, BUFFER_LEN_SECS, mavros_state_expected_rate_};
-  TopicInfo mavros_cmd_ts_{1, BUFFER_LEN_SECS, mavros_cmd_expected_rate_};
-  TopicInfo mavros_battery_ts_{1, BUFFER_LEN_SECS, mavros_battery_expected_rate_};
 
   double general_info_window_rate_  = 1;
   double generic_topic_window_rate_ = 1;
-
-  // General info window
-
-  void getCpuLoad();
-  void getMemLoad();
-  void getCpuFreq();
-  void getDiskSpace();
 
   void printCpuLoad(WINDOW* win);
   void printCpuFreq(WINDOW* win);
@@ -171,6 +128,15 @@ private:
   long last_idle_  = 0;
   long last_total_ = 0;
   long last_gigas_ = 0;
+
+
+  // | ------------------------- Subscribers ------------------------ |
+
+  ros::Subscriber uav_status_subscriber_;
+
+  // | ------------------------- Callbacks ------------------------- |
+
+  void uavStatusCallback(const mrs_msgs::UavStatusConstPtr&);
 
   // Custom windows
   WINDOW* uav_state_window_;
@@ -199,23 +165,16 @@ private:
 
   void prefillUavStatus();
 
-  void generalInfoThread();
-
   void flightTimeHandler(WINDOW* win);
 
   void remoteHandler(int key, WINDOW* win);
 
   void remoteModeFly(mrs_msgs::Reference& goal);
 
-  void setupGenericCallbacks();
-
   std::string callTerminal(const char* cmd);
 
   mrs_lib::Profiler profiler_;
   bool              _profiler_enabled_ = false;
-
-  std::thread general_info_thread_;
-  bool        run_thread_ = true;
 
 
   // | ---------------------- Menu routines --------------------- |
@@ -225,27 +184,6 @@ private:
 
   void setupGotoMenu();
   bool gotoMenuHandler(int key_in);
-
-  // | ----------------------- Subscribers ---------------------- |
-
-  ros::Subscriber uav_state_subscriber_;
-  ros::Subscriber odom_diag_subscriber_;
-  ros::Subscriber mpc_diag_subscriber_;
-  ros::Subscriber mavros_state_subscriber_;
-  ros::Subscriber mavros_global_subscriber_;
-  ros::Subscriber mavros_local_subscriber_;
-  ros::Subscriber attitude_cmd_subscriber_;
-  ros::Subscriber battery_subscriber_;
-  ros::Subscriber control_manager_subscriber_;
-  ros::Subscriber gain_manager_subscriber_;
-  ros::Subscriber constraint_manager_subscriber_;
-  ros::Subscriber string_subscriber_;
-  ros::Subscriber set_service_subscriber_;
-  ros::Subscriber tf_static_subscriber_;
-
-  // | ----------------------- Subscribers ---------------------- |
-  //
-  ros::Publisher uav_status_publisher_;
 
   // | --------------------- Service Clients -------------------- |
 
@@ -262,20 +200,19 @@ private:
 
   // | -------------------- UAV configuration ------------------- |
 
-  string _uav_name_;
   string _nato_name_;
   string _uav_type_;
-  string _run_type_;
-  double _uav_mass_;
-  string _sensors_;
-  bool   _pixgarm_;
+  /* string _run_type_; */
+  /* double _uav_mass_; */
+  /* string _sensors_; */
+  /* bool   _pixgarm_; */
   string _turbo_remote_constraints_;
 
   // | ------------------ Data storage, inputs ------------------ |
 
-  vector<TopicInfo>       generic_topic_vec_;
-  vector<string>          generic_topic_input_vec_;
-  vector<ros::Subscriber> generic_subscriber_vec_;
+  /* vector<TopicInfo>       generic_topic_vec_; */
+  /* vector<string>          generic_topic_input_vec_; */
+  /* vector<ros::Subscriber> generic_subscriber_vec_; */
 
   vector<Menu> menu_vec_;
   vector<Menu> submenu_vec_;
@@ -295,18 +232,12 @@ private:
   vector<string>   goto_menu_text_;
   vector<InputBox> goto_menu_inputs_;
 
-  vector<string> tf_static_list_compare_;
-  vector<string> tf_static_list_add_;
+  /* vector<string> tf_static_list_compare_; */
+  /* vector<string> tf_static_list_add_; */
 
   string old_constraints;
 
   std::unique_ptr<mrs_lib::Transformer> transformer_;
-
-  // | ---------------------- Flight timer ---------------------- |
-
-  unsigned long     secs_flown = 0;
-  ros::Time         last_flight_time_;
-  const std::string _time_filename_ = "/tmp/mrs_status_flight_time.txt";
 
   // | -------------------- Switches, states -------------------- |
 
@@ -320,7 +251,6 @@ private:
   status_state state = STANDARD;
   int          cols_, lines_;
 
-  int  hz_counter_  = 0;
   bool initialized_ = false;
 };
 
@@ -339,30 +269,15 @@ Status::Status() {
 
   mrs_lib::ParamLoader param_loader(nh_, "Status");
 
-  string tmp_uav_mass;
-
-  param_loader.loadParam("uav_name", _uav_name_);
-  param_loader.loadParam("nato_name", _nato_name_);
-  param_loader.loadParam("uav_type", _uav_type_);
-  param_loader.loadParam("run_type", _run_type_);
-  param_loader.loadParam("uav_mass", _uav_mass_);
-  param_loader.loadParam("sensors", _sensors_);
-  param_loader.loadParam("pixgarm", _pixgarm_);
-  param_loader.loadParam("turbo_remote_constraints", _turbo_remote_constraints_);
-
   param_loader.loadParam("colorscheme", _colorscheme_);
   param_loader.loadParam("rainbow", _rainbow_);
 
   param_loader.loadParam("debug_tilt", _debug_tilt_);
   param_loader.loadParam("remote_mode_is_trajectory", _remote_mode_is_trajectory_);
 
+  param_loader.loadParam("turbo_remote_constraints", _turbo_remote_constraints_);
+
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
-
-  std::vector<string> want_hz;
-  param_loader.loadParam("want_hz", want_hz);
-
-  std::vector<string> tf_static_list;
-  param_loader.loadParam("tf_static_list", tf_static_list);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[Status]: Could not load all parameters!");
@@ -371,52 +286,14 @@ Status::Status() {
     ROS_INFO("[Status]: All params loaded!");
   }
 
-
-  // | ------------------- want hz handling ------------------- |
-  //
-  for (unsigned long i = 0; i < want_hz.size(); i++) {
-    generic_topic_input_vec_.push_back(want_hz[i]);
-  }
-
-
-  // | ------------------- Static tf handling ------------------- |
-  // Static tfs are used to add monitored topics to the generic window, if a tf for a sensor is present, its topic is added
-
-  for (unsigned long i = 0; i < tf_static_list.size(); i++) {
-
-    // this splits the loaded tf_static list into two parts, the first part is intended to be compared with the incoming static tfs, the second one
-    // is added to the list of topics if the static tf is present
-
-    std::string::size_type pos = tf_static_list[i].find(' ');
-    tf_static_list_compare_.push_back(tf_static_list[i].substr(0, pos));
-    tf_static_list_add_.push_back(tf_static_list[i].substr(pos + 1));
-  }
-
   // | ------------------------- Timers ------------------------- |
 
-  status_timer_ = nh_.createTimer(ros::Rate(10), &Status::statusTimer, this);
+  status_timer_ = nh_.createTimer(ros::Rate(1), &Status::statusTimer, this);
   resize_timer_ = nh_.createTimer(ros::Rate(1), &Status::resizeTimer, this);
 
-  // | ----------------------- Subscribers ---------------------- |
+  // | ------------------------ Subscribers ------------------------ |
 
-  uav_state_subscriber_          = nh_.subscribe("uav_state_in", 10, &Status::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
-  odom_diag_subscriber_          = nh_.subscribe("odom_diag_in", 10, &Status::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 10, &Status::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
-  attitude_cmd_subscriber_       = nh_.subscribe("cmd_attitude_in", 10, &Status::cmdAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_global_subscriber_      = nh_.subscribe("mavros_global_in", 10, &Status::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
-  battery_subscriber_            = nh_.subscribe("battery_in", 10, &Status::batteryCallback, this, ros::TransportHints().tcpNoDelay());
-  control_manager_subscriber_    = nh_.subscribe("control_manager_in", 10, &Status::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 10, &Status::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 10, &Status::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  string_subscriber_             = nh_.subscribe("string_in", 10, &Status::stringCallback, this, ros::TransportHints().tcpNoDelay());
-  set_service_subscriber_        = nh_.subscribe("set_service_in", 10, &Status::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
-  tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &Status::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_local_subscriber_       = nh_.subscribe("mavros_local_in", 10, &Status::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
-
-  // | ----------------------- Publishers ---------------------- |
-
-  uav_status_publisher_ = nh_.advertise<mrs_msgs::UavStatus>("uav_status_out", 1);
-  ;
+  uav_status_subscriber_ = nh_.subscribe("uav_status_in", 10, &Status::uavStatusCallback, this, ros::TransportHints().tcpNoDelay());
 
   // | ------------------------ Services ------------------------ |
   //
@@ -445,47 +322,6 @@ Status::Status() {
   service_input_vec_.push_back("uav_manager/land_home Land Home");
   service_input_vec_.push_back("uav_manager/takeoff Takeoff");
 
-  // | ---------------------- Flight timer ---------------------- |
-  //
-  if (boost::filesystem::exists(_time_filename_)) {
-
-    // loads time flown from a tmp file, if it exists, if it does not exists, flight time is set to 0
-
-    ifstream file(_time_filename_);
-    string   line;
-    getline(file, line);
-
-    try {
-      secs_flown = stoi(line);
-    }
-    catch (const invalid_argument& e) {
-      secs_flown = 0;
-    }
-    file.close();
-  }
-
-  /* Generic topic definitions //{ */
-
-  vector<string> results;
-  split(results, _sensors_, boost::is_any_of(", "), boost::token_compress_on);
-
-  if (_pixgarm_) {
-    generic_topic_input_vec_.push_back("mavros/distance_sensor/garmin Garmin_pix 80+");
-  }
-
-  for (unsigned long i = 0; i < results.size(); i++) {
-    if (results[i] == "garmin_down" && _pixgarm_ == false) {
-      generic_topic_input_vec_.push_back("garmin/range Garmin_Down 80+");
-
-    } else if (results[i] == "garmin_up") {
-      generic_topic_input_vec_.push_back("garmin/range_up Garmin_Up 80+");
-    }
-  }
-
-  setupGenericCallbacks();
-
-  //}
-
   // --------------------------------------------------------------
   // |            Window creation and topic association           |
   // --------------------------------------------------------------
@@ -493,34 +329,14 @@ Status::Status() {
   uav_state_window_       = newwin(6, 26, 5, 1);
   control_manager_window_ = newwin(4, 26, 1, 1);
   mavros_state_window_    = newwin(6, 25, 5, 27);
-
-  /* control_manager_window_ = new StatusWindow(4, 26, 1, 1, control_manager_topic_, control_manager_window_rate_); */
-
-  /* mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_}); */
-  /* mavros_state_topic_.push_back(topic{1.0, mavros_state_window_rate_}); */
-  /* mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_}); */
-  /* mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_}); */
-
-  /* mavros_state_window_ = new StatusWindow(6, 25, 5, 27, mavros_state_topic_, mavros_state_window_rate_); */
-
-  /* generic_topic_window_ = new StatusWindow(10, 25, 1, 52, generic_topic_vec_, generic_topic_window_rate_); */
-
-  /* string_window_ = new StatusWindow(10, 32, 1, 77, string_topic_, generic_topic_window_rate_); */
-
-  generic_topic_window_ = newwin(10, 25, 1, 52);
-  general_info_window_  = newwin(4, 25, 1, 27);
-
-  top_bar_window_ = newwin(1, 120, 0, 1);
-  bottom_window_  = newwin(1, 120, 11, 1);
-
-  debug_window_ = newwin(20, 120, 12, 1);
-
-  ROS_INFO("[Status]: Node initialized!");
-
-  // This thread is for the general info window, it fetches CPU frequency, RAM info, Disk space info and CPU load asynchronously
-  general_info_thread_ = std::thread{&Status::generalInfoThread, this};
+  generic_topic_window_   = newwin(10, 25, 1, 52);
+  general_info_window_    = newwin(4, 25, 1, 27);
+  top_bar_window_         = newwin(1, 120, 0, 1);
+  bottom_window_          = newwin(1, 120, 11, 1);
+  debug_window_           = newwin(20, 120, 12, 1);
 
   initialized_ = true;
+  ROS_INFO("[Status]: Node initialized!");
 }
 
 //}
@@ -573,154 +389,135 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
     return;
   }
 
-  bool _drone_mode_ = false;
-
-  if (!_drone_mode_) {
-
-    {
-      mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
-      uavStateHandler(uav_state_window_);
-    }
-
-    hz_counter_++;
-
-    if (hz_counter_ == 10) {
-
-      hz_counter_ = 0;
-
-      {
-        mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
-        mavrosStateHandler(mavros_state_window_);
-      }
-      {
-        mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
-        controlManagerHandler(control_manager_window_);
-      }
-      {
-        mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
-        genericTopicHandler(generic_topic_window_);
-      }
-      {
-        /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler"); */
-        /* string_window_->Redraw(&Status::stringHandler, _light_, this); */
-      }
-    }
-
-    {
-      std::scoped_lock lock(mutex_general_info_thread_);
-      wrefresh(general_info_window_);
-    }
-
-    wclear(top_bar_window_);
-
-    if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
-      wclear(bottom_window_);
-    }
-    flightTimeHandler(top_bar_window_);
-
-    /* printHelp(); */
-
-
-    int  key_in = getch();
-    bool is_flying_normally_;
-
-    switch (state) {
-
-      case STANDARD:
-
-        switch (key_in) {
-
-          case 'R':
-
-
-          {
-            std::scoped_lock lock(mutex_status_msg_);
-            is_flying_normally_ = uav_status_.flying_normally;
-          }
-
-            if (is_flying_normally_) {
-              remote_hover_ = false;
-              state         = REMOTE;
-            }
-            break;
-
-          case 'm':
-            setupMainMenu();
-            state = MAIN_MENU;
-            break;
-
-          case 'g':
-            setupGotoMenu();
-            state = GOTO_MENU;
-            break;
-
-          case 'h':
-            help_active_ = !help_active_;
-            break;
-
-          default:
-            flushinp();
-            break;
-        }
-
-        break;
-
-      case REMOTE:
-        printDebug("REMOTE MODE should be running");
-        flushinp();
-        remoteHandler(key_in, top_bar_window_);
-        if (key_in == 'R' || key_in == KEY_ESC) {
-
-          if (turbo_remote_) {
-
-            turbo_remote_ = false;
-            mrs_msgs::String string_service;
-            string_service.request.value = old_constraints;
-            service_set_constraints_.call(string_service);
-            printServiceResult(string_service.response.success, string_service.response.message);
-          }
-
-          state = STANDARD;
-        }
-        break;
-
-      case MAIN_MENU:
-        flushinp();
-        if (mainMenuHandler(key_in)) {
-          menu_vec_.clear();
-          submenu_vec_.clear();
-          state = STANDARD;
-        }
-        break;
-
-      case GOTO_MENU:
-        flushinp();
-        if (gotoMenuHandler(key_in)) {
-          menu_vec_.clear();
-          submenu_vec_.clear();
-          state = STANDARD;
-        }
-        break;
-    }
-
-    /* if (state == STANDARD) { */
-    /*   printDebug("standard"); */
-    /* } else if (state == REMOTE) { */
-    /*   printDebug("remote"); */
-    /* } else { */
-    /*   printDebug("something else"); */
-    /* } */
-
-    wrefresh(top_bar_window_);
-    wrefresh(bottom_window_);
-  } else {
-    ROS_INFO_THROTTLE(1.0, "[%s]: Running in drone mode, no display is provided here.", ros::this_node::getName().c_str());
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
+    uavStateHandler(uav_state_window_);
   }
 
   {
-    std::scoped_lock lock(mutex_status_msg_);
-    uav_status_publisher_.publish(uav_status_);
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
+    mavrosStateHandler(mavros_state_window_);
   }
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
+    controlManagerHandler(control_manager_window_);
+  }
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
+    genericTopicHandler(generic_topic_window_);
+  }
+  {
+      /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler"); */
+      /* string_window_->Redraw(&Status::stringHandler, _light_, this); */
+  }
+
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("generalInfoHandler");
+    generalInfoHandeler(general_info_window_);
+  }
+
+  wclear(top_bar_window_);
+
+  if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
+    wclear(bottom_window_);
+  }
+  flightTimeHandler(top_bar_window_);
+
+  /* printHelp(); */
+
+
+  int  key_in = getch();
+  bool is_flying_normally_;
+
+  switch (state) {
+
+    case STANDARD:
+
+      switch (key_in) {
+
+        case 'R':
+
+
+        {
+          std::scoped_lock lock(mutex_status_msg_);
+          is_flying_normally_ = uav_status_.flying_normally;
+        }
+
+          if (is_flying_normally_) {
+            remote_hover_ = false;
+            state         = REMOTE;
+          }
+          break;
+
+        case 'm':
+          setupMainMenu();
+          state = MAIN_MENU;
+          break;
+
+        case 'g':
+          setupGotoMenu();
+          state = GOTO_MENU;
+          break;
+
+        case 'h':
+          help_active_ = !help_active_;
+          break;
+
+        default:
+          flushinp();
+          break;
+      }
+
+      break;
+
+    case REMOTE:
+      printDebug("REMOTE MODE should be running");
+      flushinp();
+      remoteHandler(key_in, top_bar_window_);
+      if (key_in == 'R' || key_in == KEY_ESC) {
+
+        if (turbo_remote_) {
+
+          turbo_remote_ = false;
+          mrs_msgs::String string_service;
+          string_service.request.value = old_constraints;
+          service_set_constraints_.call(string_service);
+          printServiceResult(string_service.response.success, string_service.response.message);
+        }
+
+        state = STANDARD;
+      }
+      break;
+
+    case MAIN_MENU:
+      flushinp();
+      if (mainMenuHandler(key_in)) {
+        menu_vec_.clear();
+        submenu_vec_.clear();
+        state = STANDARD;
+      }
+      break;
+
+    case GOTO_MENU:
+      flushinp();
+      if (gotoMenuHandler(key_in)) {
+        menu_vec_.clear();
+        submenu_vec_.clear();
+        state = STANDARD;
+      }
+      break;
+  }
+
+  /* if (state == STANDARD) { */
+  /*   printDebug("standard"); */
+  /* } else if (state == REMOTE) { */
+  /*   printDebug("remote"); */
+  /* } else { */
+  /*   printDebug("something else"); */
+  /* } */
+
+  wrefresh(top_bar_window_);
+  wrefresh(bottom_window_);
 
   /* refresh(); */
 }
@@ -1404,66 +1201,80 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
       reference.request.header.frame_id      = odom_frame;
     } else {
 
-      reference.request.reference       = ref_in;
-      reference.request.header.frame_id = _uav_name_ + "/fcu_untilted";
+      reference.request.reference = ref_in;
+
+      std::string uav_name;
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        uav_name = uav_status_.uav_name;
+      }
+
+      reference.request.header.frame_id = uav_name + "/fcu_untilted";
+
+      reference.request.header.stamp = ros::Time::now();
+      service_goto_reference_.call(reference);
+
+      return;
     }
 
-    reference.request.header.stamp = ros::Time::now();
-    service_goto_reference_.call(reference);
+    mrs_msgs::TrajectoryReferenceSrv traj;
+    mrs_msgs::TrajectoryReference    tmp_traj;
+    tmp_traj.use_heading = true;
+    tmp_traj.fly_now     = true;
+    tmp_traj.loop        = false;
+    tmp_traj.dt          = 0.2;
 
-    return;
-  }
-
-  mrs_msgs::TrajectoryReferenceSrv traj;
-  mrs_msgs::TrajectoryReference    tmp_traj;
-  tmp_traj.use_heading = true;
-  tmp_traj.fly_now     = true;
-  tmp_traj.loop        = false;
-  tmp_traj.dt          = 0.2;
-
-  mrs_msgs::Reference tmp_ref;
-  if (remote_global_) {
+    mrs_msgs::Reference tmp_ref;
+    if (remote_global_) {
 
 
-    double      odom_x;
-    double      odom_y;
-    double      odom_z;
-    double      odom_hdg;
-    std::string odom_frame;
+      double      odom_x;
+      double      odom_y;
+      double      odom_z;
+      double      odom_hdg;
+      std::string odom_frame;
 
-    {
-      std::scoped_lock lock(mutex_status_msg_);
-      odom_x     = uav_status_.odom_x;
-      odom_y     = uav_status_.odom_y;
-      odom_z     = uav_status_.odom_z;
-      odom_hdg   = uav_status_.odom_hdg;
-      odom_frame = uav_status_.odom_frame;
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        odom_x     = uav_status_.odom_x;
+        odom_y     = uav_status_.odom_y;
+        odom_z     = uav_status_.odom_z;
+        odom_hdg   = uav_status_.odom_hdg;
+        odom_frame = uav_status_.odom_frame;
+      }
+
+      tmp_ref.position.x       = odom_x;
+      tmp_ref.position.y       = odom_y;
+      tmp_ref.position.z       = odom_z;
+      tmp_ref.heading          = odom_hdg;
+      tmp_traj.header.frame_id = odom_frame;
+
+    } else {
+
+      tmp_ref.position.x = 0.0;
+      tmp_ref.position.y = 0.0;
+      tmp_ref.position.z = 0.0;
+      tmp_ref.heading    = 0;
+
+      std::string uav_name;
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        uav_name = uav_status_.uav_name;
+      }
+
+      tmp_traj.header.frame_id = uav_name + "/fcu_untilted";
     }
 
-    tmp_ref.position.x       = odom_x;
-    tmp_ref.position.y       = odom_y;
-    tmp_ref.position.z       = odom_z;
-    tmp_ref.heading          = odom_hdg;
-    tmp_traj.header.frame_id = odom_frame;
-
-  } else {
-
-    tmp_ref.position.x       = 0.0;
-    tmp_ref.position.y       = 0.0;
-    tmp_ref.position.z       = 0.0;
-    tmp_ref.heading          = 0;
-    tmp_traj.header.frame_id = _uav_name_ + "/fcu_untilted";
+    for (int i = 0; i < 10; i++) {
+      tmp_ref.position.x += ref_in.position.x / 10;
+      tmp_ref.position.y += ref_in.position.y / 10;
+      tmp_ref.position.z += ref_in.position.z / 10;
+      tmp_ref.heading += ref_in.heading / 10;
+      tmp_traj.points.push_back(tmp_ref);
+    }
+    traj.request.trajectory = tmp_traj;
+    service_trajectory_reference_.call(traj);
   }
-
-  for (int i = 0; i < 10; i++) {
-    tmp_ref.position.x += ref_in.position.x / 10;
-    tmp_ref.position.y += ref_in.position.y / 10;
-    tmp_ref.position.z += ref_in.position.z / 10;
-    tmp_ref.heading += ref_in.heading / 10;
-    tmp_traj.points.push_back(tmp_ref);
-  }
-  traj.request.trajectory = tmp_traj;
-  service_trajectory_reference_.call(traj);
 }
 
 //}
@@ -1530,30 +1341,9 @@ void Status::stringHandler(WINDOW* win, double rate, short color, int topic) {
 
 //}
 
-//}
-
 /* genericTopicHandler() //{ */
 
 void Status::genericTopicHandler(WINDOW* win) {
-
-  if (!generic_topic_vec_.empty()) {
-
-    std::vector<mrs_msgs::CustomTopic> custom_topic_vec_out;
-
-    for (size_t i = 0; i < generic_topic_vec_.size(); i++) {
-      std::tuple<double, int16_t> rate_color = generic_topic_vec_[i].GetHz();
-      mrs_msgs::CustomTopic       custom_topic;
-      custom_topic.topic_name  = generic_topic_vec_[i].GetTopicName();
-      custom_topic.topic_hz    = std::get<0>(rate_color);
-      custom_topic.topic_color = std::get<1>(rate_color);
-      custom_topic_vec_out.push_back(custom_topic);
-    }
-
-    {
-      std::scoped_lock lock(mutex_status_msg_);
-      uav_status_.custom_topics = custom_topic_vec_out;
-    }
-  }
 
   std::vector<mrs_msgs::CustomTopic> custom_topic_vec;
   {
@@ -1595,14 +1385,6 @@ void Status::genericTopicHandler(WINDOW* win) {
 /* uavStateHandler() //{ */
 
 void Status::uavStateHandler(WINDOW* win) {
-
-  std::tuple<double, int16_t> rate_color = uav_state_ts_.GetHz();
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.odom_hz    = std::get<0>(rate_color);
-    uav_status_.odom_color = std::get<1>(rate_color);
-  }
-
 
   double      avg_rate;
   double      color;
@@ -1672,12 +1454,6 @@ void Status::uavStateHandler(WINDOW* win) {
 /* controlManagerHandler() //{ */
 
 void Status::controlManagerHandler(WINDOW* win) {
-  std::tuple<double, int16_t> rate_color = control_manager_ts_.GetHz();
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.control_manager_diag_hz    = std::get<0>(rate_color);
-    uav_status_.control_manager_diag_color = std::get<1>(rate_color);
-  }
 
   int16_t color;
   double  avg_rate;
@@ -1811,28 +1587,6 @@ void Status::controlManagerHandler(WINDOW* win) {
 /* mavrosStateHandler() //{ */
 
 void Status::mavrosStateHandler(WINDOW* win) {
-  std::tuple<double, int16_t> local_rate_color   = mavros_local_ts_.GetHz();
-  std::tuple<double, int16_t> global_rate_color  = mavros_global_ts_.GetHz();
-  std::tuple<double, int16_t> state_rate_color   = mavros_state_ts_.GetHz();
-  std::tuple<double, int16_t> cmd_rate_color     = mavros_cmd_ts_.GetHz();
-  std::tuple<double, int16_t> battery_rate_color = mavros_battery_ts_.GetHz();
-
-
-  bool mavros_gps = false;
-  if (std::get<0>(global_rate_color) > 0.0) {
-    mavros_gps = true;
-  }
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.mavros_hz         = std::get<0>(local_rate_color);
-    uav_status_.mavros_color      = std::get<1>(local_rate_color);
-    uav_status_.mavros_gps_ok     = mavros_gps;
-    uav_status_.mavros_battery_hz = std::get<0>(battery_rate_color);
-    uav_status_.mavros_state_hz   = std::get<0>(state_rate_color);
-    uav_status_.mavros_cmd_hz     = std::get<0>(state_rate_color);
-  }
-
 
   int16_t     color;
   double      mavros_rate;
@@ -2020,53 +1774,34 @@ void Status::mavrosStateHandler(WINDOW* win) {
 
 void Status::flightTimeHandler(WINDOW* win) {
 
+  int secs_flown;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    secs_flown = uav_status_.secs_flown;
+  }
+
   if (_light_) {
     wattron(win, A_STANDOUT);
   }
 
-  bool null_tracker;
+  wattron(win, A_BOLD);
+  printLimitedInt(win, 0, 0, "ToF: %i", secs_flown, 1000);
+
+  std::string uav_name;
+  std::string uav_type;
+  std::string nato_name;
 
   {
     std::scoped_lock lock(mutex_status_msg_);
-    null_tracker = uav_status_.null_tracker;
+    uav_name  = uav_status_.uav_name;
+    uav_type  = uav_status_.uav_type;
+    nato_name = uav_status_.nato_name;
   }
 
-  if (null_tracker) {
-
-    is_flying_ = false;
-    if (state == REMOTE) {
-      state = STANDARD;
-    }
-
-  } else {
-
-    if (!is_flying_) {
-
-      is_flying_        = true;
-      last_flight_time_ = ros::Time::now();
-
-    } else {
-
-      int secs_passed = int((ros::Time::now() - last_flight_time_).toSec());
-
-      if (secs_passed > 0) {
-
-        secs_flown += secs_passed;
-        last_flight_time_ = last_flight_time_ + ros::Duration(secs_passed);
-
-        ofstream outputFile(_time_filename_);
-        outputFile << secs_flown;
-        outputFile.close();
-      }
-    }
-  }
-
-  wattron(win, A_BOLD);
-  printLimitedInt(win, 0, 0, "ToF: %i", secs_flown, 1000);
-  mvwprintw(win, 0, 13, " %s  %s  %s ", _uav_name_.c_str(), _uav_type_.c_str(), _nato_name_.c_str());
+  mvwprintw(win, 0, 13, " %s  %s  %s ", uav_name.c_str(), uav_type.c_str(), nato_name.c_str());
 
   int mins = secs_flown / 60;
-  /* int tens_secs = ((secs_flown % 60) / 10) % 10; */
   int secs = secs_flown % 60;
 
   mvwprintw(win, 0, 0, "ToF: %i:%02i", mins, secs);
@@ -2075,102 +1810,43 @@ void Status::flightTimeHandler(WINDOW* win) {
 
 //}
 
-/* generalInfoThread() //{ */
+/* generalInfoHandeler() //{ */
 
-void Status::generalInfoThread() {
+void Status::generalInfoHandeler(WINDOW* win) {
 
-  ros::Time last_time;
 
-  while (true) {
-
-    double interval = (ros::Time::now() - last_time).toSec();
-
-    if (interval >= 1.0 / double(general_info_window_rate_)) {
-
-      std::scoped_lock lock(mutex_general_info_thread_);
-
-      last_time = ros::Time::now();
-
-      wclear(general_info_window_);
-
-      wattron(general_info_window_, A_BOLD);
-      wattroff(general_info_window_, COLOR_PAIR(NORMAL));
-      wattroff(general_info_window_, A_STANDOUT);
-
-      box(general_info_window_, 0, 0);
-
-      if (_light_) {
-        wattron(general_info_window_, A_STANDOUT);
-      }
-
-      getCpuLoad();
-      getMemLoad();
-      getCpuFreq();
-      getDiskSpace();
-
-      printCpuLoad(general_info_window_);
-      printMemLoad(general_info_window_);
-      printCpuFreq(general_info_window_);
-      printDiskSpace(general_info_window_);
-    }
-
-    sleep(general_info_window_rate_ / 10);
+  if (_light_) {
+    wattron(win, A_STANDOUT);
   }
+
+  wattron(win, COLOR_PAIR(NORMAL));
+  box(win, 0, 0);
+
+  wattron(win, A_BOLD);
+
+  printCpuLoad(win);
+  printMemLoad(win);
+  printCpuFreq(win);
+  printDiskSpace(win);
+
+  wrefresh(win);
 }
 
 //}
 
-/* setupGenericCallbacks() //{ */
+//}
 
-void Status::setupGenericCallbacks() {
+/* uavStatusCallback() //{ */
+
+void Status::uavStatusCallback(const mrs_msgs::UavStatusConstPtr& msg) {
 
   if (!initialized_) {
     return;
   }
 
-  generic_topic_vec_.clear();
-  generic_subscriber_vec_.clear();
-
-  boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;  // generic callback
-
-  for (unsigned long i = 0; i < generic_topic_input_vec_.size(); i++) {
-
-    vector<string> results;
-    boost::split(results, generic_topic_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
-    if (results[2].back() == '+') {
-      // TODO handle the + sign
-      results[2].pop_back();
-    }
-
-    string tmp_string = results[1];
-    for (unsigned long j = 2; j < results.size() - 1; j++) {
-      tmp_string = tmp_string + " " + results[j];
-    }
-
-    try {
-      TopicInfo tmp_topic(generic_topic_window_rate_, BUFFER_LEN_SECS, stoi(results[results.size() - 1]), results[0], tmp_string);
-      generic_topic_vec_.push_back(tmp_topic);
-    }
-    catch (const invalid_argument& e) {
-    }
-
-
-    int    id = i;  // id to identify which topic called the generic callback
-    string topic_name;
-
-    if (generic_topic_vec_[i].GetTopicName().at(0) == '/') {
-
-      topic_name = generic_topic_vec_[i].GetTopicName();
-
-    } else {
-
-      topic_name = "/" + _uav_name_ + "/" + generic_topic_vec_[i].GetTopicName();
-    }
-
-    callback                       = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { genericCallback(msg, topic_name, id); };
-    ros::Subscriber tmp_subscriber = nh_.subscribe(topic_name, 10, callback);
-
-    generic_subscriber_vec_.push_back(tmp_subscriber);
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_ = *msg;
   }
 }
 
@@ -2181,13 +1857,17 @@ void Status::setupGenericCallbacks() {
 void Status::prefillUavStatus() {
 
   std::scoped_lock lock(mutex_status_msg_);
+  uav_status_.uav_name                = "N/A";
+  uav_status_.nato_name               = "N/A";
+  uav_status_.uav_type                = "N/A";
+  uav_status_.uav_mass                = 0.0;
   uav_status_.control_manager_diag_hz = 0.0;
   uav_status_.controllers.clear();
   uav_status_.gains.clear();
   uav_status_.trackers.clear();
   uav_status_.constraints.clear();
   uav_status_.fly_state  = "N/A";
-  uav_status_.secs_flown  = 0;
+  uav_status_.secs_flown = 0;
   uav_status_.odom_hz    = 0.0;
   uav_status_.odom_x     = 0.0;
   uav_status_.odom_y     = 0.0;
@@ -2261,7 +1941,16 @@ void Status::setupMainMenu() {
       service_name = results[0];
 
     } else {
-      service_name = "/" + _uav_name_ + "/" + results[0];
+
+
+      std::string uav_name;
+
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        uav_name = uav_status_.uav_name;
+      }
+
+      service_name = "/" + uav_name + "/" + results[0];
     }
 
     service tmp_service(service_name, results[1]);
@@ -2316,197 +2005,6 @@ void Status::setupGotoMenu() {
   for (int i = 0; i < 4; i++) {
     InputBox tmpbox(8, menu.getWin(), goto_double_vec_[i]);
     goto_menu_inputs_.push_back(tmpbox);
-  }
-}
-
-//}
-
-//}
-
-/* CPU/MEM/HDD GET FUNCTIONS //{ */
-
-/* getMemLoad() //{ */
-
-void Status::getMemLoad() {
-
-  ifstream file("/proc/meminfo");
-  string   line1, line2, line3, line4;
-  getline(file, line1);
-  getline(file, line2);
-  getline(file, line3);
-  getline(file, line4);
-  file.close();
-
-  vector<string> results;
-  boost::split(results, line1, [](char c) { return c == ' '; });
-
-  double total_ram;
-  double free_ram;
-  double used_ram;
-  double buffers;
-
-  for (unsigned long i = 1; i < results.size(); i++) {
-
-    if (isdigit(results[i].front())) {
-      try {
-        total_ram = double(stol(results[i])) / 1048576;
-      }
-      catch (const invalid_argument& e) {
-        total_ram = 0.0;
-      }
-      break;
-    }
-  }
-
-  boost::split(results, line3, [](char c) { return c == ' '; });
-
-  for (unsigned long i = 1; i < results.size(); i++) {
-
-    if (isdigit(results[i].front())) {
-      try {
-        free_ram = double(stol(results[i])) / 1048576;
-      }
-      catch (const invalid_argument& e) {
-        free_ram = 0.0;
-      }
-      break;
-    }
-  }
-
-  boost::split(results, line4, [](char c) { return c == ' '; });
-
-  for (unsigned long i = 1; i < results.size(); i++) {
-
-    if (isdigit(results[i].front())) {
-      try {
-        buffers = double(stol(results[i])) / 1048576;
-      }
-      catch (const invalid_argument& e) {
-        buffers = 0.0;
-      }
-      break;
-    }
-  }
-
-  used_ram = total_ram - (free_ram + buffers);
-
-  int    tmp_color = GREEN;
-  double ram_ratio = used_ram / total_ram;
-  if (ram_ratio > 0.8) {
-    tmp_color = RED;
-  } else if (ram_ratio > 0.6) {
-    tmp_color = YELLOW;
-  }
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.free_ram  = free_ram + buffers;
-    uav_status_.total_ram = total_ram;
-  }
-}
-
-//}
-
-/* getCpuLoad() //{ */
-
-void Status::getCpuLoad() {
-
-  ifstream file("/proc/stat");
-  string   line;
-  getline(file, line);
-  file.close();
-
-  vector<string> results;
-  boost::split(results, line, [](char c) { return c == ' '; });
-
-  long idle;
-  long non_idle;
-  long total;
-
-  try {
-    idle     = stol(results[5]) + stol(results[6]);
-    non_idle = stol(results[2]) + stol(results[3]) + stol(results[4]) + stol(results[7]) + stol(results[8]) + stol(results[9]);
-    total    = idle + non_idle;
-  }
-  catch (const invalid_argument& e) {
-    idle     = 0;
-    non_idle = 0;
-    total    = 0;
-  }
-
-  long total_diff = total - last_total_;
-  long idle_diff  = idle - last_idle_;
-
-  double cpu_load = 100 * (double(total_diff - idle_diff) / double(total_diff));
-
-  last_total_ = total;
-  last_idle_  = idle;
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.cpu_load = cpu_load;
-  }
-}
-
-//}
-
-/* getCpuFreq() //{ */
-
-void Status::getCpuFreq() {
-
-  ifstream file("/sys/devices/system/cpu/online");
-  string   line;
-  getline(file, line);
-  file.close();
-
-  vector<string> results;
-  boost::split(results, line, [](char c) { return c == '-'; });
-
-  int num_cores;
-
-  try {
-    num_cores = stoi(results[1]) + 1;
-  }
-  catch (const invalid_argument& e) {
-    num_cores = 0;
-  }
-
-  long cpu_freq = 0;
-
-  for (int i = 0; i < num_cores; i++) {
-    string   filename = "/sys/devices/system/cpu/cpu" + to_string(i) + "/cpufreq/scaling_cur_freq";
-    ifstream file(filename.c_str());
-    getline(file, line);
-    file.close();
-    try {
-      cpu_freq += stol(line);
-    }
-    catch (const invalid_argument& e) {
-      cpu_freq = 0;
-    }
-  }
-
-  double avg_cpu_ghz = double(cpu_freq / num_cores) / 1048576;
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.cpu_ghz = avg_cpu_ghz;
-  }
-}
-
-//}
-
-/* getDiskSpace() //{ */
-
-void Status::getDiskSpace() {
-
-  boost::filesystem::space_info si = boost::filesystem::space(".");
-
-  int gigas = round(si.available / 104857600);
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.free_hdd = gigas;
   }
 }
 
@@ -2783,399 +2281,6 @@ void Status::printHelp() {
   }
 
   wrefresh(debug_window_);
-}
-
-//}
-
-//}
-
-/* CALLBACKS //{ */
-
-/* uavStateCallback() //{ */
-
-void Status::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  uav_state_ts_.Count();
-
-  double heading;
-
-  try {
-    heading = mrs_lib::AttitudeConverter(msg->pose.orientation).getHeading();
-  }
-  catch (...) {
-    heading = 0;
-    printError("Error in heading extraction from uav_state");
-  }
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.odom_x     = msg->pose.position.x;
-    uav_status_.odom_y     = msg->pose.position.y;
-    uav_status_.odom_z     = msg->pose.position.z;
-    uav_status_.odom_hdg   = heading;
-    uav_status_.odom_frame = msg->header.frame_id;
-  }
-}
-
-//}
-
-/* odomDiagCallback() //{ */
-
-void Status::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-
-    uav_status_.odom_estimators_hori = msg->available_lat_estimators;
-
-    for (size_t i = 0; i < uav_status_.odom_estimators_hori.size(); i++) {
-      if ((uav_status_.odom_estimators_hori[i] == msg->estimator_type.name) && i != 0) {
-        // put the active estimator as first in the vector
-        std::swap(uav_status_.odom_estimators_hori[0], uav_status_.odom_estimators_hori[i]);
-      }
-    }
-
-    uav_status_.odom_estimators_vert = msg->available_alt_estimators;
-
-    for (size_t i = 0; i < uav_status_.odom_estimators_vert.size(); i++) {
-      if ((uav_status_.odom_estimators_vert[i] == msg->altitude_type.name) && i != 0) {
-        // put the active estimator as first in the vector
-        std::swap(uav_status_.odom_estimators_vert[0], uav_status_.odom_estimators_vert[i]);
-      }
-    }
-
-    uav_status_.odom_estimators_hdg = msg->available_hdg_estimators;
-
-    for (size_t i = 0; i < uav_status_.odom_estimators_hdg.size(); i++) {
-      if ((uav_status_.odom_estimators_hdg[i] == msg->heading_type.name) && i != 0) {
-        // put the active estimator as first in the vector
-        std::swap(uav_status_.odom_estimators_hdg[0], uav_status_.odom_estimators_hdg[i]);
-      }
-    }
-  }
-}
-
-//}
-
-/* mavrosStateCallback() //{ */
-
-void Status::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  mavros_state_ts_.Count();
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.mavros_armed = msg->armed;
-    uav_status_.mavros_mode  = msg->mode;
-  }
-}
-
-//}
-
-/* batteryCallback() //{ */
-
-void Status::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  mavros_battery_ts_.Count();
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.battery_volt = msg->voltage;
-    uav_status_.battery_curr = msg->current;
-  }
-}
-
-//}
-
-/* mavrosAttitudeCallback() //{ */
-
-void Status::cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  /* mavros_state_topic_[2].counter++; */
-  /* cmd_attitude_ = *msg; */
-
-  mavros_cmd_ts_.Count();
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.thrust        = msg->thrust;
-    uav_status_.mass_estimate = msg->total_mass;
-    uav_status_.mass_set      = _uav_mass_;
-  }
-}
-
-//}
-
-/* mavrosGlobalCallback() //{ */
-
-void Status::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  mavros_global_ts_.Count();
-
-  double gps_qual = (msg->position_covariance[0] + msg->position_covariance[4] + msg->position_covariance[8]) / 3;
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.mavros_gps_qual = gps_qual;
-  }
-}
-
-//}
-
-/* mavrosLocalCallback() //{ */
-
-void Status::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-  mavros_local_ts_.Count();
-
-  /* mavros_local_ = *msg; */
-  /* double tilt, roll, pitch; */
-
-  /* geometry_msgs::Vector3 z_vec = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getVectorZ(); */
-  /* roll                         = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getRoll() * 57.2958; */
-  /* pitch                        = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getPitch() * 57.2958; */
-
-  /* try { */
-  /*   tilt = acos(z_vec.z) * 57.2958; */
-  /* } */
-  /* catch (int e) { */
-  /*   tilt = -666; */
-  /* } */
-
-  /* std::stringstream stream; */
-  /* stream << std::fixed << std::setprecision(2) << "tilt: " << tilt << " deg,\n roll: " << roll << ", pitch: " << pitch; */
-
-  /* std::string display_msg = stream.str(); */
-  /* std::string pub_name    = "pixhawk"; */
-
-  /* if (tilt < 10) { */
-  /*   display_msg = "-g " + display_msg; */
-  /* } else { */
-  /*   display_msg = "-r " + display_msg; */
-  /* } */
-
-  /* bool contains = false; */
-
-  /* for (unsigned long i = 0; i < string_info_vec_.size(); i++) { */
-  /*   if (string_info_vec_[i].publisher_name == pub_name) { */
-  /*     contains                           = true; */
-  /*     string_info_vec_[i].display_string = display_msg; */
-  /*     string_info_vec_[i].last_time      = ros::Time::now(); */
-  /*     break; */
-  /*   } */
-  /* } */
-
-  /* if (!contains) { */
-  /*   string_info tmp(pub_name, display_msg); */
-  /*   string_info_vec_.push_back(tmp); */
-  /* } */
-}
-
-//}
-
-/* controlManagerCallback() //{ */
-
-void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  control_manager_ts_.Count();
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-
-    uav_status_.trackers    = msg->available_trackers;
-    uav_status_.controllers = msg->available_controllers;
-
-    for (size_t i = 0; i < uav_status_.trackers.size(); i++) {
-      if ((uav_status_.trackers[i] == msg->active_tracker) && i != 0) {
-        // put the active estimator as first in the vector
-        std::swap(uav_status_.trackers[0], uav_status_.trackers[i]);
-      }
-    }
-
-    for (size_t i = 0; i < uav_status_.controllers.size(); i++) {
-      if ((uav_status_.controllers[i] == msg->active_controller) && i != 0) {
-        // put the active estimator as first in the vector
-        std::swap(uav_status_.controllers[0], uav_status_.controllers[i]);
-      }
-    }
-
-    uav_status_.flying_normally   = msg->flying_normally;
-    uav_status_.have_goal         = msg->tracker_status.have_goal;
-    uav_status_.callbacks_enabled = msg->tracker_status.callbacks_enabled;
-
-    if (msg->active_tracker == "NullTracker") {
-      uav_status_.null_tracker = true;
-    } else {
-      uav_status_.null_tracker = false;
-    }
-  }
-}
-
-//}
-
-/* gainManagerCallback() //{ */
-
-void Status::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-
-    uav_status_.gains = msg->available;
-
-    for (size_t i = 0; i < uav_status_.gains.size(); i++) {
-      if ((uav_status_.gains[i] == msg->current_name) && i != 0) {
-        // put the active estimator as first in the vector
-        std::swap(uav_status_.gains[0], uav_status_.gains[i]);
-      }
-    }
-  }
-}
-
-//}
-
-/* constraintManagerCallback() //{ */
-
-void Status::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-
-    uav_status_.constraints = msg->available;
-
-    for (size_t i = 0; i < uav_status_.constraints.size(); i++) {
-      if ((uav_status_.constraints[i] == msg->current_name) && i != 0) {
-        // put the active estimator as first in the vector
-        std::swap(uav_status_.constraints[0], uav_status_.constraints[i]);
-      }
-    }
-  }
-}
-
-//}
-
-/* setServiceCallback() //{ */
-
-void Status::setServiceCallback(const std_msgs::String& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-
-    if (std::find(uav_status_.custom_services.begin(), uav_status_.custom_services.end(), msg.data) == uav_status_.custom_services.end()) {
-      uav_status_.custom_services.push_back(msg.data);
-    }
-  }
-}
-//}
-
-/* tfStaticCallback() //{ */
-
-void Status::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  for (unsigned long i = 0; i < msg.transforms.size(); i++) {
-
-    std::string tmp        = msg.transforms[i].child_frame_id;
-    std::size_t pos        = tmp.find("/");        // find the / in uav1/something
-    std::string uav_name   = tmp.substr(0, pos);   // cut out the uav name, so we can discard tfs from other drones (mostly for simulation)
-    std::string frame_name = tmp.substr(pos + 1);  // cut off the uav1/ from the tf_static name
-    // TODO fix this mess
-    /* for (unsigned long j = 0; j < tf_static_list_compare_.size(); j++) { */
-    /*   if (tf_static_list_compare_[j] == frame_name && uav_name == _uav_name_) { */
-    /*     std::scoped_lock lock(mutex_status_msg_); */
-    /*     if (std::find(uav_status_.custom_topic_names.begin(), uav_status_.custom_topic_names.end(), tf_static_list_add_[j]) == */
-    /*         uav_status_.custom_topic_names.end()) */
-    /*       uav_status_.custom_topic_names.push_back(tf_static_list_add_[j]); */
-    /*   } */
-    /* } */
-  }
-
-  setupGenericCallbacks();
-}
-//}
-
-/* stringCallback() //{ */
-
-void Status::stringCallback(const ros::MessageEvent<std_msgs::String const>& event) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  /*   std::string pub_name = event.getPublisherName(); */
-  /*   std::string msg_str  = event.getMessage()->data; */
-
-  /*   bool contains = false; */
-  /* /1* uav_status_.custom_string_outputs *1/ */
-  /*   for (unsigned long i = 0; i < string_info_vec_.size(); i++) { */
-  /*     if (string_info_vec_[i].publisher_name == pub_name) { */
-  /*       contains                           = true; */
-  /*       string_info_vec_[i].display_string = msg_str; */
-  /*       string_info_vec_[i].last_time      = ros::Time::now(); */
-  /*       break; */
-  /*     } */
-  /*   } */
-
-  /*   if (!contains) { */
-  /*     string_info tmp(pub_name, msg_str); */
-  /*     string_info_vec_.push_back(tmp); */
-  /*   } */
-}
-//}
-
-/* genericCallback() //{ */
-
-void Status::genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  generic_topic_vec_[id].Count();
 }
 
 //}

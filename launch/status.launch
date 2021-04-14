@@ -6,7 +6,7 @@
   <arg name="SENSORS" default="$(env SENSORS)"/>
   <arg name="RUN_TYPE" default="$(env RUN_TYPE)"/>
   <arg name="PIXGARM" default="$(optenv PIXGARM false)"/>
-  <arg name="COLORSCHEME" default="$(optenv PROFILES_BOTH COLORSCHEME_LIGHT)"/>
+  <arg name="COLORSCHEME" default="$(optenv PROFILES COLORSCHEME_LIGHT)"/>
   <arg name="RAINBOW" default="false"/>
 
   <arg name="debug" default="false"/>
@@ -43,19 +43,7 @@
       <rosparam if="$(eval not arg('config_file') == '')" file="$(arg config_file)" />
 
         <!-- Subscribers -->
-      <remap from="~uav_state_in" to="odometry/uav_state" />
-      <remap from="~odom_diag_in" to="odometry/diagnostics" />
-      <remap from="~mavros_state_in" to="mavros/state" />
-      <remap from="~cmd_attitude_in" to="control_manager/attitude_cmd" />
-      <remap from="~battery_in" to="mavros/battery" />
-      <remap from="~control_manager_in" to="control_manager/diagnostics" />
-      <remap from="~gain_manager_in" to="gain_manager/diagnostics" />
-      <remap from="~constraint_manager_in" to="constraint_manager/diagnostics" />
-      <remap from="~string_in" to="~display_string" />
-      <remap from="~set_service_in" to="~set_trigger_service" />
-      <remap from="~tf_static_in" to="/tf_static" />
-      <remap from="~mavros_global_in" to="mavros/global_position/global" />
-      <remap from="~mavros_local_in" to="mavros/local_position/pose" />
+      <remap from="~uav_status_in" to="~uav_status" />
 
         <!-- Services -->
       <remap from="~reference_out" to="control_manager/reference" />

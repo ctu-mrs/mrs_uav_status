@@ -53,12 +53,12 @@ using topic_tools::ShapeShifter;
 
 //}
 
-/* class Status //{ */
+/* class Acquisition //{ */
 
-class Status {
+class Acquisition {
 
 public:
-  Status();
+  Acquisition();
 
 
 private:
@@ -112,7 +112,7 @@ private:
   double mavros_cmd_expected_rate_      = 100.0;
   double mavros_battery_expected_rate_  = 0.5;
 
-  TopicInfo uav_state_ts_{10, BUFFER_LEN_SECS, uav_state_expected_rate_};
+  TopicInfo uav_state_ts_{1, BUFFER_LEN_SECS, uav_state_expected_rate_};
   TopicInfo control_manager_ts_{1, BUFFER_LEN_SECS, control_manager_expected_rate_};
   TopicInfo mavros_local_ts_{1, BUFFER_LEN_SECS, mavros_local_expected_rate_};
   TopicInfo mavros_global_ts_{1, BUFFER_LEN_SECS, mavros_global_expected_rate_};
@@ -209,9 +209,9 @@ private:
 
 //}
 
-/* Status() //{ */
+/* Acquisition() //{ */
 
-Status::Status() {
+Acquisition::Acquisition() {
 
   // initialize node and create no handle
   nh_ = ros::NodeHandle("~");
@@ -220,7 +220,7 @@ Status::Status() {
 
   prefillUavStatus();
 
-  mrs_lib::ParamLoader param_loader(nh_, "Status");
+  mrs_lib::ParamLoader param_loader(nh_, "Acquisition");
 
   string tmp_uav_mass;
 
@@ -242,12 +242,19 @@ Status::Status() {
   param_loader.loadParam("tf_static_list", tf_static_list);
 
   if (!param_loader.loadedSuccessfully()) {
-    ROS_ERROR("[Status]: Could not load all parameters!");
+    ROS_ERROR("[Acquisition]: Could not load all parameters!");
     ros::shutdown();
   } else {
-    ROS_INFO("[Status]: All params loaded!");
+    ROS_INFO("[Acquisition]: All params loaded!");
   }
 
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.uav_name = _uav_name_;
+    uav_status_.nato_name = _nato_name_;
+    uav_status_.uav_type = _uav_type_;
+    uav_status_.uav_mass = _uav_mass_;
+  }
 
   // | ------------------- want hz handling ------------------- |
   //
@@ -271,30 +278,30 @@ Status::Status() {
 
   // | ------------------------- Timers ------------------------- |
 
-  status_timer_ = nh_.createTimer(ros::Rate(1), &Status::statusTimer, this);
+  status_timer_ = nh_.createTimer(ros::Rate(1), &Acquisition::statusTimer, this);
 
   // | ----------------------- Subscribers ---------------------- |
 
-  uav_state_subscriber_          = nh_.subscribe("uav_state_in", 10, &Status::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
-  odom_diag_subscriber_          = nh_.subscribe("odom_diag_in", 10, &Status::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 10, &Status::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
-  attitude_cmd_subscriber_       = nh_.subscribe("cmd_attitude_in", 10, &Status::cmdAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_global_subscriber_      = nh_.subscribe("mavros_global_in", 10, &Status::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
-  battery_subscriber_            = nh_.subscribe("battery_in", 10, &Status::batteryCallback, this, ros::TransportHints().tcpNoDelay());
-  control_manager_subscriber_    = nh_.subscribe("control_manager_in", 10, &Status::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 10, &Status::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 10, &Status::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  string_subscriber_             = nh_.subscribe("string_in", 10, &Status::stringCallback, this, ros::TransportHints().tcpNoDelay());
-  set_service_subscriber_        = nh_.subscribe("set_service_in", 10, &Status::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
-  tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &Status::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_local_subscriber_       = nh_.subscribe("mavros_local_in", 10, &Status::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
+  uav_state_subscriber_          = nh_.subscribe("uav_state_in", 10, &Acquisition::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
+  odom_diag_subscriber_          = nh_.subscribe("odom_diag_in", 10, &Acquisition::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 10, &Acquisition::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
+  attitude_cmd_subscriber_       = nh_.subscribe("cmd_attitude_in", 10, &Acquisition::cmdAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_global_subscriber_      = nh_.subscribe("mavros_global_in", 10, &Acquisition::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
+  battery_subscriber_            = nh_.subscribe("battery_in", 10, &Acquisition::batteryCallback, this, ros::TransportHints().tcpNoDelay());
+  control_manager_subscriber_    = nh_.subscribe("control_manager_in", 10, &Acquisition::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 10, &Acquisition::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 10, &Acquisition::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  string_subscriber_             = nh_.subscribe("string_in", 10, &Acquisition::stringCallback, this, ros::TransportHints().tcpNoDelay());
+  set_service_subscriber_        = nh_.subscribe("set_service_in", 10, &Acquisition::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
+  tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &Acquisition::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_local_subscriber_       = nh_.subscribe("mavros_local_in", 10, &Acquisition::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
 
   // | ----------------------- Publishers ---------------------- |
 
   uav_status_publisher_ = nh_.advertise<mrs_msgs::UavStatus>("uav_status_out", 1);
 
   // mrs_lib profiler
-  profiler_ = mrs_lib::Profiler(nh_, "Status", _profiler_enabled_);
+  profiler_ = mrs_lib::Profiler(nh_, "Acquisition", _profiler_enabled_);
 
   // | ---------------------- Flight timer ---------------------- |
   //
@@ -338,17 +345,17 @@ Status::Status() {
   //}
 
   // This thread is for the general info window, it fetches CPU frequency, RAM info, Disk space info and CPU load asynchronously
-  general_info_thread_ = std::thread{&Status::generalInfoThread, this};
+  general_info_thread_ = std::thread{&Acquisition::generalInfoThread, this};
 
   initialized_ = true;
-  ROS_INFO("[StatusAcquisition]: Node initialized!");
+  ROS_INFO("[AcquisitionAcquisition]: Node initialized!");
 }
 
 //}
 
 /* statusTimer //{ */
 
-void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
+void Acquisition::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   if (!initialized_) {
     return;
@@ -379,7 +386,7 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
     }
     {
       /* mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler"); */
-      /* string_window_->Redraw(&Status::stringHandler, _light_, this); */
+      /* string_window_->Redraw(&Acquisition::stringHandler, _light_, this); */
     }
   /* } */
 
@@ -398,7 +405,7 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 /* stringHandler() //{ */
 
-/* void Status::stringHandler(WINDOW* win, double rate, short color, int topic) { */
+/* void Acquisition::stringHandler(WINDOW* win, double rate, short color, int topic) { */
 
 /* if (string_info_vec_.empty()) { */
 /*   wclear(win); */
@@ -462,7 +469,7 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 /* genericTopicHandler() //{ */
 
-void Status::genericTopicHandler() {
+void Acquisition::genericTopicHandler() {
 
   if (!generic_topic_vec_.empty()) {
 
@@ -488,7 +495,7 @@ void Status::genericTopicHandler() {
 
 /* uavStateHandler() //{ */
 
-void Status::uavStateHandler() {
+void Acquisition::uavStateHandler() {
 
   std::tuple<double, int16_t> rate_color = uav_state_ts_.GetHz();
   {
@@ -502,7 +509,7 @@ void Status::uavStateHandler() {
 
 /* controlManagerHandler() //{ */
 
-void Status::controlManagerHandler() {
+void Acquisition::controlManagerHandler() {
   std::tuple<double, int16_t> rate_color = control_manager_ts_.GetHz();
   {
     std::scoped_lock lock(mutex_status_msg_);
@@ -515,7 +522,7 @@ void Status::controlManagerHandler() {
 
 /* mavrosStateHandler() //{ */
 
-void Status::mavrosStateHandler() {
+void Acquisition::mavrosStateHandler() {
 
   std::tuple<double, int16_t> local_rate_color   = mavros_local_ts_.GetHz();
   std::tuple<double, int16_t> global_rate_color  = mavros_global_ts_.GetHz();
@@ -543,7 +550,7 @@ void Status::mavrosStateHandler() {
 
 /* flightTimeHandler() //{ */
 
-void Status::flightTimeHandler() {
+void Acquisition::flightTimeHandler() {
 
   bool null_tracker;
 
@@ -589,7 +596,7 @@ void Status::flightTimeHandler() {
 
 /* generalInfoThread() //{ */
 
-void Status::generalInfoThread() {
+void Acquisition::generalInfoThread() {
 
   ros::Time last_time;
 
@@ -617,7 +624,7 @@ void Status::generalInfoThread() {
 
 /* setupGenericCallbacks() //{ */
 
-void Status::setupGenericCallbacks() {
+void Acquisition::setupGenericCallbacks() {
 
   if (!initialized_) {
     return;
@@ -673,9 +680,13 @@ void Status::setupGenericCallbacks() {
 
 /* prefillUavStatus() //{ */
 
-void Status::prefillUavStatus() {
+void Acquisition::prefillUavStatus() {
 
   std::scoped_lock lock(mutex_status_msg_);
+  uav_status_.uav_name = "N/A";
+  uav_status_.nato_name = "N/A";
+  uav_status_.uav_type = "N/A";
+  uav_status_.uav_mass = 0.0;
   uav_status_.control_manager_diag_hz = 0.0;
   uav_status_.controllers.clear();
   uav_status_.gains.clear();
@@ -721,7 +732,7 @@ void Status::prefillUavStatus() {
 
 /* getMemLoad() //{ */
 
-void Status::getMemLoad() {
+void Acquisition::getMemLoad() {
 
   ifstream file("/proc/meminfo");
   string   line1, line2, line3, line4;
@@ -803,7 +814,7 @@ void Status::getMemLoad() {
 
 /* getCpuLoad() //{ */
 
-void Status::getCpuLoad() {
+void Acquisition::getCpuLoad() {
 
   ifstream file("/proc/stat");
   string   line;
@@ -846,7 +857,7 @@ void Status::getCpuLoad() {
 
 /* getCpuFreq() //{ */
 
-void Status::getCpuFreq() {
+void Acquisition::getCpuFreq() {
 
   ifstream file("/sys/devices/system/cpu/online");
   string   line;
@@ -892,7 +903,7 @@ void Status::getCpuFreq() {
 
 /* getDiskSpace() //{ */
 
-void Status::getDiskSpace() {
+void Acquisition::getDiskSpace() {
 
   boost::filesystem::space_info si = boost::filesystem::space(".");
 
@@ -912,7 +923,7 @@ void Status::getDiskSpace() {
 
 /* uavStateCallback() //{ */
 
-void Status::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
+void Acquisition::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
 
   if (!initialized_) {
     return;
@@ -943,7 +954,7 @@ void Status::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
 
 /* odomDiagCallback() //{ */
 
-void Status::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
+void Acquisition::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
 
   if (!initialized_) {
     return;
@@ -985,7 +996,7 @@ void Status::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
 
 /* mavrosStateCallback() //{ */
 
-void Status::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
+void Acquisition::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
 
   if (!initialized_) {
     return;
@@ -1004,7 +1015,7 @@ void Status::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
 
 /* batteryCallback() //{ */
 
-void Status::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
+void Acquisition::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
 
   if (!initialized_) {
     return;
@@ -1023,7 +1034,7 @@ void Status::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
 
 /* mavrosAttitudeCallback() //{ */
 
-void Status::cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg) {
+void Acquisition::cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg) {
 
   if (!initialized_) {
     return;
@@ -1045,7 +1056,7 @@ void Status::cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg) {
 
 /* mavrosGlobalCallback() //{ */
 
-void Status::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
+void Acquisition::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
 
   if (!initialized_) {
     return;
@@ -1065,7 +1076,7 @@ void Status::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
 
 /* mavrosLocalCallback() //{ */
 
-void Status::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) {
+void Acquisition::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) {
 
   if (!initialized_) {
     return;
@@ -1119,7 +1130,7 @@ void Status::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) 
 
 /* controlManagerCallback() //{ */
 
-void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
+void Acquisition::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
 
   if (!initialized_) {
     return;
@@ -1163,7 +1174,7 @@ void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsCon
 
 /* gainManagerCallback() //{ */
 
-void Status::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
+void Acquisition::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
 
   if (!initialized_) {
     return;
@@ -1187,7 +1198,7 @@ void Status::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr&
 
 /* constraintManagerCallback() //{ */
 
-void Status::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
+void Acquisition::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
 
   if (!initialized_) {
     return;
@@ -1211,7 +1222,7 @@ void Status::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnost
 
 /* setServiceCallback() //{ */
 
-void Status::setServiceCallback(const std_msgs::String& msg) {
+void Acquisition::setServiceCallback(const std_msgs::String& msg) {
 
   if (!initialized_) {
     return;
@@ -1229,7 +1240,7 @@ void Status::setServiceCallback(const std_msgs::String& msg) {
 
 /* tfStaticCallback() //{ */
 
-void Status::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
+void Acquisition::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
 
   if (!initialized_) {
     return;
@@ -1258,7 +1269,7 @@ void Status::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
 
 /* stringCallback() //{ */
 
-void Status::stringCallback(const ros::MessageEvent<std_msgs::String const>& event) {
+void Acquisition::stringCallback(const ros::MessageEvent<std_msgs::String const>& event) {
 
   if (!initialized_) {
     return;
@@ -1287,7 +1298,7 @@ void Status::stringCallback(const ros::MessageEvent<std_msgs::String const>& eve
 
 /* genericCallback() //{ */
 
-void Status::genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id) {
+void Acquisition::genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id) {
 
   if (!initialized_) {
     return;
@@ -1304,9 +1315,9 @@ void Status::genericCallback(const ShapeShifter::ConstPtr& msg, const string& to
 
 int main(int argc, char** argv) {
 
-  ros::init(argc, argv, "mrs_status");
+  ros::init(argc, argv, "mrs_uav_status");
 
-  Status status;
+  Acquisition acquisition;
 
   while (ros::ok()) {
 

@@ -27,8 +27,8 @@
 
   <group ns="$(arg UAV_NAME)">
 
-    <node name="mrs_uav_status" pkg="mrs_uav_status" type="data_acquisition" output="screen" respawn="false" launch-prefix="$(arg launch_prefix)">
-
+    <node name="mrs_uav_status_acquisition" pkg="mrs_uav_status" type="data_acquisition" output="screen" respawn="false" launch-prefix="$(arg launch_prefix)">
+        
       <param name="uav_name" value="$(arg UAV_NAME)" />
       <param name="nato_name" value="$(arg NATO_NAME)" />
       <param name="uav_type" value="$(arg UAV_TYPE)" />
@@ -56,7 +56,7 @@
       <remap from="~mavros_local_in" to="mavros/local_position/pose" />
 
         <!-- Publishers -->
-      <remap from="~uav_status_out" to="~uav_status" />
+      <remap from="~uav_status_out" to="mrs_uav_status/uav_status" />
 
 
     </node>

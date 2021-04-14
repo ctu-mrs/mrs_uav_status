@@ -38,7 +38,12 @@ TopicInfo::TopicInfo(double window_rate_in, int buffer_len, double desired_rate_
 std::tuple<double, int16_t> TopicInfo::GetHz() {
   ros::Time time_now = ros::Time::now();
   double    interval = (time_now - last_time_).toSec();
-  last_time_         = time_now;
+
+  if (interval == 0.0) {
+    return std::make_tuple(0.0, RED);
+  }
+
+  last_time_ = time_now;
 
   double avg_rate = counter_ / interval;
   counter_        = 0;
@@ -55,7 +60,12 @@ std::tuple<double, int16_t> TopicInfo::GetHz() {
   for (unsigned long i = 0; i < rates_.size(); i++) {
     avg_rate += rates_[i];
   }
-  avg_rate = avg_rate / double(rates_.size());
+
+  if (rates_.size() == 0) {
+    avg_rate = 0.0;
+  } else {
+    avg_rate = avg_rate / double(rates_.size());
+  }
 
   int16_t color = RED;
 
@@ -69,7 +79,7 @@ std::tuple<double, int16_t> TopicInfo::GetHz() {
 
 //}
 
-/* GetHz //{ */
+/* GetTopicName //{ */
 
 std::string TopicInfo::GetTopicName() {
   return topic_name_;
