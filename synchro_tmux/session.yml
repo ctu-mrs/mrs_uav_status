@@ -1,4 +1,4 @@
-name: experiment_1
+name: experiment_terminal
 root: ./
 
 startup_window: takeoff
@@ -19,5 +19,6 @@ windows:
       layout: tiled
       synchronize: after
       panes:
-        - waitForRos; export UAV_NAME=uav1; roslaunch mrs_uav_status status.launch
-        - waitForRos; export UAV_NAME=uav2; roslaunch mrs_uav_status status.launch
+        - waitForRos; export UAV_NAME=uav1; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav2; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav3; roslaunch mrs_uav_status terminal.launch
