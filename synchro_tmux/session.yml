@@ -1,0 +1,23 @@
+name: experiment_1
+root: ./
+
+startup_window: takeoff
+tmux_options: -f tmux.conf
+
+windows:
+  - roscore:
+      layout: tiled
+      synchronize: after
+      panes:
+        - roscore
+  - nimbro:
+      layout: tiled
+      synchronize: after
+      panes:
+        - waitForRos; roslaunch mrs_uav_general nimbro.launch custom_config:=./custom_configs/nimbro.yaml custom_config_uav_names:=./custom_configs/uav_names.yaml
+  - status:
+      layout: tiled
+      synchronize: after
+      panes:
+        - waitForRos; export UAV_NAME=uav1; roslaunch mrs_uav_status status.launch
+        - waitForRos; export UAV_NAME=uav2; roslaunch mrs_uav_status status.launch
