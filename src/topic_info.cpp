@@ -87,6 +87,14 @@ std::string TopicInfo::GetTopicName() {
 
 //}
 
+/* GetTopicName //{ */
+
+std::string TopicInfo::GetTopicDisplayName() {
+  return topic_display_name_;
+}
+
+//}
+
 /* Count //{ */
 
 void TopicInfo::Count() {

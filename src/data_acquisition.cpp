@@ -454,7 +454,7 @@ void Acquisition::genericTopicHandler() {
     for (size_t i = 0; i < generic_topic_vec_.size(); i++) {
       std::tuple<double, int16_t> rate_color = generic_topic_vec_[i].GetHz();
       mrs_msgs::CustomTopic       custom_topic;
-      custom_topic.topic_name  = generic_topic_vec_[i].GetTopicName();
+      custom_topic.topic_name  = generic_topic_vec_[i].GetTopicDisplayName();
       custom_topic.topic_hz    = std::get<0>(rate_color);
       custom_topic.topic_color = std::get<1>(rate_color);
       custom_topic_vec_out.push_back(custom_topic);
@@ -1236,14 +1236,13 @@ void Acquisition::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
     std::string uav_name   = tmp.substr(0, pos);   // cut out the uav name, so we can discard tfs from other drones (mostly for simulation)
     std::string frame_name = tmp.substr(pos + 1);  // cut off the uav1/ from the tf_static name
     // TODO fix this mess
-    /* for (unsigned long j = 0; j < tf_static_list_compare_.size(); j++) { */
-    /*   if (tf_static_list_compare_[j] == frame_name && uav_name == _uav_name_) { */
-    /*     std::scoped_lock lock(mutex_status_msg_); */
-    /*     if (std::find(uav_status_.custom_topic_names.begin(), uav_status_.custom_topic_names.end(), tf_static_list_add_[j]) == */
-    /*         uav_status_.custom_topic_names.end()) */
-    /*       uav_status_.custom_topic_names.push_back(tf_static_list_add_[j]); */
-    /*   } */
-    /* } */
+    for (unsigned long j = 0; j < tf_static_list_compare_.size(); j++) {
+      if (tf_static_list_compare_[j] == frame_name && uav_name == _uav_name_) {
+        std::scoped_lock lock(mutex_status_msg_);
+        if (std::find(generic_topic_input_vec_.begin(), generic_topic_input_vec_.end(), tf_static_list_add_[j]) == generic_topic_input_vec_.end())
+        generic_topic_input_vec_.push_back(tf_static_list_add_[j]);
+      }
+    }
   }
 
   setupGenericCallbacks();

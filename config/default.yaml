@@ -18,6 +18,7 @@ want_hz: [
       ]
 
 tf_static_list: [
+      "bluefox_front bluefox_front/camera_info BFox Front 20",
       "bluefox_optflow bluefox_optflow/camera_info BFox Optflow 50",
       "bluefox_optflow_optical bluefox_optflow/camera_info BFox Optflow 50",
       "bluefox_optflow optic_flow/velocity Optflow Vel 50",
@@ -25,7 +26,7 @@ tf_static_list: [
       "rs_d435/link rs_d435/color/camera_info Realsense 30",
       "rplidar rplidar/scan RPlidar 10",
       "os_sensor os_cloud_nodelet/diag Ouster 10",
-      "uvcam_left uvdar_bluefox/left/camera_info UV_BFox_Left 70",
-      "uvcam_right uvdar_bluefox/right/camera_info UV_BFox_Right 70",
+      "uvcam_left uvdar_bluefox/left/camera_info UV_BFox_Left 60",
+      "uvcam_right uvdar_bluefox/right/camera_info UV_BFox_Right 60",
       "picoflexx pico_flexx/camera_info Picoflexx 5"
       ]

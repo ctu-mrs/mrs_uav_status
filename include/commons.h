@@ -53,6 +53,7 @@ public:
   TopicInfo(double window_rate_in, int buffer_len, double desired_rate_in);
   TopicInfo(double window_rate_in, int buffer_len, double desired_rate_in, std::string topic_name_in, std::string topic_display_name_in);
   std::string GetTopicName();
+  std::string GetTopicDisplayName();
   std::tuple<double, int16_t> GetHz();
   void   Count();
 
