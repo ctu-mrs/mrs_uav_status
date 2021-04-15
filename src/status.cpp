@@ -32,8 +32,6 @@
 
 #include <std_msgs/String.h>
 
-#include <mrs_lib/mutex.h>
-
 #include <sensor_msgs/NavSatFix.h>
 
 #include <mavros_msgs/State.h>
@@ -47,9 +45,11 @@
 
 #include <sensor_msgs/BatteryState.h>
 
+#include <mrs_lib/mutex.h>
 #include <mrs_lib/transformer.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/attitude_converter.h>
+#include <mrs_lib/service_client_handler.h>
 
 #include <tf2_msgs/TFMessage.h>
 
@@ -196,16 +196,17 @@ private:
 
   // | --------------------- Service Clients -------------------- |
 
-  ros::ServiceClient service_goto_reference_;
-  ros::ServiceClient service_trajectory_reference_;
-  ros::ServiceClient service_set_constraints_;
-  ros::ServiceClient service_set_gains_;
-  ros::ServiceClient service_set_controller_;
-  ros::ServiceClient service_set_tracker_;
-  ros::ServiceClient service_set_lat_estimator_;
-  ros::ServiceClient service_set_alt_estimator_;
-  ros::ServiceClient service_set_hdg_estimator_;
-  ros::ServiceClient service_hover_;
+
+  mrs_lib::ServiceClientHandler<mrs_msgs::ReferenceStampedSrv> service_goto_reference_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::TrajectoryReferenceSrv> service_trajectory_reference_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_constraints_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_gains_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_controller_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_tracker_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_lat_estimator_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_alt_estimator_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_hdg_estimator_;
+  mrs_lib::ServiceClientHandler<std_srvs::Trigger> service_hover_;
 
   // | -------------------- UAV configuration ------------------- |
 
@@ -307,17 +308,17 @@ Status::Status() {
   uav_status_short_subscriber_ = nh_.subscribe("uav_status_short_in", 10, &Status::uavStatusShortCallback, this, ros::TransportHints().tcpNoDelay());
 
   // | ------------------------ Services ------------------------ |
-  //
-  service_goto_reference_       = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
-  service_trajectory_reference_ = nh_.serviceClient<mrs_msgs::TrajectoryReferenceSrv>("trajectory_reference_out");
-  service_set_constraints_      = nh_.serviceClient<mrs_msgs::String>("set_constraints_out");
-  service_set_gains_            = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
-  service_set_controller_       = nh_.serviceClient<mrs_msgs::String>("set_controller_out");
-  service_set_tracker_          = nh_.serviceClient<mrs_msgs::String>("set_tracker_out");
-  service_set_lat_estimator_    = nh_.serviceClient<mrs_msgs::String>("set_odometry_lat_estimator_out");
-  service_set_alt_estimator_    = nh_.serviceClient<mrs_msgs::String>("set_odometry_alt_estimator_out");
-  service_set_hdg_estimator_    = nh_.serviceClient<mrs_msgs::String>("set_odometry_hdg_estimator_out");
-  service_hover_                = nh_.serviceClient<std_srvs::Trigger>("hover_out");
+  
+  service_goto_reference_       = mrs_lib::ServiceClientHandler<mrs_msgs::ReferenceStampedSrv>(nh_, "reference_out");
+  service_trajectory_reference_ = mrs_lib::ServiceClientHandler<mrs_msgs::TrajectoryReferenceSrv>(nh_, "trajectory_reference_out");
+  service_set_constraints_      = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_constraints_out");
+  service_set_gains_            = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_gains_out");
+  service_set_controller_       = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_controller_out");
+  service_set_tracker_          = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_tracker_out");
+  service_set_lat_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_lat_estimator_out");
+  service_set_alt_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_alt_estimator_out");
+  service_set_hdg_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_hdg_estimator_out");
+  service_hover_                = mrs_lib::ServiceClientHandler<std_srvs::Trigger>(nh_, "hover_out");
 
   // mrs_lib profiler
   profiler_ = mrs_lib::Profiler(nh_, "Status", _profiler_enabled_);
@@ -551,7 +552,6 @@ void Status::statusTimerSlow([[maybe_unused]] const ros::TimerEvent& event) {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("generalInfoHandler");
     generalInfoHandeler(general_info_window_);
   }
-
 }
 
 
