@@ -403,6 +403,7 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
     return;
   }
 
+
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
     uavStateHandler(uav_state_window_);
@@ -411,7 +412,7 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
   wclear(top_bar_window_);
 
   if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
-    wclear(bottom_window_);
+    werase(bottom_window_);
   }
   flightTimeHandler(top_bar_window_);
 
@@ -550,6 +551,7 @@ void Status::statusTimerSlow([[maybe_unused]] const ros::TimerEvent& event) {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("generalInfoHandler");
     generalInfoHandeler(general_info_window_);
   }
+
 }
 
 
@@ -1338,7 +1340,7 @@ void Status::stringHandler(WINDOW* win) {
   }
 
   if (string_vector.empty()) {
-    wclear(win);
+    werase(win);
     return;
   }
 
@@ -1442,7 +1444,7 @@ void Status::genericTopicHandler(WINDOW* win) {
 
   } else {
 
-    wclear(win);
+    werase(win);
   }
 
   wattroff(win, A_BOLD);
@@ -2240,7 +2242,7 @@ void Status::printServiceResult(bool success, string msg) {
     wattron(bottom_window_, A_STANDOUT);
   }
 
-  wclear(bottom_window_);
+  werase(bottom_window_);
 
   wattron(bottom_window_, A_BOLD);
   wattron(bottom_window_, COLOR_PAIR(GREEN));
@@ -2376,7 +2378,7 @@ void Status::printDebug(string msg) {
 
 void Status::printHelp() {
 
-  wclear(debug_window_);
+  werase(debug_window_);
 
   if (help_active_) {
 
@@ -2481,7 +2483,7 @@ int main(int argc, char** argv) {
 
   initscr();
   start_color();
-  cbreak();
+  nocbreak();
   noecho();
   clear();
   nodelay(stdscr, true);
