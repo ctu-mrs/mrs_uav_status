@@ -118,7 +118,6 @@ struct service
   std::string service_display_name;
 
   mrs_lib::ServiceClientHandler<std_srvs::Trigger> service_client;
-  /* ros::ServiceClient            service_client; */
 
   service(std::string name_in, std::string display_name_in) {
     service_name         = name_in;
