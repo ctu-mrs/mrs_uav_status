@@ -17,6 +17,50 @@
 #include <ros/ros.h>
 #include <ros/package.h>
 
+#include <iostream>
+#include <fstream>
+#include <thread>
+
+#include <topic_tools/shape_shifter.h>  // for generic topic subscribers
+
+#include <mrs_msgs/UavStatus.h>
+#include <mrs_msgs/UavStatusShort.h>
+#include <mrs_msgs/UavState.h>
+#include <mrs_msgs/ControlManagerDiagnostics.h>
+#include <mrs_msgs/GainManagerDiagnostics.h>
+#include <mrs_msgs/ConstraintManagerDiagnostics.h>
+#include <mrs_msgs/AttitudeCommand.h>
+#include <mrs_msgs/OdometryDiag.h>
+
+#include <mrs_msgs/ReferenceStampedSrv.h>
+#include <mrs_msgs/Reference.h>
+#include <mrs_msgs/TrajectoryReferenceSrv.h>
+#include <mrs_msgs/String.h>
+#include <mrs_msgs/UavStatus.h>
+#include <mrs_msgs/CustomTopic.h>
+
+#include <std_msgs/String.h>
+
+#include <sensor_msgs/NavSatFix.h>
+
+#include <mavros_msgs/State.h>
+#include <mavros_msgs/AttitudeTarget.h>
+
+#include <std_srvs/Trigger.h>
+
+#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Vector3.h>
+
+#include <sensor_msgs/BatteryState.h>
+
+#include <mrs_lib/mutex.h>
+#include <mrs_lib/transformer.h>
+#include <mrs_lib/param_loader.h>
+#include <mrs_lib/attitude_converter.h>
+#include <mrs_lib/service_client_handler.h>
+
+#include <tf2_msgs/TFMessage.h>
 #define KEY_ENT 10
 #define KEY_ESC 27
 /* #define KEY_BACKSPACE 263 */
@@ -52,10 +96,10 @@ class TopicInfo {
 public:
   TopicInfo(double window_rate_in, int buffer_len, double desired_rate_in);
   TopicInfo(double window_rate_in, int buffer_len, double desired_rate_in, std::string topic_name_in, std::string topic_display_name_in);
-  std::string GetTopicName();
-  std::string GetTopicDisplayName();
+  std::string                 GetTopicName();
+  std::string                 GetTopicDisplayName();
   std::tuple<double, int16_t> GetHz();
-  void   Count();
+  void                        Count();
 
 private:
   ros::Time           last_time_;
@@ -70,9 +114,11 @@ private:
 
 struct service
 {
-  std::string        service_name;
-  std::string        service_display_name;
-  ros::ServiceClient service_client;
+  std::string service_name;
+  std::string service_display_name;
+
+  mrs_lib::ServiceClientHandler<std_srvs::Trigger> service_client;
+  /* ros::ServiceClient            service_client; */
 
   service(std::string name_in, std::string display_name_in) {
     service_name         = name_in;

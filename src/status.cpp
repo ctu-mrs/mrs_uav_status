@@ -7,51 +7,6 @@
 #include <commons.h>
 #include <mrs_lib/profiler.h>
 
-#include <iostream>
-#include <fstream>
-#include <thread>
-#include <boost/filesystem.hpp>
-
-#include <topic_tools/shape_shifter.h>  // for generic topic subscribers
-
-#include <mrs_msgs/UavStatus.h>
-#include <mrs_msgs/UavStatusShort.h>
-#include <mrs_msgs/UavState.h>
-#include <mrs_msgs/ControlManagerDiagnostics.h>
-#include <mrs_msgs/GainManagerDiagnostics.h>
-#include <mrs_msgs/ConstraintManagerDiagnostics.h>
-#include <mrs_msgs/AttitudeCommand.h>
-#include <mrs_msgs/OdometryDiag.h>
-
-#include <mrs_msgs/ReferenceStampedSrv.h>
-#include <mrs_msgs/Reference.h>
-#include <mrs_msgs/TrajectoryReferenceSrv.h>
-#include <mrs_msgs/String.h>
-#include <mrs_msgs/UavStatus.h>
-#include <mrs_msgs/CustomTopic.h>
-
-#include <std_msgs/String.h>
-
-#include <sensor_msgs/NavSatFix.h>
-
-#include <mavros_msgs/State.h>
-#include <mavros_msgs/AttitudeTarget.h>
-
-#include <std_srvs/Trigger.h>
-
-#include <geometry_msgs/Pose.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/Vector3.h>
-
-#include <sensor_msgs/BatteryState.h>
-
-#include <mrs_lib/mutex.h>
-#include <mrs_lib/transformer.h>
-#include <mrs_lib/param_loader.h>
-#include <mrs_lib/attitude_converter.h>
-#include <mrs_lib/service_client_handler.h>
-
-#include <tf2_msgs/TFMessage.h>
 
 using namespace std;
 using topic_tools::ShapeShifter;
@@ -123,6 +78,8 @@ private:
 
   double general_info_window_rate_  = 1;
   double generic_topic_window_rate_ = 1;
+
+  int _service_num_async_calls_ = 10;
 
   void printCpuLoad(WINDOW* win);
   void printCpuFreq(WINDOW* win);
@@ -197,16 +154,16 @@ private:
   // | --------------------- Service Clients -------------------- |
 
 
-  mrs_lib::ServiceClientHandler<mrs_msgs::ReferenceStampedSrv> service_goto_reference_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::ReferenceStampedSrv>    service_goto_reference_;
   mrs_lib::ServiceClientHandler<mrs_msgs::TrajectoryReferenceSrv> service_trajectory_reference_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_constraints_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_gains_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_controller_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_tracker_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_lat_estimator_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_alt_estimator_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String> service_set_hdg_estimator_;
-  mrs_lib::ServiceClientHandler<std_srvs::Trigger> service_hover_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_constraints_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_gains_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_controller_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_tracker_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_lat_estimator_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_alt_estimator_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_hdg_estimator_;
+  mrs_lib::ServiceClientHandler<std_srvs::Trigger>                service_hover_;
 
   // | -------------------- UAV configuration ------------------- |
 
@@ -308,7 +265,7 @@ Status::Status() {
   uav_status_short_subscriber_ = nh_.subscribe("uav_status_short_in", 10, &Status::uavStatusShortCallback, this, ros::TransportHints().tcpNoDelay());
 
   // | ------------------------ Services ------------------------ |
-  
+
   service_goto_reference_       = mrs_lib::ServiceClientHandler<mrs_msgs::ReferenceStampedSrv>(nh_, "reference_out");
   service_trajectory_reference_ = mrs_lib::ServiceClientHandler<mrs_msgs::TrajectoryReferenceSrv>(nh_, "trajectory_reference_out");
   service_set_constraints_      = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_constraints_out");
@@ -474,7 +431,7 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
           turbo_remote_ = false;
           mrs_msgs::String string_service;
           string_service.request.value = old_constraints;
-          service_set_constraints_.call(string_service);
+          service_set_constraints_.callAsync(string_service, _service_num_async_calls_);
           printServiceResult(string_service.response.success, string_service.response.message);
         }
 
@@ -591,7 +548,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = constraints_text_[line];
-            service_set_constraints_.call(string_service);
+            service_set_constraints_.callAsync(string_service, _service_num_async_calls_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -618,7 +575,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = gains_text_[line];
-            service_set_gains_.call(string_service);
+            service_set_gains_.callAsync(string_service, _service_num_async_calls_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -645,7 +602,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = controllers_text_[line];
-            service_set_controller_.call(string_service);
+            service_set_controller_.callAsync(string_service, _service_num_async_calls_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -672,7 +629,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = trackers_text_[line];
-            service_set_tracker_.call(string_service);
+            service_set_tracker_.callAsync(string_service, _service_num_async_calls_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -699,7 +656,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = odometry_lat_sources_text_[line];
-            service_set_lat_estimator_.call(string_service);
+            service_set_lat_estimator_.callAsync(string_service, _service_num_async_calls_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -726,7 +683,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = odometry_alt_sources_text_[line];
-            service_set_alt_estimator_.call(string_service);
+            service_set_alt_estimator_.callAsync(string_service, _service_num_async_calls_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -753,7 +710,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = odometry_hdg_sources_text_[line];
-            service_set_hdg_estimator_.call(string_service);
+            service_set_hdg_estimator_.callAsync(string_service, _service_num_async_calls_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -789,7 +746,7 @@ bool Status::mainMenuHandler(int key_in) {
         if (line < service_vec_.size()) {
 
           std_srvs::Trigger trig;
-          service_vec_[line].service_client.call(trig);
+          service_vec_[line].service_client.callAsync(trig, _service_num_async_calls_);
           printServiceResult(trig.response.success, trig.response.message);
 
           menu_vec_.clear();
@@ -996,7 +953,7 @@ bool Status::gotoMenuHandler(int key_in) {
 
       reference.request.header.stamp = ros::Time::now();
 
-      service_goto_reference_.call(reference);
+      service_goto_reference_.callAsync(reference, _service_num_async_calls_);
 
       printServiceResult(reference.response.success, reference.response.message);
 
@@ -1172,7 +1129,7 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
           turbo_remote_                = false;
           string_service.request.value = old_constraints;
-          service_set_constraints_.call(string_service);
+          service_set_constraints_.callAsync(string_service, _service_num_async_calls_);
           printServiceResult(string_service.response.success, string_service.response.message);
 
         } else {
@@ -1185,7 +1142,7 @@ void Status::remoteHandler(int key, WINDOW* win) {
           }
 
           string_service.request.value = _turbo_remote_constraints_;
-          service_set_constraints_.call(string_service);
+          service_set_constraints_.callAsync(string_service, _service_num_async_calls_);
           printServiceResult(string_service.response.success, string_service.response.message);
         }
       }
@@ -1209,7 +1166,7 @@ void Status::remoteHandler(int key, WINDOW* win) {
     default:
       if (remote_hover_) {
 
-        service_hover_.call(trig);
+        service_hover_.callAsync(trig, _service_num_async_calls_);
         remote_hover_ = false;
       }
       break;
@@ -1262,7 +1219,7 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
       reference.request.header.frame_id = uav_name + "/fcu_untilted";
 
       reference.request.header.stamp = ros::Time::now();
-      service_goto_reference_.call(reference);
+      service_goto_reference_.callAsync(reference, _service_num_async_calls_);
 
       return;
     }
@@ -1323,7 +1280,7 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
       tmp_traj.points.push_back(tmp_ref);
     }
     traj.request.trajectory = tmp_traj;
-    service_trajectory_reference_.call(traj);
+    service_trajectory_reference_.callAsync(traj, _service_num_async_calls_);
   }
 }
 
@@ -2076,8 +2033,7 @@ void Status::setupMainMenu() {
     }
 
     service tmp_service(service_name, results[1]);
-    tmp_service.service_client = nh_.serviceClient<std_srvs::Trigger>(service_name);
-
+    tmp_service.service_client = mrs_lib::ServiceClientHandler<mrs_msgs::TrajectoryReferenceSrv>(nh_, service_name);
     service_vec_.push_back(tmp_service);
   }
 
