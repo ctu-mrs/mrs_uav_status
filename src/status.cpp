@@ -79,7 +79,8 @@ private:
   double general_info_window_rate_  = 1;
   double generic_topic_window_rate_ = 1;
 
-  int _service_num_calls_ = 10;
+  int    _service_num_calls_ = 20;
+  double _service_delay_     = 0.1;
 
   void printCpuLoad(WINDOW* win);
   void printCpuFreq(WINDOW* win);
@@ -431,7 +432,7 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
           turbo_remote_ = false;
           mrs_msgs::String string_service;
           string_service.request.value = old_constraints;
-          service_set_constraints_.call(string_service, _service_num_calls_);
+          service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_);
           printServiceResult(string_service.response.success, string_service.response.message);
         }
 
@@ -548,7 +549,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = constraints_text_[line];
-            service_set_constraints_.call(string_service, _service_num_calls_);
+            service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -575,7 +576,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = gains_text_[line];
-            service_set_gains_.call(string_service, _service_num_calls_);
+            service_set_gains_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -602,7 +603,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = controllers_text_[line];
-            service_set_controller_.call(string_service, _service_num_calls_);
+            service_set_controller_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -629,7 +630,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = trackers_text_[line];
-            service_set_tracker_.call(string_service, _service_num_calls_);
+            service_set_tracker_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -656,7 +657,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = odometry_lat_sources_text_[line];
-            service_set_lat_estimator_.call(string_service, _service_num_calls_);
+            service_set_lat_estimator_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -683,7 +684,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = odometry_alt_sources_text_[line];
-            service_set_alt_estimator_.call(string_service, _service_num_calls_);
+            service_set_alt_estimator_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -710,7 +711,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = odometry_hdg_sources_text_[line];
-            service_set_hdg_estimator_.call(string_service, _service_num_calls_);
+            service_set_hdg_estimator_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -746,7 +747,7 @@ bool Status::mainMenuHandler(int key_in) {
         if (line < service_vec_.size()) {
 
           std_srvs::Trigger trig;
-          service_vec_[line].service_client.call(trig, _service_num_calls_);
+          service_vec_[line].service_client.call(trig, _service_num_calls_, _service_delay_);
           printServiceResult(trig.response.success, trig.response.message);
 
           menu_vec_.clear();
@@ -953,7 +954,7 @@ bool Status::gotoMenuHandler(int key_in) {
 
       reference.request.header.stamp = ros::Time::now();
 
-      service_goto_reference_.call(reference, _service_num_calls_);
+      service_goto_reference_.call(reference, _service_num_calls_, _service_delay_);
 
       printServiceResult(reference.response.success, reference.response.message);
 
@@ -1129,7 +1130,7 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
           turbo_remote_                = false;
           string_service.request.value = old_constraints;
-          service_set_constraints_.call(string_service, _service_num_calls_);
+          service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_);
           printServiceResult(string_service.response.success, string_service.response.message);
 
         } else {
@@ -1142,7 +1143,7 @@ void Status::remoteHandler(int key, WINDOW* win) {
           }
 
           string_service.request.value = _turbo_remote_constraints_;
-          service_set_constraints_.call(string_service, _service_num_calls_);
+          service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_);
           printServiceResult(string_service.response.success, string_service.response.message);
         }
       }
@@ -1166,7 +1167,7 @@ void Status::remoteHandler(int key, WINDOW* win) {
     default:
       if (remote_hover_) {
 
-        service_hover_.call(trig, _service_num_calls_);
+        service_hover_.call(trig, _service_num_calls_, _service_delay_);
         remote_hover_ = false;
       }
       break;
@@ -1219,7 +1220,7 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
       reference.request.header.frame_id = uav_name + "/fcu_untilted";
 
       reference.request.header.stamp = ros::Time::now();
-      service_goto_reference_.call(reference, _service_num_calls_);
+      service_goto_reference_.call(reference);
 
       return;
     }
@@ -1280,7 +1281,7 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
       tmp_traj.points.push_back(tmp_ref);
     }
     traj.request.trajectory = tmp_traj;
-    service_trajectory_reference_.call(traj, _service_num_calls_);
+    service_trajectory_reference_.call(traj, _service_num_calls_, _service_delay_);
   }
 }
 
