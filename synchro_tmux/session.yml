@@ -22,3 +22,16 @@ windows:
         - waitForRos; export UAV_NAME=uav1; roslaunch mrs_uav_status terminal.launch
         - waitForRos; export UAV_NAME=uav2; roslaunch mrs_uav_status terminal.launch
         - waitForRos; export UAV_NAME=uav3; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav4; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav5; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav6; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav7; roslaunch mrs_uav_status terminal.launch
+        # - waitForRos; export UAV_NAME=uav8; roslaunch mrs_uav_status terminal.launch
+        # - waitForRos; export UAV_NAME=uav9; roslaunch mrs_uav_status terminal.launch
+        # - waitForRos; export UAV_NAME=uav10; roslaunch mrs_uav_status terminal.launch
+  - multi_lander:
+      layout: even-vertical
+      panes:
+        - "history -s rosservice call /klaxalk/multi_lander/land_all"
+        - "history -s rosservice call /klaxalk/multi_lander/land_one"
+        - waitForRos; roslaunch multi_lander multi_lander.launch

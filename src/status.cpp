@@ -375,7 +375,7 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
   }
   flightTimeHandler(top_bar_window_);
 
-  /* printHelp(); */
+  printHelp();
 
 
   int  key_in = getch();
@@ -1589,21 +1589,16 @@ void Status::controlManagerHandler(WINDOW* win) {
     wattroff(win, COLOR_PAIR(YELLOW));
   }
 
-  if (curr_controller == "Se3Controller") {
-
-    if (rate == 0) {
-      printNoData(win, 1, 2 + curr_controller.length());
-    } else {
-      printLimitedString(win, 1, 2 + curr_controller.length(), curr_gains, 10);
-    }
+  if (rate == 0) {
+    printNoData(win, 1, 2 + curr_controller.length());
+  } else {
+    printLimitedString(win, 1, 2 + curr_controller.length(), curr_gains, 10);
   }
 
-  if (curr_tracker == "MpcTracker") {
-    if (rate == 0) {
-      printNoData(win, 2, 2 + curr_tracker.length());
-    } else {
-      printLimitedString(win, 2, 2 + curr_tracker.length(), curr_constraints, 10);
-    }
+  if (rate == 0) {
+    printNoData(win, 2, 2 + curr_tracker.length());
+  } else {
+    printLimitedString(win, 2, 2 + curr_tracker.length(), curr_constraints, 10);
   }
 
   wattroff(win, COLOR_PAIR(color));
