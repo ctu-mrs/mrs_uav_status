@@ -1,0 +1,65 @@
+<launch>
+
+  <arg name="UAV_NAME" default="$(env UAV_NAME)"/>
+  <arg name="NATO_NAME" default="$(env NATO_NAME)"/>
+  <arg name="UAV_TYPE" default="$(env UAV_TYPE)"/>
+  <arg name="SENSORS" default="$(env SENSORS)"/>
+  <arg name="RUN_TYPE" default="$(env RUN_TYPE)"/>
+  <arg name="PIXGARM" default="$(optenv PIXGARM false)"/>
+  <arg name="COLORSCHEME" default="$(optenv PROFILES COLORSCHEME_LIGHT)"/>
+  <arg name="RAINBOW" default="false"/>
+
+  <arg name="debug" default="false"/>
+
+  <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
+  <arg unless="$(arg debug)" name="launch_prefix" value="" />
+
+  <arg name="config_file" default=""/>
+
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f330')" name="UAV_MASS" default="1.35" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f450')" name="UAV_MASS" default="2.0" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'f550')" name="UAV_MASS" default="2.3" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 't650')" name="UAV_MASS" default="3.5" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'x500')" name="UAV_MASS" default="2.0" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'm600')" name="UAV_MASS" default="10.0" />
+  <arg if="$(eval arg('RUN_TYPE') == 'simulation' and arg('UAV_TYPE') == 'eaglemk2')" name="UAV_MASS" default="10.0" />
+  <arg if="$(eval arg('RUN_TYPE') == 'uav')" name="UAV_MASS" default="$(env UAV_MASS)" />
+
+  <group ns="$(arg UAV_NAME)">
+
+    <node name="mrs_uav_status" pkg="mrs_uav_status" type="mrs_uav_status" output="screen" respawn="false" launch-prefix="$(arg launch_prefix)">
+
+      <param name="uav_name" value="$(arg UAV_NAME)" />
+      <param name="nato_name" value="$(arg NATO_NAME)" />
+      <param name="uav_type" value="$(arg UAV_TYPE)" />
+      <param name="uav_mass" value="$(arg UAV_MASS)" />
+      <param name="run_type" value="$(arg RUN_TYPE)" />
+      <param name="sensors" value="$(arg SENSORS)" />
+      <param name="pixgarm" type="bool" value="$(arg PIXGARM)" />
+      <param name="colorscheme" value="$(arg COLORSCHEME)" />
+      <param name="rainbow" type="bool" value="$(arg RAINBOW)" />
+
+      <rosparam file="$(find mrs_uav_status)/config/default.yaml" command="load" />
+      <rosparam if="$(eval not arg('config_file') == '')" file="$(arg config_file)" />
+
+        <!-- Subscribers -->
+      <remap from="~uav_status_in" to="~uav_status" />
+      <remap from="~uav_status_short_in" to="~uav_status_short" />
+
+        <!-- Services -->
+      <remap from="~reference_out" to="control_manager/reference" />
+      <remap from="~trajectory_reference_out" to="control_manager/trajectory_reference" />
+      <remap from="~set_constraints_out" to="constraint_manager/set_constraints" />
+      <remap from="~set_odometry_lat_estimator_out" to="odometry/change_estimator_type_string" />
+      <remap from="~set_odometry_alt_estimator_out" to="odometry/change_alt_estimator_type_string" />
+      <remap from="~set_odometry_hdg_estimator_out" to="odometry/change_hdg_estimator_type_string" />
+      <remap from="~set_gains_out" to="gain_manager/set_gains" />
+      <remap from="~set_controller_out" to="control_manager/switch_controller" />
+      <remap from="~set_tracker_out" to="control_manager/switch_tracker" />
+      <remap from="~hover_out" to="control_manager/hover" />
+
+    </node>
+
+  </group>
+
+</launch>

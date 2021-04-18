@@ -1,52 +1,12 @@
 /* INCLUDES //{ */
 
-#include <status_window.h>
+/* #include <status_window.h> */
+#include "ros/duration.h"
 #include <menu.h>
 #include <input_box.h>
 #include <commons.h>
 #include <mrs_lib/profiler.h>
 
-#include <iostream>
-#include <fstream>
-#include <thread>
-#include <boost/filesystem.hpp>
-
-#include <topic_tools/shape_shifter.h>  // for generic topic subscribers
-
-#include <mrs_msgs/UavState.h>
-#include <mrs_msgs/ControlManagerDiagnostics.h>
-#include <mrs_msgs/GainManagerDiagnostics.h>
-#include <mrs_msgs/ConstraintManagerDiagnostics.h>
-#include <mrs_msgs/AttitudeCommand.h>
-#include <mrs_msgs/OdometryDiag.h>
-
-#include <mrs_msgs/ReferenceStampedSrv.h>
-#include <mrs_msgs/Reference.h>
-#include <mrs_msgs/TrajectoryReferenceSrv.h>
-#include <mrs_msgs/String.h>
-
-#include <std_msgs/String.h>
-
-#include <mrs_lib/mutex.h>
-
-#include <sensor_msgs/NavSatFix.h>
-
-#include <mavros_msgs/State.h>
-#include <mavros_msgs/AttitudeTarget.h>
-
-#include <std_srvs/Trigger.h>
-
-#include <geometry_msgs/Pose.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/Vector3.h>
-
-#include <sensor_msgs/BatteryState.h>
-
-#include <mrs_lib/transformer.h>
-#include <mrs_lib/param_loader.h>
-#include <mrs_lib/attitude_converter.h>
-
-#include <tf2_msgs/TFMessage.h>
 
 using namespace std;
 using topic_tools::ShapeShifter;
@@ -78,34 +38,19 @@ public:
 private:
   ros::NodeHandle nh_;
 
-  std::mutex mutex_general_info_thread_;
+  std::mutex mutex_status_msg_;
+
+  mrs_msgs::UavStatus uav_status_;
 
   // | ------------------------- Timers ------------------------- |
 
-  ros::Timer status_timer_;
+  ros::Timer status_timer_fast_;
+  ros::Timer status_timer_slow_;
   ros::Timer resize_timer_;
 
-  void statusTimer(const ros::TimerEvent& event);
+  void statusTimerFast(const ros::TimerEvent& event);
+  void statusTimerSlow(const ros::TimerEvent& event);
   void resizeTimer(const ros::TimerEvent& event);
-
-  // | ------------------------ Callbacks ----------------------- |
-
-  void uavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
-  void odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg);
-  void mavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
-  void cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg);
-  void batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
-  void controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg);
-  void gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
-  void constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
-  void stringCallback(const ros::MessageEvent<std_msgs::String const>& event);
-  void setServiceCallback(const std_msgs::String& msg);
-  void tfStaticCallback(const tf2_msgs::TFMessage& msg);
-  void mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg);
-  void mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg);
-
-  // generic callback, for any topic, to monitor its rate
-  void genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
 
   // | --------------------- Print routines --------------------- |
 
@@ -123,19 +68,20 @@ private:
 
   // | ------------------------- Windows ------------------------ |
 
-  void genericTopicHandler(WINDOW* win, double rate, short color, int topic);
-  void uavStateHandler(WINDOW* win, double rate, short color, int topic);
-  void mavrosStateHandler(WINDOW* win, double rate, short color, int topic);
-  void controlManagerHandler(WINDOW* win, double rate, short color, int topic);
-  void stringHandler(WINDOW* win, double rate, short color, int topic);
+  void uavStateHandler(WINDOW* win);
+  void controlManagerHandler(WINDOW* win);
+  void mavrosStateHandler(WINDOW* win);
+  void genericTopicHandler(WINDOW* win);
+  void generalInfoHandeler(WINDOW* win);
+  void stringHandler(WINDOW*);
 
-  double uav_state_window_rate_       = 10;
-  double control_manager_window_rate_ = 1;
-  double mavros_state_window_rate_    = 1;
-  double general_info_window_rate_    = 1;
-  double generic_topic_window_rate_   = 1;
 
-  // General info window
+  double general_info_window_rate_  = 1;
+  double generic_topic_window_rate_ = 1;
+
+  int    _service_num_calls_ = 20;
+  double _service_delay_     = 0.1;
+
   void printCpuLoad(WINDOW* win);
   void printCpuFreq(WINDOW* win);
   void printMemLoad(WINDOW* win);
@@ -145,35 +91,44 @@ private:
   long last_total_ = 0;
   long last_gigas_ = 0;
 
+
+  // | ------------------------- Subscribers ------------------------ |
+
+  ros::Subscriber uav_status_subscriber_;
+  ros::Subscriber uav_status_short_subscriber_;
+
+  // | ------------------------- Callbacks ------------------------- |
+
+  void uavStatusCallback(const mrs_msgs::UavStatusConstPtr&);
+  void uavStatusShortCallback(const mrs_msgs::UavStatusShortConstPtr&);
+
   // Custom windows
-  StatusWindow* uav_state_window_;
-  vector<topic> uav_state_topic_;
+  WINDOW* uav_state_window_;
+  WINDOW* control_manager_window_;
+  WINDOW* mavros_state_window_;
 
-  StatusWindow* mavros_state_window_;
-  vector<topic> mavros_state_topic_;
 
-  StatusWindow* control_manager_window_;
-  vector<topic> control_manager_topic_;
-
-  StatusWindow*       string_window_;
-  vector<string_info> string_info_vec_;
-  vector<topic>       string_topic_;
+  /* vector<string_info> string_info_vec_; */
+  vector<TopicInfo> string_topic_;
 
   // Vanilla windows
   WINDOW* top_bar_window_;
   WINDOW* bottom_window_;
+  WINDOW* generic_topic_window_;
   WINDOW* general_info_window_;
   WINDOW* debug_window_;
+  WINDOW* string_window_;
 
   ros::Time bottom_window_clear_time_ = ros::Time::now();
+  ros::Time last_time_got_data_       = ros::Time::now();
 
   bool help_active_ = false;
 
-  StatusWindow* generic_topic_window_;
+  /* StatusWindow* generic_topic_window_; */
 
   // | ---------------------- Misc routines --------------------- |
 
-  void generalInfoThread();
+  void prefillUavStatus();
 
   void flightTimeHandler(WINDOW* win);
 
@@ -181,15 +136,12 @@ private:
 
   void remoteModeFly(mrs_msgs::Reference& goal);
 
-  void setupGenericCallbacks();
+  void setupColors(bool active);
 
   std::string callTerminal(const char* cmd);
 
   mrs_lib::Profiler profiler_;
   bool              _profiler_enabled_ = false;
-
-  std::thread general_info_thread_;
-  bool        run_thread_ = true;
 
 
   // | ---------------------- Menu routines --------------------- |
@@ -200,63 +152,35 @@ private:
   void setupGotoMenu();
   bool gotoMenuHandler(int key_in);
 
-  // | ----------------------- Subscribers ---------------------- |
-
-  ros::Subscriber uav_state_subscriber_;
-  ros::Subscriber odom_diag_subscriber_;
-  ros::Subscriber mpc_diag_subscriber_;
-  ros::Subscriber mavros_state_subscriber_;
-  ros::Subscriber mavros_global_subscriber_;
-  ros::Subscriber mavros_local_subscriber_;
-  ros::Subscriber attitude_cmd_subscriber_;
-  ros::Subscriber battery_subscriber_;
-  ros::Subscriber control_manager_subscriber_;
-  ros::Subscriber gain_manager_subscriber_;
-  ros::Subscriber constraint_manager_subscriber_;
-  ros::Subscriber string_subscriber_;
-  ros::Subscriber set_service_subscriber_;
-  ros::Subscriber tf_static_subscriber_;
-
   // | --------------------- Service Clients -------------------- |
 
-  ros::ServiceClient service_goto_reference_;
-  ros::ServiceClient service_trajectory_reference_;
-  ros::ServiceClient service_set_constraints_;
-  ros::ServiceClient service_set_gains_;
-  ros::ServiceClient service_set_controller_;
-  ros::ServiceClient service_set_tracker_;
-  ros::ServiceClient service_set_lat_estimator_;
-  ros::ServiceClient service_set_alt_estimator_;
-  ros::ServiceClient service_hover_;
+
+  mrs_lib::ServiceClientHandler<mrs_msgs::ReferenceStampedSrv>    service_goto_reference_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::TrajectoryReferenceSrv> service_trajectory_reference_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_constraints_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_gains_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_controller_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_tracker_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_lat_estimator_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_alt_estimator_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_hdg_estimator_;
+  mrs_lib::ServiceClientHandler<std_srvs::Trigger>                service_hover_;
 
   // | -------------------- UAV configuration ------------------- |
 
-  string _uav_name_;
   string _nato_name_;
   string _uav_type_;
-  string _run_type_;
-  double _uav_mass_;
-  string _sensors_;
-  bool   _pixgarm_;
+  /* string _run_type_; */
+  /* double _uav_mass_; */
+  /* string _sensors_; */
+  /* bool   _pixgarm_; */
+  string _turbo_remote_constraints_;
 
   // | ------------------ Data storage, inputs ------------------ |
-  mavros_msgs::State         mavros_state_;
-  mrs_msgs::AttitudeCommand  cmd_attitude_;
-  sensor_msgs::NavSatFix     mavros_global_;
-  geometry_msgs::PoseStamped mavros_local_;
-  sensor_msgs::BatteryState  battery_;
 
-  mrs_msgs::UavState                     uav_state_;
-  mrs_msgs::OdometryDiag                 odom_diag_;
-  mrs_msgs::ControlManagerDiagnostics    control_manager_;
-  mrs_msgs::GainManagerDiagnostics       gain_manager_;
-  mrs_msgs::ConstraintManagerDiagnostics constraint_manager_;
-
-  bool has_odom_diag_ = false;
-
-  vector<topic>           generic_topic_vec_;
-  vector<string>          generic_topic_input_vec_;
-  vector<ros::Subscriber> generic_subscriber_vec_;
+  /* vector<TopicInfo>       generic_topic_vec_; */
+  /* vector<string>          generic_topic_input_vec_; */
+  /* vector<ros::Subscriber> generic_subscriber_vec_; */
 
   vector<Menu> menu_vec_;
   vector<Menu> submenu_vec_;
@@ -270,40 +194,31 @@ private:
   vector<string>  trackers_text_;
   vector<string>  odometry_lat_sources_text_;
   vector<string>  odometry_alt_sources_text_;
+  vector<string>  odometry_hdg_sources_text_;
 
   vector<double>   goto_double_vec_;
   vector<string>   goto_menu_text_;
   vector<InputBox> goto_menu_inputs_;
 
-  vector<string> tf_static_list_compare_;
-  vector<string> tf_static_list_add_;
+  /* vector<string> tf_static_list_compare_; */
+  /* vector<string> tf_static_list_add_; */
 
   string old_constraints;
 
   std::unique_ptr<mrs_lib::Transformer> transformer_;
-
-  // | ---------------------- Flight timer ---------------------- |
-
-  unsigned long     secs_flown = 0;
-  ros::Time         last_flight_time_;
-  const std::string _time_filename_ = "/tmp/mrs_status_flight_time.txt";
 
   // | -------------------- Switches, states -------------------- |
 
   bool remote_hover_  = false;
   bool turbo_remote_  = false;
   bool remote_global_ = false;
+  bool active_        = true;
 
-
-  bool is_flying_          = false;
-  bool is_flying_normally_ = false;
-
-  bool NullTracker_ = true;
+  bool is_flying_ = false;
 
   status_state state = STANDARD;
   int          cols_, lines_;
 
-  int  hz_counter_  = 0;
   bool initialized_ = false;
 };
 
@@ -318,17 +233,9 @@ Status::Status() {
 
   // | ---------------------- Param loader ---------------------- |
 
+  prefillUavStatus();
+
   mrs_lib::ParamLoader param_loader(nh_, "Status");
-
-  string tmp_uav_mass;
-
-  param_loader.loadParam("uav_name", _uav_name_);
-  param_loader.loadParam("nato_name", _nato_name_);
-  param_loader.loadParam("uav_type", _uav_type_);
-  param_loader.loadParam("run_type", _run_type_);
-  param_loader.loadParam("uav_mass", _uav_mass_);
-  param_loader.loadParam("sensors", _sensors_);
-  param_loader.loadParam("pixgarm", _pixgarm_);
 
   param_loader.loadParam("colorscheme", _colorscheme_);
   param_loader.loadParam("rainbow", _rainbow_);
@@ -336,13 +243,9 @@ Status::Status() {
   param_loader.loadParam("debug_tilt", _debug_tilt_);
   param_loader.loadParam("remote_mode_is_trajectory", _remote_mode_is_trajectory_);
 
+  param_loader.loadParam("turbo_remote_constraints", _turbo_remote_constraints_);
+
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
-
-  std::vector<string> want_hz;
-  param_loader.loadParam("want_hz", want_hz);
-
-  std::vector<string> tf_static_list;
-  param_loader.loadParam("tf_static_list", tf_static_list);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[Status]: Could not load all parameters!");
@@ -351,62 +254,29 @@ Status::Status() {
     ROS_INFO("[Status]: All params loaded!");
   }
 
-
-  // | ------------------- want hz handling ------------------- |
-  //
-  for (unsigned long i = 0; i < want_hz.size(); i++) {
-    generic_topic_input_vec_.push_back(want_hz[i]);
-  }
-
-
-  // | ------------------- Static tf handling ------------------- |
-  // Static tfs are used to add monitored topics to the generic window, if a tf for a sensor is present, its topic is added
-
-  for (unsigned long i = 0; i < tf_static_list.size(); i++) {
-
-    // this splits the loaded tf_static list into two parts, the first part is intended to be compared with the incoming static tfs, the second one
-    // is added to the list of topics if the static tf is present
-
-    std::string::size_type pos = tf_static_list[i].find(' ');
-    tf_static_list_compare_.push_back(tf_static_list[i].substr(0, pos));
-    tf_static_list_add_.push_back(tf_static_list[i].substr(pos + 1));
-  }
-
   // | ------------------------- Timers ------------------------- |
 
-  status_timer_ = nh_.createTimer(ros::Rate(10), &Status::statusTimer, this);
-  resize_timer_ = nh_.createTimer(ros::Rate(1), &Status::resizeTimer, this);
+  status_timer_fast_ = nh_.createTimer(ros::Rate(20), &Status::statusTimerFast, this);
+  status_timer_slow_ = nh_.createTimer(ros::Rate(1), &Status::statusTimerSlow, this);
+  resize_timer_      = nh_.createTimer(ros::Rate(1), &Status::resizeTimer, this);
 
-  // | ----------------------- Subscribers ---------------------- |
+  // | ------------------------ Subscribers ------------------------ |
 
-  uav_state_subscriber_          = nh_.subscribe("uav_state_in", 10, &Status::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
-  odom_diag_subscriber_          = nh_.subscribe("odom_diag_in", 10, &Status::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 10, &Status::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
-  attitude_cmd_subscriber_       = nh_.subscribe("cmd_attitude_in", 10, &Status::cmdAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_global_subscriber_      = nh_.subscribe("mavros_global_in", 10, &Status::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
-  battery_subscriber_            = nh_.subscribe("battery_in", 10, &Status::batteryCallback, this, ros::TransportHints().tcpNoDelay());
-  control_manager_subscriber_    = nh_.subscribe("control_manager_in", 10, &Status::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 10, &Status::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 10, &Status::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  string_subscriber_             = nh_.subscribe("string_in", 10, &Status::stringCallback, this, ros::TransportHints().tcpNoDelay());
-  set_service_subscriber_        = nh_.subscribe("set_service_in", 10, &Status::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
-  tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &Status::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
-
-  if (_debug_tilt_) {
-    mavros_local_subscriber_ = nh_.subscribe("mavros_local_in", 10, &Status::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
-  }
+  uav_status_subscriber_       = nh_.subscribe("uav_status_in", 10, &Status::uavStatusCallback, this, ros::TransportHints().tcpNoDelay());
+  uav_status_short_subscriber_ = nh_.subscribe("uav_status_short_in", 10, &Status::uavStatusShortCallback, this, ros::TransportHints().tcpNoDelay());
 
   // | ------------------------ Services ------------------------ |
-  //
-  service_goto_reference_       = nh_.serviceClient<mrs_msgs::ReferenceStampedSrv>("reference_out");
-  service_trajectory_reference_ = nh_.serviceClient<mrs_msgs::TrajectoryReferenceSrv>("trajectory_reference_out");
-  service_set_constraints_      = nh_.serviceClient<mrs_msgs::String>("set_constraints_out");
-  service_set_gains_            = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
-  service_set_controller_       = nh_.serviceClient<mrs_msgs::String>("set_controller_out");
-  service_set_tracker_          = nh_.serviceClient<mrs_msgs::String>("set_tracker_out");
-  service_set_lat_estimator_    = nh_.serviceClient<mrs_msgs::String>("set_odometry_lat_estimator_out");
-  service_set_alt_estimator_    = nh_.serviceClient<mrs_msgs::String>("set_odometry_alt_estimator_out");
-  service_hover_                = nh_.serviceClient<std_srvs::Trigger>("hover_out");
+
+  service_goto_reference_       = mrs_lib::ServiceClientHandler<mrs_msgs::ReferenceStampedSrv>(nh_, "reference_out");
+  service_trajectory_reference_ = mrs_lib::ServiceClientHandler<mrs_msgs::TrajectoryReferenceSrv>(nh_, "trajectory_reference_out");
+  service_set_constraints_      = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_constraints_out");
+  service_set_gains_            = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_gains_out");
+  service_set_controller_       = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_controller_out");
+  service_set_tracker_          = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_tracker_out");
+  service_set_lat_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_lat_estimator_out");
+  service_set_alt_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_alt_estimator_out");
+  service_set_hdg_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_hdg_estimator_out");
+  service_hover_                = mrs_lib::ServiceClientHandler<std_srvs::Trigger>(nh_, "hover_out");
 
   // mrs_lib profiler
   profiler_ = mrs_lib::Profiler(nh_, "Status", _profiler_enabled_);
@@ -422,85 +292,24 @@ Status::Status() {
   service_input_vec_.push_back("uav_manager/land_home Land Home");
   service_input_vec_.push_back("uav_manager/takeoff Takeoff");
 
-  // | ---------------------- Flight timer ---------------------- |
-  //
-  if (boost::filesystem::exists(_time_filename_)) {
-
-    // loads time flown from a tmp file, if it exists, if it does not exists, flight time is set to 0
-
-    ifstream file(_time_filename_);
-    string   line;
-    getline(file, line);
-
-    try {
-      secs_flown = stoi(line);
-    }
-    catch (const invalid_argument& e) {
-      secs_flown = 0;
-    }
-    file.close();
-  }
-
-  /* Generic topic definitions //{ */
-
-  vector<string> results;
-  split(results, _sensors_, boost::is_any_of(", "), boost::token_compress_on);
-
-  if (_pixgarm_) {
-    generic_topic_input_vec_.push_back("mavros/distance_sensor/garmin Garmin_pix 80+");
-  }
-
-  for (unsigned long i = 0; i < results.size(); i++) {
-    if (results[i] == "garmin_down" && _pixgarm_ == false) {
-      generic_topic_input_vec_.push_back("garmin/range Garmin_Down 80+");
-
-    } else if (results[i] == "garmin_up") {
-      generic_topic_input_vec_.push_back("garmin/range_up Garmin_Up 80+");
-    }
-  }
-
-  setupGenericCallbacks();
-
-  //}
-
   // --------------------------------------------------------------
   // |            Window creation and topic association           |
   // --------------------------------------------------------------
 
-  uav_state_topic_.push_back(topic{100.0, uav_state_window_rate_});
+  uav_state_window_       = newwin(6, 26, 5, 1);
+  control_manager_window_ = newwin(4, 26, 1, 1);
+  mavros_state_window_    = newwin(6, 25, 5, 27);
+  generic_topic_window_   = newwin(10, 25, 1, 52);
+  general_info_window_    = newwin(4, 25, 1, 27);
+  top_bar_window_         = newwin(1, 120, 0, 1);
+  bottom_window_          = newwin(1, 120, 11, 1);
+  debug_window_           = newwin(20, 120, 12, 1);
+  string_window_          = newwin(10, 32, 1, 77);
 
-  uav_state_window_ = new StatusWindow(6, 26, 5, 1, uav_state_topic_, uav_state_window_rate_);
-
-  control_manager_topic_.push_back(topic{10.0, control_manager_window_rate_});
-  control_manager_topic_.push_back(topic{1.0, control_manager_window_rate_});
-  control_manager_topic_.push_back(topic{1.0, control_manager_window_rate_});
-
-  control_manager_window_ = new StatusWindow(4, 26, 1, 1, control_manager_topic_, control_manager_window_rate_);
-
-  mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
-  mavros_state_topic_.push_back(topic{1.0, mavros_state_window_rate_});
-  mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
-  mavros_state_topic_.push_back(topic{100.0, mavros_state_window_rate_});
-
-  mavros_state_window_ = new StatusWindow(6, 25, 5, 27, mavros_state_topic_, mavros_state_window_rate_);
-
-  generic_topic_window_ = new StatusWindow(10, 25, 1, 52, generic_topic_vec_, generic_topic_window_rate_);
-
-  string_window_ = new StatusWindow(10, 32, 1, 77, string_topic_, generic_topic_window_rate_);
-
-  general_info_window_ = newwin(4, 25, 1, 27);
-
-  top_bar_window_ = newwin(1, 120, 0, 1);
-  bottom_window_  = newwin(1, 120, 11, 1);
-
-  debug_window_ = newwin(20, 120, 12, 1);
-
-  ROS_INFO("[Status]: Node initialized!");
-
-  // This thread is for the general info window, it fetches CPU frequency, RAM info, Disk space info and CPU load asynchronously
-  general_info_thread_ = std::thread{&Status::generalInfoThread, this};
+  setupColors(active_);
 
   initialized_ = true;
+  ROS_INFO("[Status]: Node initialized!");
 }
 
 //}
@@ -545,60 +354,32 @@ void Status::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
 //}
 
-/* statusTimer //{ */
+/* statusTimerFast //{ */
 
-void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
+void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
 
   if (!initialized_) {
     return;
   }
 
+
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
-    uav_state_window_->Redraw(&Status::uavStateHandler, _light_, this);
-  }
-
-  hz_counter_++;
-
-  if (hz_counter_ == 10) {
-
-    hz_counter_ = 0;
-
-    {
-      mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
-      mavros_state_window_->Redraw(&Status::mavrosStateHandler, _light_, this);
-    }
-    {
-      mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
-      control_manager_window_->Redraw(&Status::controlManagerHandler, _light_, this);
-    }
-    {
-      mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
-      generic_topic_window_->Redraw(&Status::genericTopicHandler, _light_, this);
-    }
-    {
-      mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
-      string_window_->Redraw(&Status::stringHandler, _light_, this);
-    }
-  }
-
-  {
-    std::scoped_lock lock(mutex_general_info_thread_);
-    wrefresh(general_info_window_);
+    uavStateHandler(uav_state_window_);
   }
 
   wclear(top_bar_window_);
 
   if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
-    wclear(bottom_window_);
+    werase(bottom_window_);
   }
-
   flightTimeHandler(top_bar_window_);
 
   printHelp();
 
 
-  int key_in = getch();
+  int  key_in = getch();
+  bool is_flying_normally_;
 
   switch (state) {
 
@@ -607,6 +388,12 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       switch (key_in) {
 
         case 'R':
+
+
+        {
+          std::scoped_lock lock(mutex_status_msg_);
+          is_flying_normally_ = uav_status_.flying_normally;
+        }
 
           if (is_flying_normally_) {
             remote_hover_ = false;
@@ -645,7 +432,7 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
           turbo_remote_ = false;
           mrs_msgs::String string_service;
           string_service.request.value = old_constraints;
-          service_set_constraints_.call(string_service);
+          service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_);
           printServiceResult(string_service.response.success, string_service.response.message);
         }
 
@@ -658,6 +445,8 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       if (mainMenuHandler(key_in)) {
         menu_vec_.clear();
         submenu_vec_.clear();
+        wrefresh(debug_window_);
+        wrefresh(bottom_window_);
         state = STANDARD;
       }
       break;
@@ -672,10 +461,55 @@ void Status::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
       break;
   }
 
-  wrefresh(top_bar_window_);
-  wrefresh(bottom_window_);
+  /* if (state == STANDARD) { */
+  /*   printDebug("standard"); */
+  /* } else if (state == REMOTE) { */
+  /*   printDebug("remote"); */
+  /* } else { */
+  /*   printDebug("something else"); */
+  /* } */
 
-  refresh();
+  if (state != MAIN_MENU && state != GOTO_MENU) {
+    wrefresh(bottom_window_);
+  }
+
+  wrefresh(top_bar_window_);
+
+  /* refresh(); */
+}
+
+
+//}
+
+/* statusTimerSlow //{ */
+
+void Status::statusTimerSlow([[maybe_unused]] const ros::TimerEvent& event) {
+
+  if (!initialized_) {
+    return;
+  }
+
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
+    mavrosStateHandler(mavros_state_window_);
+  }
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
+    controlManagerHandler(control_manager_window_);
+  }
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
+    genericTopicHandler(generic_topic_window_);
+  }
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
+    stringHandler(string_window_);
+  }
+
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("generalInfoHandler");
+    generalInfoHandeler(general_info_window_);
+  }
 }
 
 
@@ -715,7 +549,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = constraints_text_[line];
-            service_set_constraints_.call(string_service);
+            service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -742,7 +576,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = gains_text_[line];
-            service_set_gains_.call(string_service);
+            service_set_gains_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -769,7 +603,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = controllers_text_[line];
-            service_set_controller_.call(string_service);
+            service_set_controller_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -796,7 +630,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = trackers_text_[line];
-            service_set_tracker_.call(string_service);
+            service_set_tracker_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -823,7 +657,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = odometry_lat_sources_text_[line];
-            service_set_lat_estimator_.call(string_service);
+            service_set_lat_estimator_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -850,7 +684,34 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = odometry_alt_sources_text_[line];
-            service_set_alt_estimator_.call(string_service);
+            service_set_alt_estimator_.call(string_service, _service_num_calls_, _service_delay_);
+            printServiceResult(string_service.response.success, string_service.response.message);
+
+            submenu_vec_.clear();
+            return true;
+          }
+        }
+        break;
+
+      case 7:
+        // Hfg estimator
+        ret = submenu_vec_[0].iterate(odometry_hdg_sources_text_, key_in, true);
+
+        if (ret.has_value()) {
+
+          int line = get<0>(ret.value());
+          int key  = get<1>(ret.value());
+
+          if (line == 666 && key == 666) {
+
+            submenu_vec_.clear();
+            return false;
+
+          } else if (key == KEY_ENT) {
+
+            mrs_msgs::String string_service;
+            string_service.request.value = odometry_hdg_sources_text_[line];
+            service_set_hdg_estimator_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -886,133 +747,163 @@ bool Status::mainMenuHandler(int key_in) {
         if (line < service_vec_.size()) {
 
           std_srvs::Trigger trig;
-          service_vec_[line].service_client.call(trig);
+          service_vec_[line].service_client.call(trig, _service_num_calls_, _service_delay_);
           printServiceResult(trig.response.success, trig.response.message);
 
           menu_vec_.clear();
           return true;
 
-        } else if (line == main_menu_text_.size() - 6) {
+        } else if (line == main_menu_text_.size() - 7) {
           // SET CONSTRAINTS
 
-          constraints_text_.clear();
-
-          for (unsigned long i = 0; i < constraint_manager_.available.size(); i++) {
-            constraints_text_.push_back(constraint_manager_.available[i]);
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            constraints_text_ = uav_status_.constraints;
           }
 
-          int x;
-          int y;
-          int rows;
-          int cols;
+          if (!constraints_text_.empty()) {
 
-          getyx(menu_vec_[0].getWin(), x, y);
-          getmaxyx(menu_vec_[0].getWin(), rows, cols);
+            int x;
+            int y;
+            int rows;
+            int cols;
 
-          Menu menu(x, 31 + cols, constraints_text_, 1);
-          submenu_vec_.push_back(menu);
+            getyx(menu_vec_[0].getWin(), x, y);
+            getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
-        } else if (line == main_menu_text_.size() - 5) {
+            Menu menu(x, 31 + cols, constraints_text_, 1);
+            submenu_vec_.push_back(menu);
+          }
+
+        } else if (line == main_menu_text_.size() - 6) {
           // SET GAINS
 
-          gains_text_.clear();
-
-          for (unsigned long i = 0; i < gain_manager_.available.size(); i++) {
-            gains_text_.push_back(gain_manager_.available[i]);
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            gains_text_ = uav_status_.gains;
           }
 
-          int x;
-          int y;
-          int rows;
-          int cols;
+          if (!gains_text_.empty()) {
 
-          getyx(menu_vec_[0].getWin(), x, y);
-          getmaxyx(menu_vec_[0].getWin(), rows, cols);
+            int x;
+            int y;
+            int rows;
+            int cols;
 
-          Menu menu(x, 31 + cols, gains_text_, 2);
-          submenu_vec_.push_back(menu);
+            getyx(menu_vec_[0].getWin(), x, y);
+            getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
-        } else if (line == main_menu_text_.size() - 4) {
+            Menu menu(x, 31 + cols, gains_text_, 2);
+            submenu_vec_.push_back(menu);
+          }
+
+        } else if (line == main_menu_text_.size() - 5) {
           // SET CONTROLLER
 
-          controllers_text_.clear();
-          controllers_text_ = control_manager_.available_controllers;
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            controllers_text_ = uav_status_.controllers;
+          }
 
-          int x;
-          int y;
-          int rows;
-          int cols;
+          if (!controllers_text_.empty()) {
 
-          getyx(menu_vec_[0].getWin(), x, y);
-          getmaxyx(menu_vec_[0].getWin(), rows, cols);
+            int x;
+            int y;
+            int rows;
+            int cols;
 
-          Menu menu(x, 31 + cols, controllers_text_, 3);
-          submenu_vec_.push_back(menu);
+            getyx(menu_vec_[0].getWin(), x, y);
+            getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
-        } else if (line == main_menu_text_.size() - 3) {
+            Menu menu(x, 31 + cols, controllers_text_, 3);
+            submenu_vec_.push_back(menu);
+          }
+
+        } else if (line == main_menu_text_.size() - 4) {
           // SET TRACKER
 
-          trackers_text_.clear();
-          trackers_text_ = control_manager_.available_trackers;
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            trackers_text_ = uav_status_.trackers;
+          }
 
-          int x;
-          int y;
-          int rows;
-          int cols;
+          if (!trackers_text_.empty()) {
 
-          getyx(menu_vec_[0].getWin(), x, y);
-          getmaxyx(menu_vec_[0].getWin(), rows, cols);
+            int x;
+            int y;
+            int rows;
+            int cols;
 
-          Menu menu(x, 31 + cols, trackers_text_, 4);
-          submenu_vec_.push_back(menu);
+            getyx(menu_vec_[0].getWin(), x, y);
+            getmaxyx(menu_vec_[0].getWin(), rows, cols);
+
+            Menu menu(x, 31 + cols, trackers_text_, 4);
+            submenu_vec_.push_back(menu);
+          }
+
+        } else if (line == main_menu_text_.size() - 3) {
+          // SET LAT ESTIMATOR
+
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            odometry_lat_sources_text_ = uav_status_.odom_estimators_hori;
+          }
+
+          if (!odometry_lat_sources_text_.empty()) {
+
+            int x;
+            int y;
+            int rows;
+            int cols;
+
+            getyx(menu_vec_[0].getWin(), x, y);
+            getmaxyx(menu_vec_[0].getWin(), rows, cols);
+
+            Menu menu(x, 31 + cols, odometry_lat_sources_text_, 5);
+            submenu_vec_.push_back(menu);
+          }
 
         } else if (line == main_menu_text_.size() - 2) {
-          // SET LAT ODOMETRY SOURCE
+          // SET ALT ESTIMATOR
 
-          odometry_lat_sources_text_.clear();
-
-
-          if (!has_odom_diag_) {
-            printServiceResult(false, "Did not receive odometry diagnostics! Check topic remaping.");
-            return false;
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            odometry_alt_sources_text_ = uav_status_.odom_estimators_vert;
           }
 
-          odometry_lat_sources_text_ = odom_diag_.available_lat_estimators;
+          if (!odometry_alt_sources_text_.empty()) {
+            int x;
+            int y;
+            int rows;
+            int cols;
 
-          int x;
-          int y;
-          int rows;
-          int cols;
+            getyx(menu_vec_[0].getWin(), x, y);
+            getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
-          getyx(menu_vec_[0].getWin(), x, y);
-          getmaxyx(menu_vec_[0].getWin(), rows, cols);
-
-          Menu menu(x, 31 + cols, odometry_lat_sources_text_, 5);
-          submenu_vec_.push_back(menu);
+            Menu menu(x, 31 + cols, odometry_alt_sources_text_, 6);
+            submenu_vec_.push_back(menu);
+          }
 
         } else if (line == main_menu_text_.size() - 1) {
-          // SET LAT ODOMETRY SOURCE
+          // SET HDG ESTIMATOR
 
-          odometry_alt_sources_text_.clear();
-
-
-          if (!has_odom_diag_) {
-            printServiceResult(false, "Did not receive odometry diagnostics! Check topic remaping.");
-            return false;
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            odometry_hdg_sources_text_ = uav_status_.odom_estimators_hdg;
           }
 
-          odometry_alt_sources_text_ = odom_diag_.available_alt_estimators;
+          if (!odometry_hdg_sources_text_.empty()) {
+            int x;
+            int y;
+            int rows;
+            int cols;
 
-          int x;
-          int y;
-          int rows;
-          int cols;
+            getyx(menu_vec_[0].getWin(), x, y);
+            getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
-          getyx(menu_vec_[0].getWin(), x, y);
-          getmaxyx(menu_vec_[0].getWin(), rows, cols);
-
-          Menu menu(x, 31 + cols, odometry_alt_sources_text_, 6);
-          submenu_vec_.push_back(menu);
+            Menu menu(x, 31 + cols, odometry_hdg_sources_text_, 7);
+            submenu_vec_.push_back(menu);
+          }
 
         } else {
           printServiceResult(false, "undefined");
@@ -1034,8 +925,8 @@ bool Status::gotoMenuHandler(int key_in) {
   optional<tuple<int, int>> ret = menu_vec_[0].iterate(goto_menu_text_, key_in, false);
 
   if (ret.has_value()) {
-    int line = get<0>(ret.value());
-    int key  = get<1>(ret.value());
+    size_t line = get<0>(ret.value());
+    int    key  = get<1>(ret.value());
 
     if (line == 666 && key == 666) {
 
@@ -1055,10 +946,15 @@ bool Status::gotoMenuHandler(int key_in) {
       reference.request.reference.position.y = goto_double_vec_[1];
       reference.request.reference.position.z = goto_double_vec_[2];
       reference.request.reference.heading    = goto_double_vec_[3];
-      reference.request.header.frame_id      = uav_state_.header.frame_id;
-      reference.request.header.stamp         = ros::Time::now();
 
-      service_goto_reference_.call(reference);
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        reference.request.header.frame_id = uav_status_.odom_frame;
+      }
+
+      reference.request.header.stamp = ros::Time::now();
+
+      service_goto_reference_.call(reference, _service_num_calls_, _service_delay_);
 
       printServiceResult(reference.response.success, reference.response.message);
 
@@ -1073,8 +969,8 @@ bool Status::gotoMenuHandler(int key_in) {
   }
 
 
-  for (unsigned long i = 0; i < goto_menu_inputs_.size(); i++) {
-    if (i == menu_vec_[0].getLine()) {
+  for (size_t i = 0; i < goto_menu_inputs_.size(); i++) {
+    if (int(i) == menu_vec_[0].getLine()) {
       goto_menu_inputs_[i].Print(i + 1, true);
     } else {
       goto_menu_inputs_[i].Print(i + 1, false);
@@ -1097,18 +993,17 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
   wattron(win, A_BOLD);
   wattron(win, COLOR_PAIR(RED));
-  mvwprintw(win, 0, 40, "REMOTE MODE IS ACTIVE, YOU HAVE CONTROL");
+  mvwprintw(win, 0, 43, "REMOTE MODE IS ACTIVE");
 
   if (remote_global_) {
-    mvwprintw(win, 0, 90, "GLOBAL MODE");
+    mvwprintw(win, 0, 75, "GLOBAL MODE");
   } else {
-    mvwprintw(win, 0, 90, "LOCAL MODE");
+    mvwprintw(win, 0, 75, "LOCAL MODE");
   }
 
   if (turbo_remote_) {
     wattron(win, A_BLINK);
-    mvwprintw(win, 0, 32, "!TURBO!");
-    mvwprintw(win, 0, 80, "!TURBO!");
+    mvwprintw(win, 0, 66, "!TURBO!");
     wattroff(win, A_BLINK);
   }
 
@@ -1222,20 +1117,33 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
     case 'T':
 
+      bool is_flying_normally_;
+
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        is_flying_normally_ = uav_status_.flying_normally;
+      }
+
       if (is_flying_normally_) {
 
         if (turbo_remote_) {
 
           turbo_remote_                = false;
           string_service.request.value = old_constraints;
-          service_set_constraints_.call(string_service);
+          service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_);
           printServiceResult(string_service.response.success, string_service.response.message);
 
         } else {
-          turbo_remote_                = true;
-          old_constraints              = constraint_manager_.current_name;
-          string_service.request.value = constraint_manager_.available[constraint_manager_.available.size() - 1];
-          service_set_constraints_.call(string_service);
+
+          turbo_remote_ = true;
+
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            old_constraints = uav_status_.constraints[0];
+          }
+
+          string_service.request.value = _turbo_remote_constraints_;
+          service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_);
           printServiceResult(string_service.response.success, string_service.response.message);
         }
       }
@@ -1244,6 +1152,11 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
     case 'G':
 
+
+    {
+      std::scoped_lock lock(mutex_status_msg_);
+      is_flying_normally_ = uav_status_.flying_normally;
+    }
       if (is_flying_normally_) {
         remote_global_ = !remote_global_;
       }
@@ -1254,7 +1167,7 @@ void Status::remoteHandler(int key, WINDOW* win) {
     default:
       if (remote_hover_) {
 
-        service_hover_.call(trig);
+        service_hover_.call(trig, _service_num_calls_, _service_delay_);
         remote_hover_ = false;
       }
       break;
@@ -1274,484 +1187,670 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
 
     if (remote_global_) {
 
-      double heading;
+      double      odom_x;
+      double      odom_y;
+      double      odom_z;
+      double      odom_hdg;
+      std::string odom_frame;
 
-      try {
-        heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
-      }
-      catch (...) {
-        heading = 0;
-        printError("Error in heading extraction from uav_state");
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        odom_x     = uav_status_.odom_x;
+        odom_y     = uav_status_.odom_y;
+        odom_z     = uav_status_.odom_z;
+        odom_hdg   = uav_status_.odom_hdg;
+        odom_frame = uav_status_.odom_frame;
       }
 
-      reference.request.reference.position.x = uav_state_.pose.position.x + ref_in.position.x;
-      reference.request.reference.position.y = uav_state_.pose.position.y + ref_in.position.y;
-      reference.request.reference.position.z = uav_state_.pose.position.z + ref_in.position.z;
-      reference.request.reference.heading    = heading + ref_in.heading;
-      reference.request.header.frame_id      = uav_state_.header.frame_id;
+      reference.request.reference.position.x = odom_x + ref_in.position.x;
+      reference.request.reference.position.y = odom_y + ref_in.position.y;
+      reference.request.reference.position.z = odom_z + ref_in.position.z;
+      reference.request.reference.heading    = odom_hdg + ref_in.heading;
+      reference.request.header.frame_id      = odom_frame;
     } else {
 
-      reference.request.reference       = ref_in;
-      reference.request.header.frame_id = _uav_name_ + "/fcu_untilted";
+      reference.request.reference = ref_in;
+
+      std::string uav_name;
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        uav_name = uav_status_.uav_name;
+      }
+
+      reference.request.header.frame_id = uav_name + "/fcu_untilted";
+
+      reference.request.header.stamp = ros::Time::now();
+      service_goto_reference_.call(reference);
+
+      return;
     }
 
-    reference.request.header.stamp = ros::Time::now();
-    service_goto_reference_.call(reference);
+    mrs_msgs::TrajectoryReferenceSrv traj;
+    mrs_msgs::TrajectoryReference    tmp_traj;
+    tmp_traj.use_heading = true;
+    tmp_traj.fly_now     = true;
+    tmp_traj.loop        = false;
+    tmp_traj.dt          = 0.2;
 
-    return;
-  }
+    mrs_msgs::Reference tmp_ref;
+    if (remote_global_) {
 
-  mrs_msgs::TrajectoryReferenceSrv traj;
-  mrs_msgs::TrajectoryReference    tmp_traj;
-  tmp_traj.use_heading = true;
-  tmp_traj.fly_now     = true;
-  tmp_traj.loop        = false;
-  tmp_traj.dt          = 0.2;
 
-  mrs_msgs::Reference tmp_ref;
-  if (remote_global_) {
+      double      odom_x;
+      double      odom_y;
+      double      odom_z;
+      double      odom_hdg;
+      std::string odom_frame;
 
-    double heading;
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        odom_x     = uav_status_.odom_x;
+        odom_y     = uav_status_.odom_y;
+        odom_z     = uav_status_.odom_z;
+        odom_hdg   = uav_status_.odom_hdg;
+        odom_frame = uav_status_.odom_frame;
+      }
 
-    try {
-      heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
+      tmp_ref.position.x       = odom_x;
+      tmp_ref.position.y       = odom_y;
+      tmp_ref.position.z       = odom_z;
+      tmp_ref.heading          = odom_hdg;
+      tmp_traj.header.frame_id = odom_frame;
+
+    } else {
+
+      tmp_ref.position.x = 0.0;
+      tmp_ref.position.y = 0.0;
+      tmp_ref.position.z = 0.0;
+      tmp_ref.heading    = 0;
+
+      std::string uav_name;
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        uav_name = uav_status_.uav_name;
+      }
+
+      tmp_traj.header.frame_id = uav_name + "/fcu_untilted";
     }
-    catch (...) {
-      heading = 0;
-      printError("Error in heading extraction from uav_state");
+
+    for (int i = 0; i < 10; i++) {
+      tmp_ref.position.x += ref_in.position.x / 10;
+      tmp_ref.position.y += ref_in.position.y / 10;
+      tmp_ref.position.z += ref_in.position.z / 10;
+      tmp_ref.heading += ref_in.heading / 10;
+      tmp_traj.points.push_back(tmp_ref);
     }
-
-    tmp_ref.position.x       = uav_state_.pose.position.x;
-    tmp_ref.position.y       = uav_state_.pose.position.y;
-    tmp_ref.position.z       = uav_state_.pose.position.z;
-    tmp_ref.heading          = heading;
-    tmp_traj.header.frame_id = uav_state_.header.frame_id;
-
-  } else {
-
-    tmp_ref.position.x       = 0.0;
-    tmp_ref.position.y       = 0.0;
-    tmp_ref.position.z       = 0.0;
-    tmp_ref.heading          = 0;
-    tmp_traj.header.frame_id = _uav_name_ + "/fcu_untilted";
+    traj.request.trajectory = tmp_traj;
+    service_trajectory_reference_.call(traj, _service_num_calls_, _service_delay_);
   }
-
-  for (int i = 0; i < 10; i++) {
-    tmp_ref.position.x += ref_in.position.x / 10;
-    tmp_ref.position.y += ref_in.position.y / 10;
-    tmp_ref.position.z += ref_in.position.z / 10;
-    tmp_ref.heading += ref_in.heading / 10;
-    tmp_traj.points.push_back(tmp_ref);
-  }
-  traj.request.trajectory = tmp_traj;
-  service_trajectory_reference_.call(traj);
 }
 
 //}
 
 /* stringHandler() //{ */
 
-void Status::stringHandler(WINDOW* win, double rate, short color, int topic) {
+void Status::stringHandler(WINDOW* win) {
+  std::vector<std::string> string_vector;
 
-  if (string_info_vec_.empty()) {
-    wclear(win);
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    string_vector = uav_status_.custom_string_outputs;
   }
 
-  for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
+  if (string_vector.empty()) {
+    werase(win);
+    return;
+  }
 
-    if ((ros::Time::now() - string_info_vec_[i].last_time).toSec() > 10.0) {
-      string_info_vec_.erase(string_info_vec_.begin() + i);
-    } else {
+  werase(win);
+  wattron(win, A_BOLD);
+  wattroff(win, A_STANDOUT);
+  box(win, 0, 0);
 
-      printLimitedString(win, 1 + (3 * i), 1, string_info_vec_[i].publisher_name + ": ", 40);
+  if (_light_) {
+    wattron(win, A_STANDOUT);
+  }
 
-      int    tmp_color          = NORMAL;
-      bool   blink              = false;
-      string tmp_display_string = string_info_vec_[i].display_string;
+  for (unsigned long i = 0; i < string_vector.size(); i++) {
 
-      if (tmp_display_string.at(0) == '-') {
+    int    tmp_color          = NORMAL;
+    bool   blink              = false;
+    string tmp_display_string = string_vector[i];
 
-        if (tmp_display_string.at(1) == 'r') {
-          tmp_color = RED;
-        } else if (tmp_display_string.at(1) == 'R') {
-          tmp_color = RED;
-          blink     = true;
-        }
+    if (tmp_display_string.at(0) == '-') {
 
-        else if (tmp_display_string.at(1) == 'y') {
-          tmp_color = YELLOW;
-        } else if (tmp_display_string.at(1) == 'Y') {
-          tmp_color = YELLOW;
-          blink     = true;
-        }
-
-        else if (tmp_display_string.at(1) == 'g') {
-          tmp_color = GREEN;
-        } else if (tmp_display_string.at(1) == 'G') {
-          tmp_color = GREEN;
-          blink     = true;
-        }
-
-        if (tmp_color != NORMAL) {
-          tmp_display_string.erase(0, 3);
-        }
+      if (tmp_display_string.at(1) == 'r') {
+        tmp_color = RED;
+      } else if (tmp_display_string.at(1) == 'R') {
+        tmp_color = RED;
+        blink     = true;
       }
 
-      if (blink) {
-        wattron(win, A_BLINK);
+      else if (tmp_display_string.at(1) == 'y') {
+        tmp_color = YELLOW;
+      } else if (tmp_display_string.at(1) == 'Y') {
+        tmp_color = YELLOW;
+        blink     = true;
       }
 
-      wattron(win, COLOR_PAIR(tmp_color));
-      printLimitedString(win, 2 + (3 * i), 1, tmp_display_string, 40);
-      wattroff(win, COLOR_PAIR(tmp_color));
-      wattroff(win, A_BLINK);
+      else if (tmp_display_string.at(1) == 'g') {
+        tmp_color = GREEN;
+      } else if (tmp_display_string.at(1) == 'G') {
+        tmp_color = GREEN;
+        blink     = true;
+      }
+
+      if (tmp_color != NORMAL) {
+        tmp_display_string.erase(0, 3);
+      }
     }
-  }
-}
 
-//}
+    if (blink) {
+      wattron(win, A_BLINK);
+    }
+
+    wattron(win, COLOR_PAIR(tmp_color));
+
+    printLimitedString(win, (3 * i) + 1, 1, tmp_display_string, 30);
+
+    if (tmp_display_string.length() > 30) {
+      printLimitedString(win, 1 + (3 * i) + 1, 1, tmp_display_string.substr(30), 30);
+    }
+    if (i < 2) {
+      printLimitedString(win, 2 + (3 * i) + 1, 1, ("------------------------------"), 30);
+    }
+
+    wattroff(win, COLOR_PAIR(tmp_color));
+    wattroff(win, A_BLINK);
+  }
+
+  wattroff(win, A_BOLD);
+  wrefresh(win);
+}
 
 //}
 
 /* genericTopicHandler() //{ */
 
-void Status::genericTopicHandler(WINDOW* win, double rate, short color, int topic) {
+void Status::genericTopicHandler(WINDOW* win) {
 
-  if (!generic_topic_vec_.empty()) {
+  std::vector<mrs_msgs::CustomTopic> custom_topic_vec;
 
-    printLimitedString(win, 1 + topic, 1, generic_topic_vec_[topic].topic_display_name, 15);
-    printLimitedDouble(win, 1 + topic, 16, "%5.1f Hz", rate, 1000);
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    custom_topic_vec = uav_status_.custom_topics;
+  }
+
+  werase(win);
+  wattron(win, A_BOLD);
+  wattroff(win, A_STANDOUT);
+  box(win, 0, 0);
+
+  if (_light_) {
+    wattron(win, A_STANDOUT);
+  }
+
+  if (!custom_topic_vec.empty()) {
+    for (size_t i = 0; i < custom_topic_vec.size(); i++) {
+
+      wattron(win, COLOR_PAIR(custom_topic_vec[i].topic_color));
+      printLimitedString(win, 1 + i, 1, custom_topic_vec[i].topic_name, 15);
+      printLimitedDouble(win, 1 + i, 16, "%5.1f Hz", custom_topic_vec[i].topic_hz, 1000);
+      wattroff(win, COLOR_PAIR(custom_topic_vec[i].topic_color));
+    }
+
 
   } else {
 
-    wclear(win);
+    werase(win);
   }
+
+  wattroff(win, A_BOLD);
+  wrefresh(win);
 }
 
 //}
 
 /* uavStateHandler() //{ */
 
-void Status::uavStateHandler(WINDOW* win, double rate, [[maybe_unused]] short color, [[maybe_unused]] int topic) {
+void Status::uavStateHandler(WINDOW* win) {
 
-  printLimitedDouble(win, 0, 12, "Odom %5.1f Hz", rate, 1000);
+  double      avg_rate;
+  double      color;
+  double      heading;
+  double      state_x;
+  double      state_y;
+  double      state_z;
+  std::string odom_frame;
+  std::string curr_estimator_hori;
+  std::string curr_estimator_vert;
+  std::string curr_estimator_hdg;
 
-  if (rate == 0) {
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    avg_rate   = uav_status_.odom_hz;
+    color      = uav_status_.odom_color;
+    heading    = uav_status_.odom_hdg;
+    state_x    = uav_status_.odom_x;
+    state_y    = uav_status_.odom_y;
+    state_z    = uav_status_.odom_z;
+    odom_frame = uav_status_.odom_frame;
+
+    uav_status_.odom_estimators_hori.empty() ? curr_estimator_hori = "NONE" : curr_estimator_hori = uav_status_.odom_estimators_hori[0];
+    uav_status_.odom_estimators_vert.empty() ? curr_estimator_vert = "NONE" : curr_estimator_vert = uav_status_.odom_estimators_vert[0];
+    uav_status_.odom_estimators_hdg.empty() ? curr_estimator_hdg = "NONE" : curr_estimator_hdg = uav_status_.odom_estimators_hdg[0];
+  }
+
+  werase(win);
+  wattron(win, A_BOLD);
+  wattroff(win, A_STANDOUT);
+  box(win, 0, 0);
+
+  if (_light_) {
+    wattron(win, A_STANDOUT);
+  }
+
+  wattron(win, COLOR_PAIR(color));
+
+  printLimitedDouble(win, 0, 12, "Odom %5.1f Hz", avg_rate, 1000);
+
+  if (avg_rate == 0) {
 
     printNoData(win, 0, 1);
 
   } else {
 
-    double heading;
-
-    try {
-      heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
-    }
-    catch (...) {
-      heading = 0;
-    }
-
-    printLimitedDouble(win, 1, 1, "X %7.2f", uav_state_.pose.position.x, 1000);
-    printLimitedDouble(win, 2, 1, "Y %7.2f", uav_state_.pose.position.y, 1000);
-    printLimitedDouble(win, 3, 1, "Z %7.2f", uav_state_.pose.position.z, 1000);
+    printLimitedDouble(win, 1, 1, "X %7.2f", state_x, 1000);
+    printLimitedDouble(win, 2, 1, "Y %7.2f", state_y, 1000);
+    printLimitedDouble(win, 3, 1, "Z %7.2f", state_z, 1000);
     printLimitedDouble(win, 4, 1, "hdg %5.2f", heading, 1000);
 
-    int pos = uav_state_.header.frame_id.find("/") + 1;
-    printLimitedString(win, 1, 11, uav_state_.header.frame_id.substr(pos, uav_state_.header.frame_id.length()), 15);
+    int pos = odom_frame.find("/") + 1;
+    printLimitedString(win, 1, 11, odom_frame.substr(pos, odom_frame.length()), 15);
 
-    printLimitedString(win, 2, 11, "Hori: " + uav_state_.estimator_horizontal.name, 15);
-    printLimitedString(win, 3, 11, "Vert: " + uav_state_.estimator_vertical.name, 15);
-    printLimitedString(win, 4, 11, "Head: " + uav_state_.estimator_heading.name, 15);
+    printLimitedString(win, 2, 11, "Hori: " + curr_estimator_hori, 15);
+    printLimitedString(win, 3, 11, "Vert: " + curr_estimator_vert, 15);
+    printLimitedString(win, 4, 11, "Head: " + curr_estimator_hdg, 15);
   }
-}
 
-//}
-
-/* mavrosStateHandler() //{ */
-
-void Status::mavrosStateHandler(WINDOW* win, double rate, short color, int topic) {
-
-  string tmp_string;
-
-  switch (topic) {
-    case 0:  // mavros state
-      printLimitedDouble(win, 0, 9, "Mavros %5.1f Hz", rate, 1000);
-
-      if (rate == 0) {
-
-        printNoData(win, 0, 1);
-
-      } else {
-
-        if (mavros_state_.armed) {
-          tmp_string = "ARMED";
-        } else {
-          tmp_string = "DISARMED";
-          wattron(win, COLOR_PAIR(RED));
-        }
-
-        printLimitedString(win, 1, 1, "State: " + tmp_string, 15);
-        wattron(win, COLOR_PAIR(color));
-
-        if (mavros_state_.mode != "OFFBOARD") {
-          wattron(win, COLOR_PAIR(RED));
-        }
-
-        printLimitedString(win, 2, 1, "Mode:  " + mavros_state_.mode, 15);
-        wattron(win, COLOR_PAIR(color));
-      }
-
-      break;
-
-    case 1:  // battery
-      if (rate == 0) {
-
-        printNoData(win, 3, 1, "Batt:  ");
-
-      } else {
-
-        wattron(win, COLOR_PAIR(GREEN));
-
-        double voltage = battery_.voltage;
-        (voltage > 17.0) ? (voltage = voltage / 6) : (voltage = voltage / 4);
-
-        if (voltage < 3.6) {
-          wattron(win, COLOR_PAIR(RED));
-        } else if (voltage < 3.7 && color != RED) {
-          wattron(win, COLOR_PAIR(YELLOW));
-        }
-
-        printLimitedDouble(win, 3, 1, "Batt:  %4.2f V ", voltage, 10);
-        printLimitedDouble(win, 3, 15, "%5.2f A", battery_.current, 100);
-      }
-      break;
-
-    case 2:  // control manager cmd attitude
-      if (rate == 0) {
-
-        printNoData(win, 4, 1, "Thrst: ");
-
-      } else {
-
-        if (cmd_attitude_.thrust > 0.75) {
-          wattron(win, COLOR_PAIR(RED));
-        } else if (cmd_attitude_.thrust > 0.65 && color != RED) {
-          wattron(win, COLOR_PAIR(YELLOW));
-        }
-        printLimitedDouble(win, 4, 1, "Thrst: %4.2f", cmd_attitude_.thrust, 1.01);
-        wattron(win, COLOR_PAIR(color));
-
-        short  tmp_color = GREEN;
-        double mass_diff = fabs(cmd_attitude_.total_mass - _uav_mass_) / _uav_mass_;
-
-        if (mass_diff > 0.3) {
-
-          tmp_color = RED;
-
-        } else if (mass_diff > 0.2) {
-
-          tmp_color = YELLOW;
-        }
-
-        if (_uav_mass_ > 10.0 || cmd_attitude_.total_mass > 10.0) {
-
-          wattron(win, COLOR_PAIR(NORMAL));
-          printLimitedDouble(win, 4, 13, "%.1f/", _uav_mass_, 99.99);
-          wattron(win, COLOR_PAIR(tmp_color));
-          printLimitedDouble(win, 4, 18, "%.1f", cmd_attitude_.total_mass, 99.99);
-          printLimitedString(win, 4, 22, "kg", 2);
-
-        } else {
-
-          wattron(win, COLOR_PAIR(NORMAL));
-          printLimitedDouble(win, 4, 15, "%.1f/", _uav_mass_, 99.99);
-          wattron(win, COLOR_PAIR(tmp_color));
-          printLimitedDouble(win, 4, 19, "%.1f", cmd_attitude_.total_mass, 99.99);
-          printLimitedString(win, 4, 22, "kg", 2);
-        }
-      }
-
-
-      break;
-
-    case 3:  // mavros global
-      if (rate == 0) {
-
-        wattron(win, COLOR_PAIR(RED));
-        printLimitedString(win, 1, 18, "NO_GPS", 6);
-        wattroff(win, COLOR_PAIR(RED));
-
-      } else {
-
-        wattron(win, COLOR_PAIR(GREEN));
-        printLimitedString(win, 1, 18, "GPS_OK", 6);
-        wattroff(win, COLOR_PAIR(GREEN));
-
-        double gps_qual  = (mavros_global_.position_covariance[0] + mavros_global_.position_covariance[4] + mavros_global_.position_covariance[8]) / 3;
-        short  tmp_color = RED;
-
-        if (gps_qual < 5) {
-          tmp_color = GREEN;
-        } else if (gps_qual < 10) {
-          tmp_color = YELLOW;
-        }
-
-        wattron(win, COLOR_PAIR(tmp_color));
-        printLimitedDouble(win, 2, 17, "Q: %4.1f", gps_qual, 99.9);
-        wattroff(win, COLOR_PAIR(tmp_color));
-      }
-      break;
-  }
+  wattroff(win, COLOR_PAIR(color));
+  wattroff(win, A_BOLD);
+  wrefresh(win);
 }
 
 //}
 
 /* controlManagerHandler() //{ */
 
-void Status::controlManagerHandler(WINDOW* win, double rate, short color, int topic) {
+void Status::controlManagerHandler(WINDOW* win) {
 
-  string controller;
-  string tracker;
-  controller = control_manager_.active_controller;
-  tracker    = control_manager_.active_tracker;
+  int16_t color;
+  double  avg_rate;
+  bool    null_tracker;
+  double  rate;
+  string  curr_controller;
+  string  curr_tracker;
+  string  curr_gains;
+  string  curr_constraints;
+  bool    callbacks_enabled;
+  bool    has_goal;
 
-  switch (topic) {
-    case 0:  // mavros state
-      printLimitedString(win, 0, 10, "Control Manager", 15);
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    rate  = uav_status_.control_manager_diag_hz;
+    color = uav_status_.control_manager_diag_color;
 
-      if (rate == 0) {
+    uav_status_.controllers.empty() ? curr_controller = "NONE" : curr_controller = uav_status_.controllers[0];
+    uav_status_.trackers.empty() ? curr_tracker = "NONE" : curr_tracker = uav_status_.trackers[0];
+    uav_status_.gains.empty() ? curr_gains = "NONE" : curr_gains = uav_status_.gains[0];
+    uav_status_.constraints.empty() ? curr_constraints = "NONE" : curr_constraints = uav_status_.constraints[0];
 
-        printNoData(win, 0, 1);
-
-        wattron(win, COLOR_PAIR(RED));
-        mvwprintw(win, 1, 1, "NO_CONTROLLER");
-        mvwprintw(win, 2, 1, "NO_TRACKER");
-        wattron(win, COLOR_PAIR(color));
-
-      } else {
-        if (controller != "Se3Controller") {
-          if (controller != "MpcController") {
-            wattron(win, COLOR_PAIR(RED));
-          }
-          printLimitedString(win, 1, 1, controller, 29);
-        } else {
-          mvwprintw(win, 1, 1, controller.c_str());
-          wattron(win, COLOR_PAIR(NORMAL));
-          mvwprintw(win, 1, 1 + controller.length(), "%s", "/");
-        }
-
-        wattron(win, COLOR_PAIR(color));
-
-        if (tracker != "MpcTracker") {
-          if (tracker == "LandoffTracker" && color != RED) {
-            wattron(win, COLOR_PAIR(YELLOW));
-          } else {
-            wattron(win, COLOR_PAIR(RED));
-          }
-
-          printLimitedString(win, 2, 1, tracker, 29);
-
-        } else {
-          mvwprintw(win, 2, 1, tracker.c_str());
-          wattron(win, COLOR_PAIR(NORMAL));
-          mvwprintw(win, 2, 1 + tracker.length(), "%s", "/");
-          wattron(win, COLOR_PAIR(color));
-        }
-      }
-
-      if (!control_manager_.tracker_status.callbacks_enabled) {
-
-        wattron(win, COLOR_PAIR(RED));
-        mvwprintw(win, 1, 20, "NO_CB");
-        wattroff(win, COLOR_PAIR(RED));
-      }
-
-
-      if (control_manager_.tracker_status.have_goal) {
-
-        wattron(win, COLOR_PAIR(GREEN));
-        mvwprintw(win, 2, 21, "FLY");
-        wattroff(win, COLOR_PAIR(GREEN));
-
-      } else {
-
-        wattron(win, COLOR_PAIR(YELLOW));
-        mvwprintw(win, 2, 21, "IDLE");
-        wattroff(win, COLOR_PAIR(YELLOW));
-      }
-      break;
-
-    case 1:  // mavros state
-
-      if (controller == "Se3Controller") {
-
-        if (rate == 0) {
-          printNoData(win, 1, 2 + controller.length());
-        } else {
-          printLimitedString(win, 1, 2 + controller.length(), gain_manager_.current_name, 10);
-        }
-      }
-      break;
-
-    case 2:  // mavros state
-
-      if (tracker == "MpcTracker") {
-        if (rate == 0) {
-          printNoData(win, 2, 2 + tracker.length());
-        } else {
-          printLimitedString(win, 2, 2 + tracker.length(), constraint_manager_.current_name, 10);
-        }
-      }
-      break;
+    callbacks_enabled = uav_status_.callbacks_enabled;
+    has_goal          = uav_status_.have_goal;
+    null_tracker      = uav_status_.null_tracker;
   }
+
+  werase(win);
+  wattron(win, A_BOLD);
+  wattroff(win, A_STANDOUT);
+  box(win, 0, 0);
+
+  if (_light_) {
+    wattron(win, A_STANDOUT);
+  }
+
+
+  wattron(win, COLOR_PAIR(color));
+
+  printLimitedString(win, 0, 10, "Control Manager", 15);
+
+  if (rate == 0.0) {
+
+    printNoData(win, 0, 1);
+
+    wattron(win, COLOR_PAIR(RED));
+    mvwprintw(win, 1, 1, "NO_CONTROLLER");
+    mvwprintw(win, 2, 1, "NO_TRACKER");
+    wattroff(win, COLOR_PAIR(color));
+
+  } else {
+    if (curr_controller != "Se3Controller") {
+      if (curr_controller != "MpcController") {
+        wattron(win, COLOR_PAIR(RED));
+      }
+      printLimitedString(win, 1, 1, curr_controller, 29);
+    } else {
+      mvwprintw(win, 1, 1, curr_controller.c_str());
+      wattron(win, COLOR_PAIR(NORMAL));
+      mvwprintw(win, 1, 1 + curr_controller.length(), "%s", "/");
+    }
+
+    wattron(win, COLOR_PAIR(color));
+
+    if (null_tracker) {
+      curr_tracker = "NullTracker";
+    }
+
+    if (curr_tracker != "MpcTracker") {
+      if (curr_tracker == "LandoffTracker" && color != RED) {
+        wattron(win, COLOR_PAIR(YELLOW));
+      } else {
+        wattron(win, COLOR_PAIR(RED));
+      }
+
+      printLimitedString(win, 2, 1, curr_tracker, 29);
+
+    } else {
+      mvwprintw(win, 2, 1, curr_tracker.c_str());
+      wattron(win, COLOR_PAIR(NORMAL));
+      mvwprintw(win, 2, 1 + curr_tracker.length(), "%s", "/");
+      wattron(win, COLOR_PAIR(color));
+    }
+  }
+
+  if (!callbacks_enabled) {
+
+    wattron(win, COLOR_PAIR(RED));
+    mvwprintw(win, 1, 20, "NO_CB");
+    wattroff(win, COLOR_PAIR(RED));
+  }
+
+
+  if (has_goal) {
+
+    wattron(win, COLOR_PAIR(GREEN));
+    mvwprintw(win, 2, 21, "FLY");
+    wattroff(win, COLOR_PAIR(GREEN));
+
+  } else {
+
+    wattron(win, COLOR_PAIR(YELLOW));
+    mvwprintw(win, 2, 21, "IDLE");
+    wattroff(win, COLOR_PAIR(YELLOW));
+  }
+
+  if (rate == 0) {
+    printNoData(win, 1, 2 + curr_controller.length());
+  } else {
+    printLimitedString(win, 1, 2 + curr_controller.length(), curr_gains, 10);
+  }
+
+  if (rate == 0) {
+    printNoData(win, 2, 2 + curr_tracker.length());
+  } else {
+    printLimitedString(win, 2, 2 + curr_tracker.length(), curr_constraints, 10);
+  }
+
+  wattroff(win, COLOR_PAIR(color));
+  wattroff(win, A_BOLD);
+  wrefresh(win);
 }
 
+//}
+
+/* mavrosStateHandler() //{ */
+
+void Status::mavrosStateHandler(WINDOW* win) {
+
+  int16_t     color;
+  double      mavros_rate;
+  double      state_rate;
+  double      cmd_rate;
+  double      battery_rate;
+  bool        mavros_gps_ok;
+  bool        armed;
+  std::string mode;
+  double      battery_volt;
+  double      battery_curr;
+  double      thrust;
+  double      mass_estimate;
+  double      mass_set;
+  double      gps_qual;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    color         = uav_status_.mavros_color;
+    mavros_rate   = uav_status_.mavros_hz;
+    state_rate    = uav_status_.mavros_state_hz;
+    cmd_rate      = uav_status_.mavros_cmd_hz;
+    battery_rate  = uav_status_.mavros_battery_hz;
+    mavros_gps_ok = uav_status_.mavros_gps_ok;
+    armed         = uav_status_.mavros_armed;
+    mode          = uav_status_.mavros_mode;
+    battery_volt  = uav_status_.battery_volt;
+    thrust        = uav_status_.thrust;
+    mass_estimate = uav_status_.mass_estimate;
+    mass_set      = uav_status_.mass_set;
+    gps_qual      = uav_status_.mavros_gps_qual;
+  }
+
+  std::string tmp_string;
+
+  werase(win);
+  wattron(win, A_BOLD);
+  wattroff(win, A_STANDOUT);
+  box(win, 0, 0);
+
+  if (_light_) {
+    wattron(win, A_STANDOUT);
+  }
+
+
+  wattron(win, COLOR_PAIR(color));
+  // mavros local is the main source of Mavros hz
+  printLimitedDouble(win, 0, 9, "Mavros %5.1f Hz", mavros_rate, 1000);
+  wattroff(win, COLOR_PAIR(color));
+
+  if (mavros_rate == 0) {
+
+    printNoData(win, 0, 1);
+  }
+
+
+  if (state_rate == 0) {
+
+    wattron(win, COLOR_PAIR(RED));
+    printLimitedString(win, 1, 1, "State: ", 15);
+    printNoData(win, 1, 9);
+    printLimitedString(win, 2, 1, "Mode: ", 15);
+    printNoData(win, 1, 9);
+    wattroff(win, COLOR_PAIR(RED));
+
+  } else {
+
+    if (armed) {
+      tmp_string = "ARMED";
+      wattron(win, COLOR_PAIR(GREEN));
+    } else {
+      tmp_string = "DISARMED";
+      wattron(win, COLOR_PAIR(RED));
+    }
+
+    printLimitedString(win, 1, 1, "State: " + tmp_string, 15);
+    wattron(win, COLOR_PAIR(color));
+
+    if (mode != "OFFBOARD") {
+      wattron(win, COLOR_PAIR(RED));
+    }
+
+    printLimitedString(win, 2, 1, "Mode:  " + mode, 15);
+    wattron(win, COLOR_PAIR(color));
+  }
+
+
+  if (battery_rate == 0) {
+
+    printNoData(win, 3, 1, "Batt:  ");
+
+  } else {
+
+    wattron(win, COLOR_PAIR(GREEN));
+
+    (battery_volt > 17.0) ? (battery_volt = battery_volt / 6) : (battery_volt = battery_volt / 4);
+
+    if (battery_volt < 3.6) {
+      wattron(win, COLOR_PAIR(RED));
+    } else if (battery_volt < 3.7 && color != RED) {
+      wattron(win, COLOR_PAIR(YELLOW));
+    }
+
+    printLimitedDouble(win, 3, 1, "Batt:  %4.2f V ", battery_volt, 10);
+    printLimitedDouble(win, 3, 15, "%5.2f A", battery_curr, 100);
+  }
+
+  if (cmd_rate == 0) {
+
+    printNoData(win, 4, 1, "Thrst: ");
+
+  } else {
+
+    if (thrust > 0.75) {
+      wattron(win, COLOR_PAIR(RED));
+    } else if (thrust > 0.65 && color != RED) {
+      wattron(win, COLOR_PAIR(YELLOW));
+    }
+    printLimitedDouble(win, 4, 1, "Thrst: %4.2f", thrust, 1.01);
+    wattron(win, COLOR_PAIR(color));
+
+    color            = GREEN;
+    double mass_diff = fabs(mass_estimate - mass_set) / mass_set;
+
+    if (mass_diff > 0.3) {
+
+      color = RED;
+
+    } else if (mass_diff > 0.2) {
+
+      color = YELLOW;
+    }
+
+    if (mass_set > 10.0 || mass_estimate > 10.0) {
+
+      wattron(win, COLOR_PAIR(NORMAL));
+      printLimitedDouble(win, 4, 13, "%.1f/", mass_set, 99.99);
+      wattron(win, COLOR_PAIR(color));
+      printLimitedDouble(win, 4, 18, "%.1f", mass_estimate, 99.99);
+      printLimitedString(win, 4, 22, "kg", 2);
+
+    } else {
+
+      wattron(win, COLOR_PAIR(NORMAL));
+      printLimitedDouble(win, 4, 15, "%.1f/", mass_set, 99.99);
+      wattron(win, COLOR_PAIR(color));
+      printLimitedDouble(win, 4, 19, "%.1f", mass_estimate, 99.99);
+      printLimitedString(win, 4, 22, "kg", 2);
+    }
+  }
+
+
+  if (!mavros_gps_ok) {
+
+    wattron(win, COLOR_PAIR(RED));
+    printLimitedString(win, 1, 18, "NO_GPS", 6);
+    wattroff(win, COLOR_PAIR(RED));
+
+  } else {
+
+    wattron(win, COLOR_PAIR(GREEN));
+    printLimitedString(win, 1, 18, "GPS_OK", 6);
+    wattroff(win, COLOR_PAIR(GREEN));
+
+    color = RED;
+
+    if (gps_qual < 5.0) {
+      color = GREEN;
+    } else if (gps_qual < 10.0) {
+      color = YELLOW;
+    }
+
+    wattron(win, COLOR_PAIR(color));
+    printLimitedDouble(win, 2, 17, "Q: %4.1f", gps_qual, 99.9);
+    wattroff(win, COLOR_PAIR(color));
+  }
+
+  wattroff(win, COLOR_PAIR(color));
+  wattroff(win, A_BOLD);
+  wrefresh(win);
+}
 //}
 
 /* flightTimeHandler() //{ */
 
 void Status::flightTimeHandler(WINDOW* win) {
 
+  int secs_flown;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    secs_flown = uav_status_.secs_flown;
+  }
+
   if (_light_) {
     wattron(win, A_STANDOUT);
   }
 
-  if (NullTracker_) {
-
-    is_flying_ = false;
-    if (state == REMOTE) {
-      state = STANDARD;
-    }
-
-  } else {
-
-    if (!is_flying_) {
-
-      is_flying_        = true;
-      last_flight_time_ = ros::Time::now();
-
-    } else {
-
-      int secs_passed = int((ros::Time::now() - last_flight_time_).toSec());
-
-      if (secs_passed > 0) {
-
-        secs_flown += secs_passed;
-        last_flight_time_ = last_flight_time_ + ros::Duration(secs_passed);
-
-        ofstream outputFile(_time_filename_);
-        outputFile << secs_flown;
-        outputFile.close();
-      }
-    }
-  }
-
   wattron(win, A_BOLD);
   printLimitedInt(win, 0, 0, "ToF: %i", secs_flown, 1000);
-  mvwprintw(win, 0, 13, " %s  %s  %s ", _uav_name_.c_str(), _uav_type_.c_str(), _nato_name_.c_str());
+
+  std::string uav_name;
+  std::string uav_type;
+  std::string nato_name;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_name  = uav_status_.uav_name;
+    uav_type  = uav_status_.uav_type;
+    nato_name = uav_status_.nato_name;
+  }
+
+  double tmp_time = (ros::Time::now() - last_time_got_data_).toSec();
+
+  if (tmp_time > 3.0 && active_) {
+    active_ = false;
+    setupColors(active_);
+  }
+
+  if (tmp_time < 3.0 && !active_) {
+    active_ = true;
+    setupColors(active_);
+  }
+
+  if (tmp_time >= 99.9) {
+    tmp_time = 99.9;
+  }
+
+  mvwprintw(win, 0, 10, " %s %s %s ", uav_name.c_str(), uav_type.c_str(), nato_name.c_str());
+  printLimitedDouble(win, 0, 28, "%3.1f", tmp_time, 100);
+
+  if (!active_) {
+    wattron(win, A_BLINK);
+    wattron(win, COLOR_PAIR(ALWAYS_RED));
+    mvwprintw(win, 0, 33, "!NO MSGS!");
+    wattroff(win, COLOR_PAIR(ALWAYS_RED));
+    wattroff(win, A_BLINK);
+  }
 
   int mins = secs_flown / 60;
-  /* int tens_secs = ((secs_flown % 60) / 10) % 10; */
   int secs = secs_flown % 60;
 
   mvwprintw(win, 0, 0, "ToF: %i:%02i", mins, secs);
@@ -1760,98 +1859,120 @@ void Status::flightTimeHandler(WINDOW* win) {
 
 //}
 
-/* generalInfoThread() //{ */
+/* generalInfoHandeler() //{ */
 
-void Status::generalInfoThread() {
+void Status::generalInfoHandeler(WINDOW* win) {
 
-  ros::Time last_time;
+  werase(win);
+  wattron(win, A_BOLD);
+  wattron(win, COLOR_PAIR(NORMAL));
+  wattroff(win, COLOR_PAIR(NORMAL));
+  wattroff(win, A_STANDOUT);
+  box(win, 0, 0);
 
-  while (true) {
-
-    double interval = (ros::Time::now() - last_time).toSec();
-
-    if (interval >= 1.0 / double(general_info_window_rate_)) {
-
-      std::scoped_lock lock(mutex_general_info_thread_);
-
-      last_time = ros::Time::now();
-
-      wclear(general_info_window_);
-
-      wattron(general_info_window_, A_BOLD);
-      wattroff(general_info_window_, COLOR_PAIR(NORMAL));
-      wattroff(general_info_window_, A_STANDOUT);
-
-      box(general_info_window_, 0, 0);
-
-      if (_light_) {
-        wattron(general_info_window_, A_STANDOUT);
-      }
-
-      printCpuLoad(general_info_window_);
-      printMemLoad(general_info_window_);
-      printCpuFreq(general_info_window_);
-      printDiskSpace(general_info_window_);
-    }
-
-    sleep(general_info_window_rate_ / 10);
+  if (_light_) {
+    wattron(win, A_STANDOUT);
   }
+
+  printCpuLoad(win);
+  printMemLoad(win);
+  printCpuFreq(win);
+  printDiskSpace(win);
+
+  wrefresh(win);
 }
 
 //}
 
-/* setupGenericCallbacks() //{ */
+//}
 
-void Status::setupGenericCallbacks() {
+/* uavStatusCallback() //{ */
+
+void Status::uavStatusCallback(const mrs_msgs::UavStatusConstPtr& msg) {
 
   if (!initialized_) {
     return;
   }
 
-  generic_topic_vec_.clear();
-  generic_subscriber_vec_.clear();
-
-  boost::function<void(const topic_tools::ShapeShifter::ConstPtr&)> callback;  // generic callback
-
-  for (unsigned long i = 0; i < generic_topic_input_vec_.size(); i++) {
-
-    vector<string> results;
-    boost::split(results, generic_topic_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
-    if (results[2].back() == '+') {
-      // TODO handle the + sign
-      results[2].pop_back();
-    }
-
-    string tmp_string = results[1];
-    for (unsigned long j = 2; j < results.size() - 1; j++) {
-      tmp_string = tmp_string + " " + results[j];
-    }
-
-    try {
-      topic tmp_topic(results[0], tmp_string, stoi(results[results.size() - 1]), generic_topic_window_rate_);
-      generic_topic_vec_.push_back(tmp_topic);
-    }
-    catch (const invalid_argument& e) {
-    }
-
-
-    int    id = i;  // id to identify which topic called the generic callback
-    string topic_name;
-
-    if (generic_topic_vec_[i].topic_name.at(0) == '/') {
-
-      topic_name = generic_topic_vec_[i].topic_name;
-
-    } else {
-
-      topic_name = "/" + _uav_name_ + "/" + generic_topic_vec_[i].topic_name;
-    }
-
-    callback                       = [this, topic_name, id](const topic_tools::ShapeShifter::ConstPtr& msg) -> void { genericCallback(msg, topic_name, id); };
-    ros::Subscriber tmp_subscriber = nh_.subscribe(topic_name, 10, callback);
-
-    generic_subscriber_vec_.push_back(tmp_subscriber);
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_ = *msg;
   }
+
+  last_time_got_data_ = ros::Time::now();
+}
+
+//}
+
+/* uavStatusShortCallback() //{ */
+
+void Status::uavStatusShortCallback(const mrs_msgs::UavStatusShortConstPtr& msg) {
+
+  if (!initialized_) {
+    return;
+  }
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.odom_x     = msg->odom_x;
+    uav_status_.odom_y     = msg->odom_y;
+    uav_status_.odom_z     = msg->odom_z;
+    uav_status_.odom_hdg   = msg->odom_hdg;
+    uav_status_.odom_color = msg->odom_color;
+    uav_status_.odom_hz    = msg->odom_hz;
+  }
+
+  last_time_got_data_ = ros::Time::now();
+}
+
+//}
+
+/* prefillUavStatus() //{ */
+
+void Status::prefillUavStatus() {
+
+  std::scoped_lock lock(mutex_status_msg_);
+  uav_status_.uav_name                = "N/A";
+  uav_status_.nato_name               = "N/A";
+  uav_status_.uav_type                = "N/A";
+  uav_status_.uav_mass                = 0.0;
+  uav_status_.control_manager_diag_hz = 0.0;
+  uav_status_.controllers.clear();
+  uav_status_.gains.clear();
+  uav_status_.trackers.clear();
+  uav_status_.constraints.clear();
+  uav_status_.fly_state  = "N/A";
+  uav_status_.secs_flown = 0;
+  uav_status_.odom_hz    = 0.0;
+  uav_status_.odom_x     = 0.0;
+  uav_status_.odom_y     = 0.0;
+  uav_status_.odom_z     = 0.0;
+  uav_status_.odom_hdg   = 0.0;
+  uav_status_.odom_frame = "N/A";
+  uav_status_.odom_estimators_hori.clear();
+  uav_status_.odom_estimators_vert.clear();
+  uav_status_.odom_estimators_hdg.clear();
+  uav_status_.cpu_load        = 0.0;
+  uav_status_.cpu_ghz         = 0.0;
+  uav_status_.free_ram        = 0.0;
+  uav_status_.free_hdd        = 0.0;
+  uav_status_.mavros_hz       = 0.0;
+  uav_status_.mavros_armed    = false;
+  uav_status_.mavros_mode     = "N/A";
+  uav_status_.mavros_gps_ok   = false;
+  uav_status_.mavros_gps_qual = 0.0;
+  uav_status_.battery_volt    = 0.0;
+  uav_status_.battery_curr    = 0.0;
+  uav_status_.thrust          = 0.0;
+  uav_status_.mass_estimate   = 0.0;
+  uav_status_.mass_set        = 0.0;
+  uav_status_.custom_topics.clear();
+  uav_status_.custom_string_outputs.clear();
+  uav_status_.custom_services.clear();
+  uav_status_.flying_normally   = false;
+  uav_status_.null_tracker      = true;
+  uav_status_.have_goal         = false;
+  uav_status_.callbacks_enabled = false;
 }
 
 //}
@@ -1864,13 +1985,20 @@ void Status::setupMainMenu() {
 
   service_vec_.clear();
 
+  bool null_tracker;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    null_tracker = uav_status_.null_tracker;
+  }
+
   for (unsigned long i = 0; i < service_input_vec_.size(); i++) {
 
-    if (NullTracker_ && (i == 0 || i == 1)) {
+    if (null_tracker && (i == 0 || i == 1)) {
       continue;  // disable land and land home if we are not flying
     }
 
-    if (!NullTracker_ && i == 2) {
+    if (!null_tracker && i == 2) {
 
       continue;  // disable takeoff if flying
     }
@@ -1888,12 +2016,20 @@ void Status::setupMainMenu() {
       service_name = results[0];
 
     } else {
-      service_name = "/" + _uav_name_ + "/" + results[0];
+
+
+      std::string uav_name;
+
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        uav_name = uav_status_.uav_name;
+      }
+
+      service_name = "/" + uav_name + "/" + results[0];
     }
 
     service tmp_service(service_name, results[1]);
-    tmp_service.service_client = nh_.serviceClient<std_srvs::Trigger>(service_name);
-
+    tmp_service.service_client = mrs_lib::ServiceClientHandler<std_srvs::Trigger>(nh_, service_name);
     service_vec_.push_back(tmp_service);
   }
 
@@ -1909,6 +2045,7 @@ void Status::setupMainMenu() {
   main_menu_text_.push_back("Set Tracker");
   main_menu_text_.push_back("Set Lat Estimator");
   main_menu_text_.push_back("Set Alt Estimator");
+  main_menu_text_.push_back("Set Hdg Estimator");
 
   Menu menu(1, 32, main_menu_text_);
   menu_vec_.push_back(menu);
@@ -1920,13 +2057,20 @@ void Status::setupMainMenu() {
 
 void Status::setupGotoMenu() {
 
+  std::string odom_frame;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    odom_frame = uav_status_.odom_frame;
+  }
+
   goto_menu_inputs_.clear();
   goto_menu_text_.clear();
   goto_menu_text_.push_back(" X:                ");
   goto_menu_text_.push_back(" Y:                ");
   goto_menu_text_.push_back(" Z:                ");
   goto_menu_text_.push_back(" hdg:              ");
-  goto_menu_text_.push_back(" " + uav_state_.header.frame_id + " ");
+  goto_menu_text_.push_back(" " + odom_frame + " ");
 
   Menu menu(1, 32, goto_menu_text_);
   menu_vec_.push_back(menu);
@@ -1948,69 +2092,19 @@ void Status::setupGotoMenu() {
 
 void Status::printMemLoad(WINDOW* win) {
 
-  ifstream file("/proc/meminfo");
-  string   line1, line2, line3, line4;
-  getline(file, line1);
-  getline(file, line2);
-  getline(file, line3);
-  getline(file, line4);
-  file.close();
+  double total_ram;
+  double free_ram;
 
-  vector<string> results;
-  boost::split(results, line1, [](char c) { return c == ' '; });
-
-  double ram_total;
-  double ram_free;
-  double ram_used;
-  double buffers;
-
-  for (unsigned long i = 1; i < results.size(); i++) {
-
-    if (isdigit(results[i].front())) {
-      try {
-        ram_total = double(stol(results[i])) / 1048576;
-      }
-      catch (const invalid_argument& e) {
-        ram_total = 0.0;
-      }
-      break;
-    }
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    free_ram  = uav_status_.free_ram;
+    total_ram = uav_status_.free_ram;
   }
 
-  boost::split(results, line3, [](char c) { return c == ' '; });
-
-  for (unsigned long i = 1; i < results.size(); i++) {
-
-    if (isdigit(results[i].front())) {
-      try {
-        ram_free = double(stol(results[i])) / 1048576;
-      }
-      catch (const invalid_argument& e) {
-        ram_free = 0.0;
-      }
-      break;
-    }
-  }
-
-  boost::split(results, line4, [](char c) { return c == ' '; });
-
-  for (unsigned long i = 1; i < results.size(); i++) {
-
-    if (isdigit(results[i].front())) {
-      try {
-        buffers = double(stol(results[i])) / 1048576;
-      }
-      catch (const invalid_argument& e) {
-        buffers = 0.0;
-      }
-      break;
-    }
-  }
-
-  ram_used = ram_total - (ram_free + buffers);
+  double used_ram = total_ram - free_ram;
 
   int    tmp_color = GREEN;
-  double ram_ratio = ram_used / ram_total;
+  double ram_ratio = used_ram / total_ram;
   if (ram_ratio > 0.8) {
     tmp_color = RED;
   } else if (ram_ratio > 0.6) {
@@ -2019,7 +2113,7 @@ void Status::printMemLoad(WINDOW* win) {
 
   wattron(win, COLOR_PAIR(tmp_color));
 
-  printLimitedDouble(win, 2, 1, "RAM: %4.1f G", (ram_free + buffers), 100);
+  printLimitedDouble(win, 2, 1, "RAM: %4.1f G", free_ram, 100);
 }
 
 //}
@@ -2028,36 +2122,11 @@ void Status::printMemLoad(WINDOW* win) {
 
 void Status::printCpuLoad(WINDOW* win) {
 
-  ifstream file("/proc/stat");
-  string   line;
-  getline(file, line);
-  file.close();
-
-  vector<string> results;
-  boost::split(results, line, [](char c) { return c == ' '; });
-
-  long idle;
-  long non_idle;
-  long total;
-
-  try {
-    idle     = stol(results[5]) + stol(results[6]);
-    non_idle = stol(results[2]) + stol(results[3]) + stol(results[4]) + stol(results[7]) + stol(results[8]) + stol(results[9]);
-    total    = idle + non_idle;
+  double cpu_load;
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    cpu_load = uav_status_.cpu_load;
   }
-  catch (const invalid_argument& e) {
-    idle     = 0;
-    non_idle = 0;
-    total    = 0;
-  }
-
-  long total_diff = total - last_total_;
-  long idle_diff  = idle - last_idle_;
-
-  double cpu_load = 100 * (double(total_diff - idle_diff) / double(total_diff));
-
-  last_total_ = total;
-  last_idle_  = idle;
 
   int tmp_color = GREEN;
   if (cpu_load > 80.0) {
@@ -2077,40 +2146,11 @@ void Status::printCpuLoad(WINDOW* win) {
 
 void Status::printCpuFreq(WINDOW* win) {
 
-  ifstream file("/sys/devices/system/cpu/online");
-  string   line;
-  getline(file, line);
-  file.close();
-
-  vector<string> results;
-  boost::split(results, line, [](char c) { return c == '-'; });
-
-  int num_cores;
-
-  try {
-    num_cores = stoi(results[1]) + 1;
+  double avg_cpu_ghz;
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    avg_cpu_ghz = uav_status_.cpu_ghz;
   }
-  catch (const invalid_argument& e) {
-    num_cores = 0;
-  }
-
-  long cpu_freq = 0;
-
-  for (int i = 0; i < num_cores; i++) {
-    string   filename = "/sys/devices/system/cpu/cpu" + to_string(i) + "/cpufreq/scaling_cur_freq";
-    ifstream file(filename.c_str());
-    getline(file, line);
-    file.close();
-    try {
-      cpu_freq += stol(line);
-    }
-    catch (const invalid_argument& e) {
-      cpu_freq = 0;
-    }
-  }
-
-  double avg_cpu_ghz = double(cpu_freq / num_cores) / 1048576;
-
 
   wattron(win, COLOR_PAIR(GREEN));
   printLimitedDouble(win, 1, 16, "%4.2f GHz", avg_cpu_ghz, 10);
@@ -2122,9 +2162,11 @@ void Status::printCpuFreq(WINDOW* win) {
 
 void Status::printDiskSpace(WINDOW* win) {
 
-  boost::filesystem::space_info si = boost::filesystem::space(".");
-
-  int gigas = round(si.available / 104857600);
+  int gigas;
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    gigas = uav_status_.free_hdd;
+  }
 
   wattron(win, COLOR_PAIR(GREEN));
   if (gigas < 200 || gigas != last_gigas_) {
@@ -2140,7 +2182,6 @@ void Status::printDiskSpace(WINDOW* win) {
       printLimitedInt(win, 2, 14, "HDD: %i G", gigas / 10, 1000);
     }
   }
-  last_gigas_ = gigas;
 }
 
 //}
@@ -2153,7 +2194,7 @@ void Status::printServiceResult(bool success, string msg) {
     wattron(bottom_window_, A_STANDOUT);
   }
 
-  wclear(bottom_window_);
+  werase(bottom_window_);
 
   wattron(bottom_window_, A_BOLD);
   wattron(bottom_window_, COLOR_PAIR(GREEN));
@@ -2289,7 +2330,7 @@ void Status::printDebug(string msg) {
 
 void Status::printHelp() {
 
-  wclear(debug_window_);
+  werase(debug_window_);
 
   if (help_active_) {
 
@@ -2318,270 +2359,50 @@ void Status::printHelp() {
 
 //}
 
-//}
+/* printHelp() //{ */
 
-/* CALLBACKS //{ */
+void Status::setupColors(bool active) {
 
-/* uavStateCallback() //{ */
+  init_pair(ALWAYS_RED, COLOR_NICE_RED, BACKGROUND_DEFAULT);
 
-void Status::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
+  if (active) {
+    init_pair(NORMAL, COLOR_WHITE, BACKGROUND_DEFAULT);
+    init_pair(FIELD, COLOR_WHITE, 235);
+    init_pair(RED, COLOR_NICE_RED, BACKGROUND_DEFAULT);
+    init_pair(YELLOW, COLOR_NICE_YELLOW, BACKGROUND_DEFAULT);
+    init_pair(GREEN, COLOR_NICE_GREEN, BACKGROUND_DEFAULT);
+    init_pair(BLUE, COLOR_NICE_BLUE, BACKGROUND_DEFAULT);
+    _light_ = false;
 
-  if (!initialized_) {
-    return;
-  }
 
-  uav_state_topic_[0].counter++;
-  uav_state_ = *msg;
-}
+    if (_colorscheme_.find("COLORSCHEME_LIGHT") != std::string::npos) {
+      init_pair(NORMAL, COLOR_BLACK, BACKGROUND_DEFAULT);
+      init_pair(FIELD, COLOR_WHITE, 237);
+      init_pair(GREEN, COLOR_DARK_GREEN, BACKGROUND_DEFAULT);
+      init_pair(BLUE, COLOR_DARK_BLUE, BACKGROUND_DEFAULT);
+      init_pair(YELLOW, COLOR_DARK_YELLOW, BACKGROUND_DEFAULT);
+      _light_ = true;
+    }
 
-//}
-
-/* odomDiagCallback() //{ */
-
-void Status::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  odom_diag_     = *msg;
-  has_odom_diag_ = true;
-}
-
-//}
-
-/* mavrosStateCallback() //{ */
-
-void Status::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  mavros_state_topic_[0].counter++;
-  mavros_state_ = *msg;
-}
-
-//}
-
-/* batteryCallback() //{ */
-
-void Status::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  mavros_state_topic_[1].counter++;
-  battery_ = *msg;
-}
-
-//}
-
-/* mavrosAttitudeCallback() //{ */
-
-void Status::cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  mavros_state_topic_[2].counter++;
-  cmd_attitude_ = *msg;
-}
-
-//}
-
-/* mavrosGlobalCallback() //{ */
-
-void Status::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  mavros_state_topic_[3].counter++;
-  mavros_global_ = *msg;
-}
-
-//}
-
-/* mavrosLocalCallback() //{ */
-
-void Status::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  mavros_local_ = *msg;
-  double tilt, roll, pitch;
-
-  geometry_msgs::Vector3 z_vec = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getVectorZ();
-  roll                         = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getRoll() * 57.2958;
-  pitch                        = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getPitch() * 57.2958;
-
-  try {
-    tilt = acos(z_vec.z) * 57.2958;
-  }
-  catch (int e) {
-    tilt = -666;
-  }
-
-  std::stringstream stream;
-  stream << std::fixed << std::setprecision(2) << "tilt: " << tilt << " deg,\n roll: " << roll << ", pitch: " << pitch;
-
-  std::string display_msg = stream.str();
-  std::string pub_name    = "pixhawk";
-
-  if (tilt < 10) {
-    display_msg = "-g " + display_msg;
   } else {
-    display_msg = "-r " + display_msg;
-  }
+    init_pair(NORMAL, COLOR_DARK_RED, BACKGROUND_DEFAULT);
+    init_pair(FIELD, COLOR_DARK_RED, 235);
+    init_pair(RED, COLOR_DARK_RED, BACKGROUND_DEFAULT);
+    init_pair(YELLOW, COLOR_DARK_RED, BACKGROUND_DEFAULT);
+    init_pair(GREEN, COLOR_DARK_RED, BACKGROUND_DEFAULT);
+    init_pair(BLUE, COLOR_DARK_RED, BACKGROUND_DEFAULT);
+    _light_ = false;
 
-  bool contains = false;
 
-  for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
-    if (string_info_vec_[i].publisher_name == pub_name) {
-      contains                           = true;
-      string_info_vec_[i].display_string = display_msg;
-      string_info_vec_[i].last_time      = ros::Time::now();
-      break;
+    if (_colorscheme_.find("COLORSCHEME_LIGHT") != std::string::npos) {
+      init_pair(NORMAL, COLOR_DARK_RED, BACKGROUND_DEFAULT);
+      init_pair(FIELD, COLOR_DARK_RED, 237);
+      init_pair(GREEN, COLOR_DARK_RED, BACKGROUND_DEFAULT);
+      init_pair(BLUE, COLOR_DARK_RED, BACKGROUND_DEFAULT);
+      init_pair(YELLOW, COLOR_DARK_RED, BACKGROUND_DEFAULT);
+      _light_ = true;
     }
   }
-
-  if (!contains) {
-    string_info tmp(pub_name, display_msg);
-    string_info_vec_.push_back(tmp);
-  }
-}
-
-//}
-
-/* controlManagerCallback() //{ */
-
-void Status::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  control_manager_topic_[0].counter++;
-  control_manager_                                                = *msg;
-  control_manager_.active_tracker == "NullTracker" ? NullTracker_ = true : NullTracker_ = false;
-  control_manager_.flying_normally ? is_flying_normally_ = true : is_flying_normally_ = false;
-}
-
-//}
-
-/* gainManagerCallback() //{ */
-
-void Status::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  control_manager_topic_[1].counter++;
-  gain_manager_ = *msg;
-}
-
-//}
-
-/* constraintManagerCallback() //{ */
-
-void Status::constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  control_manager_topic_[2].counter++;
-  constraint_manager_ = *msg;
-}
-
-//}
-
-/* setServiceCallback() //{ */
-
-void Status::setServiceCallback(const std_msgs::String& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  if (std::find(service_input_vec_.begin(), service_input_vec_.end(), msg.data) == service_input_vec_.end()) {
-    service_input_vec_.push_back(msg.data);
-  }
-}
-//}
-
-/* tfStaticCallback() //{ */
-
-void Status::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  for (unsigned long i = 0; i < msg.transforms.size(); i++) {
-
-    std::string tmp        = msg.transforms[i].child_frame_id;
-    std::size_t pos        = tmp.find("/");        // find the / in uav1/something
-    std::string uav_name   = tmp.substr(0, pos);   // cut out the uav name, so we can discard tfs from other drones (mostly for simulation)
-    std::string frame_name = tmp.substr(pos + 1);  // cut off the uav1/ from the tf_static name
-
-    for (unsigned long j = 0; j < tf_static_list_compare_.size(); j++) {
-      if (tf_static_list_compare_[j] == frame_name && uav_name == _uav_name_) {
-        if (std::find(generic_topic_input_vec_.begin(), generic_topic_input_vec_.end(), tf_static_list_add_[j]) == generic_topic_input_vec_.end())
-          generic_topic_input_vec_.push_back(tf_static_list_add_[j]);
-      }
-    }
-  }
-
-  setupGenericCallbacks();
-}
-//}
-
-/* stringCallback() //{ */
-
-void Status::stringCallback(const ros::MessageEvent<std_msgs::String const>& event) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  std::string pub_name = event.getPublisherName();
-  std::string msg_str  = event.getMessage()->data;
-
-  bool contains = false;
-
-  for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
-    if (string_info_vec_[i].publisher_name == pub_name) {
-      contains                           = true;
-      string_info_vec_[i].display_string = msg_str;
-      string_info_vec_[i].last_time      = ros::Time::now();
-      break;
-    }
-  }
-
-  if (!contains) {
-    string_info tmp(pub_name, msg_str);
-    string_info_vec_.push_back(tmp);
-  }
-}
-//}
-
-/* genericCallback() //{ */
-
-void Status::genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  generic_topic_vec_[id].counter++;
 }
 
 //}
@@ -2614,7 +2435,7 @@ int main(int argc, char** argv) {
 
   initscr();
   start_color();
-  cbreak();
+  nocbreak();
   noecho();
   clear();
   nodelay(stdscr, true);
@@ -2624,29 +2445,13 @@ int main(int argc, char** argv) {
   set_escdelay(0);
   use_default_colors();
 
-  init_pair(NORMAL, COLOR_WHITE, BACKGROUND_DEFAULT);
-  init_pair(FIELD, COLOR_WHITE, 235);
-  init_pair(RED, COLOR_NICE_RED, BACKGROUND_DEFAULT);
-  init_pair(YELLOW, COLOR_NICE_YELLOW, BACKGROUND_DEFAULT);
-  init_pair(GREEN, COLOR_NICE_GREEN, BACKGROUND_DEFAULT);
-  init_pair(BLUE, COLOR_NICE_BLUE, BACKGROUND_DEFAULT);
-
   attron(A_BOLD);
 
   Status status;
 
-  if (status._colorscheme_ == "COLORSCHEME_LIGHT") {
-    init_pair(NORMAL, COLOR_BLACK, BACKGROUND_DEFAULT);
-    init_pair(FIELD, COLOR_WHITE, 237);
-    init_pair(GREEN, COLOR_DARK_GREEN, BACKGROUND_DEFAULT);
-    init_pair(BLUE, COLOR_DARK_BLUE, BACKGROUND_DEFAULT);
-    init_pair(YELLOW, COLOR_DARK_YELLOW, BACKGROUND_DEFAULT);
-    status._light_ = true;
-  }
-
+  /* DEBUG COLOR RAINBOW //{ */
   if (status._rainbow_) {
 
-    /* DEBUG COLOR RAINBOW //{ */
     int k = 0;
 
     for (int j = 0; j < 256; j++) {
@@ -2663,9 +2468,8 @@ int main(int argc, char** argv) {
     refresh();
     while (1) {
     }
-
-    //}
   }
+  //}
 
   while (ros::ok()) {
 

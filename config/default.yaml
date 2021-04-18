@@ -4,6 +4,8 @@ enable_profiler: False # Set True to change green color to blue
 debug_tilt: False # Set True to see pixhawk tilt, roll and pitch
 remote_mode_is_trajectory: False # Set True to send trajectory messages when flying in remote mode, instead of references
 
+turbo_remote_constraints: "fast"
+
 # List of topics to monitor, format is:
 # topic_name Displayed name (can be multiple words) expected_frequency
 # if "/" is provided at the beginning of topic_name, the topic name is considered as written, 
@@ -16,6 +18,7 @@ want_hz: [
       ]
 
 tf_static_list: [
+      "bluefox_front bluefox_front/camera_info BFox Front 20",
       "bluefox_optflow bluefox_optflow/camera_info BFox Optflow 50",
       "bluefox_optflow_optical bluefox_optflow/camera_info BFox Optflow 50",
       "bluefox_optflow optic_flow/velocity Optflow Vel 50",
@@ -23,7 +26,7 @@ tf_static_list: [
       "rs_d435/link rs_d435/color/camera_info Realsense 30",
       "rplidar rplidar/scan RPlidar 10",
       "os_sensor os_cloud_nodelet/is_alive Ouster 10",
-      "uvcam_left uvdar_bluefox/left/camera_info UV_BFox_Left 70",
-      "uvcam_right uvdar_bluefox/right/camera_info UV_BFox_Right 70",
+      "uvcam_left uvdar_bluefox/left/camera_info UV_BFox_Left 60",
+      "uvcam_right uvdar_bluefox/right/camera_info UV_BFox_Right 60",
       "picoflexx pico_flexx/camera_info Picoflexx 5"
       ]
