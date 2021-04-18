@@ -1,7 +1,7 @@
 name: experiment_terminal
 root: ./
 
-startup_window: takeoff
+startup_window: status
 tmux_options: -f tmux.conf
 
 windows:
