@@ -1,16 +1,16 @@
-topics: # topics published out of this machine to receivers specified above
- - name: "mrs_uav_status/uav_status"
-   compress: true # enable bz2 compression
-   rate: 1.0
+# topics: # topics published out of this machine to receivers specified above
+#  - name: "mrs_uav_status/uav_status"
+#    compress: true # enable bz2 compression
+#    rate: 1.0
  # - name: "mrs_uav_status/uav_status_short"
  #   compress: false # enable bz2 compression
  #   rate: 10.0
 
 services:
-  - name: "/*/control_manager/goto_trajectory_start"
-    type: std_srvs/Trigger
-  - name: "/*/control_manager/start_trajectory_tracking"
-    type: std_srvs/Trigger
+  # - name: "/*/control_manager/goto_trajectory_start"
+  #   type: std_srvs/Trigger
+  # - name: "/*/control_manager/start_trajectory_tracking"
+  #   type: std_srvs/Trigger
   - name: "/*/control_manager/trajectory_reference"
     type: mrs_msgs/TrajectoryReferenceSrv
   - name: "/*/control_manager/reference"
