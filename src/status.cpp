@@ -378,7 +378,7 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
   printHelp();
 
 
-  int  key_in = getch();
+  int key_in = getch();
   bool is_flying_normally_;
 
   switch (state) {
@@ -445,8 +445,8 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
       if (mainMenuHandler(key_in)) {
         menu_vec_.clear();
         submenu_vec_.clear();
-        wrefresh(debug_window_);
-        wrefresh(bottom_window_);
+        wnoutrefresh(debug_window_);
+        wnoutrefresh(bottom_window_);
         state = STANDARD;
       }
       break;
@@ -470,12 +470,12 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
   /* } */
 
   if (state != MAIN_MENU && state != GOTO_MENU) {
-    wrefresh(bottom_window_);
+    wnoutrefresh(bottom_window_);
   }
 
-  wrefresh(top_bar_window_);
+  wnoutrefresh(top_bar_window_);
 
-  /* refresh(); */
+  doupdate();
 }
 
 
@@ -977,7 +977,7 @@ bool Status::gotoMenuHandler(int key_in) {
     }
   }
 
-  wrefresh(menu_vec_[0].getWin());
+  wnoutrefresh(menu_vec_[0].getWin());
   return false;
 }
 
@@ -1365,7 +1365,7 @@ void Status::stringHandler(WINDOW* win) {
   }
 
   wattroff(win, A_BOLD);
-  wrefresh(win);
+  wnoutrefresh(win);
 }
 
 //}
@@ -1406,7 +1406,7 @@ void Status::genericTopicHandler(WINDOW* win) {
   }
 
   wattroff(win, A_BOLD);
-  wrefresh(win);
+  wnoutrefresh(win);
 }
 
 //}
@@ -1475,7 +1475,7 @@ void Status::uavStateHandler(WINDOW* win) {
 
   wattroff(win, COLOR_PAIR(color));
   wattroff(win, A_BOLD);
-  wrefresh(win);
+  wnoutrefresh(win);
 }
 
 //}
@@ -1603,7 +1603,7 @@ void Status::controlManagerHandler(WINDOW* win) {
 
   wattroff(win, COLOR_PAIR(color));
   wattroff(win, A_BOLD);
-  wrefresh(win);
+  wnoutrefresh(win);
 }
 
 //}
@@ -1790,7 +1790,7 @@ void Status::mavrosStateHandler(WINDOW* win) {
 
   wattroff(win, COLOR_PAIR(color));
   wattroff(win, A_BOLD);
-  wrefresh(win);
+  wnoutrefresh(win);
 }
 //}
 
@@ -1879,7 +1879,7 @@ void Status::generalInfoHandeler(WINDOW* win) {
   printCpuFreq(win);
   printDiskSpace(win);
 
-  wrefresh(win);
+  wnoutrefresh(win);
 }
 
 //}
@@ -2310,7 +2310,7 @@ void Status::printError(string msg) {
   printLimitedString(debug_window_, 0, 0, msg, 120);
   wattroff(debug_window_, COLOR_PAIR(RED));
 
-  wrefresh(debug_window_);
+  wnoutrefresh(debug_window_);
 }
 
 //}
@@ -2321,7 +2321,7 @@ void Status::printDebug(string msg) {
 
   printLimitedString(debug_window_, 0, 0, msg, 120);
 
-  wrefresh(debug_window_);
+  wnoutrefresh(debug_window_);
 }
 
 //}
@@ -2354,7 +2354,7 @@ void Status::printHelp() {
     printLimitedString(debug_window_, 1, 0, "Press 'h' key for help", 120);
   }
 
-  wrefresh(debug_window_);
+  wnoutrefresh(debug_window_);
 }
 
 //}
@@ -2435,7 +2435,7 @@ int main(int argc, char** argv) {
 
   initscr();
   start_color();
-  nocbreak();
+  cbreak();
   noecho();
   clear();
   nodelay(stdscr, true);
