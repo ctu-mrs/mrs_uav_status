@@ -28,5 +28,6 @@ tf_static_list: [
       "os_sensor os_cloud_nodelet/is_alive Ouster 10",
       "uvcam_left uvdar_bluefox/left/camera_info UV_BFox_Left 60",
       "uvcam_right uvdar_bluefox/right/camera_info UV_BFox_Right 60",
+      "uvcam_back uvdar_bluefox/back/camera_info UV_BFox_Back 60",
       "picoflexx pico_flexx/camera_info Picoflexx 5"
       ]
