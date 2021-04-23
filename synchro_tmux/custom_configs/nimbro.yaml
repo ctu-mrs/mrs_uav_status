@@ -11,6 +11,8 @@ services:
   #   type: std_srvs/Trigger
   # - name: "/*/control_manager/start_trajectory_tracking"
   #   type: std_srvs/Trigger
+  - name: "/*/trajectory_generation/path"
+    type: mrs_msgs/PathSrv
   - name: "/*/control_manager/trajectory_reference"
     type: mrs_msgs/TrajectoryReferenceSrv
   - name: "/*/control_manager/reference"
