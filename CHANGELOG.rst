@@ -2,8 +2,8 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.1 (2021-05-16)
+------------------
 * updated ros::shutdown
 * added path to nimbro in tmux
 * fix flicker and arrow keys
