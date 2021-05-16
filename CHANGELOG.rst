@@ -2,6 +2,17 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* updated ros::shutdown
+* added path to nimbro in tmux
+* fix flicker and arrow keys
+* added multilander capabilities
+* added service client handler from mrs_lib
+* split to two sections
+* added global remote mode
+* Contributors: Daniel Hert, Matouš Vrba, Tomas Baca, mrs drone
+
 1.0.0 (2021-03-18)
 ------------------
 * Major release
