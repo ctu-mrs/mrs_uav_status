@@ -161,6 +161,7 @@ private:
   mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_gains_;
   mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_controller_;
   mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_tracker_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_odometry_source_;
   mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_lat_estimator_;
   mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_alt_estimator_;
   mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_hdg_estimator_;
@@ -273,6 +274,7 @@ Status::Status() {
   service_set_gains_            = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_gains_out");
   service_set_controller_       = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_controller_out");
   service_set_tracker_          = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_tracker_out");
+  service_set_odometry_source_  = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_source_out");
   service_set_lat_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_lat_estimator_out");
   service_set_alt_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_alt_estimator_out");
   service_set_hdg_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_hdg_estimator_out");
@@ -640,6 +642,33 @@ bool Status::mainMenuHandler(int key_in) {
         break;
 
       case 5:
+        // Odometry source
+        ret = submenu_vec_[0].iterate(odometry_lat_sources_text_, key_in, true);
+
+        if (ret.has_value()) {
+
+          int line = get<0>(ret.value());
+          int key  = get<1>(ret.value());
+
+          if (line == 666 && key == 666) {
+
+            submenu_vec_.clear();
+            return false;
+
+          } else if (key == KEY_ENT) {
+
+            mrs_msgs::String string_service;
+            string_service.request.value = odometry_lat_sources_text_[line];
+            service_set_odometry_source_.call(string_service, _service_num_calls_, _service_delay_);
+            printServiceResult(string_service.response.success, string_service.response.message);
+
+            submenu_vec_.clear();
+            return true;
+          }
+        }
+        break;
+
+      case 6:
         // Lat estimator
         ret = submenu_vec_[0].iterate(odometry_lat_sources_text_, key_in, true);
 
@@ -666,7 +695,7 @@ bool Status::mainMenuHandler(int key_in) {
         }
         break;
 
-      case 6:
+      case 7:
         // Alt estimator
         ret = submenu_vec_[0].iterate(odometry_alt_sources_text_, key_in, true);
 
@@ -693,8 +722,8 @@ bool Status::mainMenuHandler(int key_in) {
         }
         break;
 
-      case 7:
-        // Hfg estimator
+      case 8:
+        // Hdg estimator
         ret = submenu_vec_[0].iterate(odometry_hdg_sources_text_, key_in, true);
 
         if (ret.has_value()) {
@@ -753,7 +782,7 @@ bool Status::mainMenuHandler(int key_in) {
           menu_vec_.clear();
           return true;
 
-        } else if (line == main_menu_text_.size() - 7) {
+        } else if (line == main_menu_text_.size() - 8) {
           // SET CONSTRAINTS
 
           {
@@ -775,7 +804,7 @@ bool Status::mainMenuHandler(int key_in) {
             submenu_vec_.push_back(menu);
           }
 
-        } else if (line == main_menu_text_.size() - 6) {
+        } else if (line == main_menu_text_.size() - 7) {
           // SET GAINS
 
           {
@@ -797,7 +826,7 @@ bool Status::mainMenuHandler(int key_in) {
             submenu_vec_.push_back(menu);
           }
 
-        } else if (line == main_menu_text_.size() - 5) {
+        } else if (line == main_menu_text_.size() - 6) {
           // SET CONTROLLER
 
           {
@@ -819,7 +848,7 @@ bool Status::mainMenuHandler(int key_in) {
             submenu_vec_.push_back(menu);
           }
 
-        } else if (line == main_menu_text_.size() - 4) {
+        } else if (line == main_menu_text_.size() - 5) {
           // SET TRACKER
 
           {
@@ -841,8 +870,8 @@ bool Status::mainMenuHandler(int key_in) {
             submenu_vec_.push_back(menu);
           }
 
-        } else if (line == main_menu_text_.size() - 3) {
-          // SET LAT ESTIMATOR
+        } else if (line == main_menu_text_.size() - 4) {
+          // SET ODOMETRY SOURCE
 
           {
             std::scoped_lock lock(mutex_status_msg_);
@@ -863,6 +892,28 @@ bool Status::mainMenuHandler(int key_in) {
             submenu_vec_.push_back(menu);
           }
 
+        } else if (line == main_menu_text_.size() - 3) {
+          // SET LAT ESTIMATOR
+
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            odometry_lat_sources_text_ = uav_status_.odom_estimators_hori;
+          }
+
+          if (!odometry_lat_sources_text_.empty()) {
+
+            int x;
+            int y;
+            int rows;
+            int cols;
+
+            getyx(menu_vec_[0].getWin(), x, y);
+            getmaxyx(menu_vec_[0].getWin(), rows, cols);
+
+            Menu menu(x, 31 + cols, odometry_lat_sources_text_, 6);
+            submenu_vec_.push_back(menu);
+          }
+
         } else if (line == main_menu_text_.size() - 2) {
           // SET ALT ESTIMATOR
 
@@ -880,7 +931,7 @@ bool Status::mainMenuHandler(int key_in) {
             getyx(menu_vec_[0].getWin(), x, y);
             getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
-            Menu menu(x, 31 + cols, odometry_alt_sources_text_, 6);
+            Menu menu(x, 31 + cols, odometry_alt_sources_text_, 7);
             submenu_vec_.push_back(menu);
           }
 
@@ -901,7 +952,7 @@ bool Status::mainMenuHandler(int key_in) {
             getyx(menu_vec_[0].getWin(), x, y);
             getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
-            Menu menu(x, 31 + cols, odometry_hdg_sources_text_, 7);
+            Menu menu(x, 31 + cols, odometry_hdg_sources_text_, 8);
             submenu_vec_.push_back(menu);
           }
 
@@ -2043,6 +2094,7 @@ void Status::setupMainMenu() {
   main_menu_text_.push_back("Set Gains");
   main_menu_text_.push_back("Set Controller");
   main_menu_text_.push_back("Set Tracker");
+  main_menu_text_.push_back("Set Odom Source");
   main_menu_text_.push_back("Set Lat Estimator");
   main_menu_text_.push_back("Set Alt Estimator");
   main_menu_text_.push_back("Set Hdg Estimator");
