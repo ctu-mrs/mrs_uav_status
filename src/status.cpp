@@ -378,7 +378,7 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
   printHelp();
 
 
-  int key_in = getch();
+  int  key_in = getch();
   bool is_flying_normally_;
 
   switch (state) {
@@ -531,6 +531,40 @@ bool Status::mainMenuHandler(int key_in) {
     optional<tuple<int, int>> ret;
 
     switch (submenu_vec_[0].getId()) {
+      case 0:
+        // TRIGGER CONFIRMATION
+        ret = submenu_vec_[0].iterate(key_in, true);
+
+        if (ret.has_value()) {
+
+          int line = get<0>(ret.value());
+          int key  = get<1>(ret.value());
+
+          if (line == 666 && key == 666) {
+
+            submenu_vec_.clear();
+            return false;
+
+          } else if (key == KEY_ENT) {
+
+            if (line == 1) {
+
+              std_srvs::Trigger trig;
+              service_vec_[line].service_client.call(trig, _service_num_calls_, _service_delay_);
+              printServiceResult(trig.response.success, trig.response.message);
+
+              submenu_vec_.clear();
+              return true;
+
+            } else {
+
+              submenu_vec_.clear();
+              return false;
+            }
+          }
+        }
+        break;
+
       case 1:
         // CONSTRAINTS
         ret = submenu_vec_[0].iterate(constraints_text_, key_in, true);
@@ -746,12 +780,19 @@ bool Status::mainMenuHandler(int key_in) {
 
         if (line < service_vec_.size()) {
 
-          std_srvs::Trigger trig;
-          service_vec_[line].service_client.call(trig, _service_num_calls_, _service_delay_);
-          printServiceResult(trig.response.success, trig.response.message);
+          int x;
+          int y;
+          int rows;
+          int cols;
 
-          menu_vec_.clear();
-          return true;
+          getyx(menu_vec_[0].getWin(), x, y);
+          getmaxyx(menu_vec_[0].getWin(), rows, cols);
+
+          std::vector<std::string> confirm_text;
+          confirm_text.push_back("CANCEL");
+          confirm_text.push_back(main_menu_text_[line]);
+          Menu menu(x, 31 + cols, confirm_text, 0);
+          submenu_vec_.push_back(menu);
 
         } else if (line == main_menu_text_.size() - 7) {
           // SET CONSTRAINTS
