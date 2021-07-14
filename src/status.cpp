@@ -1443,14 +1443,14 @@ void Status::stringHandler(WINDOW* win) {
 
     wattron(win, COLOR_PAIR(tmp_color));
 
-    printLimitedString(win, (2 * i) + 1, 1, tmp_display_string, 30);
+    printLimitedString(win, (i) + 1, 1, tmp_display_string, 30);
 
     /* if (tmp_display_string.length() > 30) { */
     /*   printLimitedString(win, 1 + (3 * i) + 1, 1, tmp_display_string.substr(30), 30); */
     /* } */
-    if (i < 2) {
-      printLimitedString(win, 3 + (2 * i) + 1, 1, ("------------------------------"), 30);
-    }
+    /* if (i < 2) { */
+    /*   printLimitedString(win, (2 * i) + 2, 1, ("------------------------------"), 30); */
+    /* } */
 
     wattroff(win, COLOR_PAIR(tmp_color));
     wattroff(win, A_BLINK);

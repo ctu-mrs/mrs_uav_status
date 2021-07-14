@@ -428,11 +428,15 @@ void Acquisition::stringHandler() {
     uav_status_.custom_string_outputs.clear();
   }
 
-  for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
+  for (size_t i = 0; i < string_info_vec_.size(); i++) {
 
-    if ((ros::Time::now() - string_info_vec_[i].last_time).toSec() > 10.0) {
+    if ((ros::Time::now() - string_info_vec_[i].last_time).toSec() > 10.0 && !string_info_vec_[i].persistent) {
+
       string_info_vec_.erase(string_info_vec_.begin() + i);
+      i--;
+
     } else {
+
       std::scoped_lock lock(mutex_status_msg_);
       uav_status_.custom_string_outputs.push_back(string_info_vec_[i].display_string);
     }
@@ -1240,7 +1244,7 @@ void Acquisition::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
       if (tf_static_list_compare_[j] == frame_name && uav_name == _uav_name_) {
         std::scoped_lock lock(mutex_status_msg_);
         if (std::find(generic_topic_input_vec_.begin(), generic_topic_input_vec_.end(), tf_static_list_add_[j]) == generic_topic_input_vec_.end())
-        generic_topic_input_vec_.push_back(tf_static_list_add_[j]);
+          generic_topic_input_vec_.push_back(tf_static_list_add_[j]);
       }
     }
   }
@@ -1256,25 +1260,77 @@ void Acquisition::stringCallback(const ros::MessageEvent<std_msgs::String const>
   if (!initialized_) {
     return;
   }
-
   std::string pub_name = event.getPublisherName();
   std::string msg_str  = event.getMessage()->data;
+
+  std::stringstream                  ss(msg_str);
+  std::istream_iterator<std::string> begin(ss);
+  std::istream_iterator<std::string> end;
+  std::vector<std::string>           msg_vector(begin, end);
+
+  bool   params_read = false;
+  size_t iterator    = 0;
+
+  std::string id         = "";
+  bool        persistent = false;
+
+  while (!params_read) {
+
+    if (msg_vector[iterator] == "-id") {
+
+      if (iterator + 1 < msg_vector.size()) {
+        id = msg_vector[iterator + 1];
+        msg_vector.erase(msg_vector.begin() + iterator);
+        msg_vector.erase(msg_vector.begin() + iterator);
+        continue;
+      }
+
+
+    } else if (msg_vector[iterator] == "-p") {
+      id = msg_vector[iterator + 1];
+      msg_vector.erase(msg_vector.begin() + iterator);
+      persistent = true;
+      continue;
+
+    } else if (msg_vector[iterator].at(0) != '-') {
+      params_read = true;
+      continue;
+    }
+    iterator++;
+    if (iterator >= msg_vector.size()) {
+      params_read = true;
+    }
+  }
+  msg_str       = "";
+  bool first_it = true;
+
+  for (size_t i = 0; i < msg_vector.size(); i++) {
+
+    if (first_it) {
+      first_it = false;
+    } else {
+      msg_str += " ";
+    }
+
+    msg_str += msg_vector[i];
+  }
 
   bool contains = false;
 
   /* uav_status_.custom_string_outputs */
 
   for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
-    if (string_info_vec_[i].publisher_name == pub_name) {
+    if (string_info_vec_[i].publisher_name == pub_name && string_info_vec_[i].id == id) {
       contains                           = true;
       string_info_vec_[i].display_string = msg_str;
+      string_info_vec_[i].persistent     = persistent;
       string_info_vec_[i].last_time      = ros::Time::now();
       break;
     }
   }
 
   if (!contains) {
-    string_info tmp(pub_name, msg_str);
+    string_info tmp(pub_name, msg_str, id, persistent);
     string_info_vec_.push_back(tmp);
   }
 }
