@@ -48,9 +48,20 @@ Simply publish a [std_msgs/String](http://docs.ros.org/melodic/api/std_msgs/html
 
  ![](.fig/display_string.png)
 
- * Only the newest message from each node will be displayed
- * The message will be displayed for 10 seconds
-
+ * By default, only one message can be displayed from one node/nodelet manager.
+ * By default, the message will be displayed for 10 seconds
+ * You can use several parameters with mrs_uav_status. These parameters are placed at the begining of the string message, like this:
+    * ```-id my_id -R -p the rest of my message```
+ * -id my_id
+    * If you want to display more messages from one node/nodelet manager, you can use the argument -id my_id
+    * At the begining of you string, put "-id my_id the rest of my message"
+    * Message will be displayed for each unique id
+* -p 
+    * You can add "-p " at the beginning of your string, to make the message persistent, it will not disappear, only if it is overriden by a new message
+* -r, -y,- g, -R, -Y -G
+    * By default, the messages will be displayed as black/white (depending on the current colorsheme). You can use -r -y -g parameters to set the color to red/yellow/green. If you use 
+      capital letter as the parameter, it will make the displayed message blink
+      
 ### Monitoring ROS topic rates
 MRS UAV Status can monitor rates of different ROS topics, and warn the user if the topic is published less frequently than required, or not published at all. There are two ways how to add monitored topics:
 
