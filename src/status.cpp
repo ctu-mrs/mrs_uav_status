@@ -250,7 +250,7 @@ Status::Status() {
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[Status]: Could not load all parameters!");
-    ros::requestShutdown();
+    ros::shutdown();
   } else {
     ROS_INFO("[Status]: All params loaded!");
   }
