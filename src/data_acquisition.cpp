@@ -1287,7 +1287,6 @@ void Acquisition::stringCallback(const ros::MessageEvent<std_msgs::String const>
 
 
     } else if (msg_vector[iterator] == "-p") {
-      id = msg_vector[iterator + 1];
       msg_vector.erase(msg_vector.begin() + iterator);
       persistent = true;
       continue;

@@ -157,7 +157,6 @@ struct string_info
     id             = id_in;
     persistent     = persistent_in;
     last_time      = ros::Time::now();
-    id             = "";
   }
 };
 
