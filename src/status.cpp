@@ -1932,7 +1932,7 @@ void Status::flightTimeHandler(WINDOW* win) {
   }
 
   mvwprintw(win, 0, 10, " %s %s %s ", uav_name.c_str(), uav_type.c_str(), nato_name.c_str());
-  printLimitedDouble(win, 0, 28, "%3.1f", tmp_time, 100);
+  printLimitedDouble(win, 0, 90, "%3.1f", tmp_time, 100);
 
   if (!active_) {
     wattron(win, A_BLINK);
