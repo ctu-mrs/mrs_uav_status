@@ -121,6 +121,9 @@ private:
 
   ros::Time bottom_window_clear_time_ = ros::Time::now();
   ros::Time last_time_got_data_       = ros::Time::now();
+  ros::Time last_time_got_short_data_ = ros::Time::now();
+
+  unsigned long line_in_upper_menu_;
 
   bool help_active_ = false;
 
@@ -210,10 +213,11 @@ private:
 
   // | -------------------- Switches, states -------------------- |
 
-  bool remote_hover_  = false;
-  bool turbo_remote_  = false;
-  bool remote_global_ = false;
-  bool active_        = true;
+  bool remote_hover_    = false;
+  bool turbo_remote_    = false;
+  bool remote_global_   = false;
+  bool have_data_       = false;
+  bool have_short_data_ = false;
 
   bool is_flying_ = false;
 
@@ -308,7 +312,7 @@ Status::Status() {
   debug_window_           = newwin(20, 120, 12, 1);
   string_window_          = newwin(10, 32, 1, 77);
 
-  setupColors(active_);
+  setupColors(have_data_);
 
   initialized_ = true;
   ROS_INFO("[Status]: Node initialized!");
@@ -552,7 +556,7 @@ bool Status::mainMenuHandler(int key_in) {
             if (line == 1) {
 
               std_srvs::Trigger trig;
-              service_vec_[line].service_client.call(trig, _service_num_calls_, _service_delay_);
+              service_vec_[line_in_upper_menu_].service_client.call(trig, _service_num_calls_, _service_delay_);
               printServiceResult(trig.response.success, trig.response.message);
 
               submenu_vec_.clear();
@@ -813,6 +817,8 @@ bool Status::mainMenuHandler(int key_in) {
           int y;
           int rows;
           int cols;
+
+          line_in_upper_menu_ = line;
 
           getyx(menu_vec_[0].getWin(), x, y);
           getmaxyx(menu_vec_[0].getWin(), rows, cols);
@@ -1518,6 +1524,7 @@ void Status::uavStateHandler(WINDOW* win) {
   std::string curr_estimator_vert;
   std::string curr_estimator_hdg;
 
+
   {
     std::scoped_lock lock(mutex_status_msg_);
     avg_rate   = uav_status_.odom_hz;
@@ -1542,6 +1549,7 @@ void Status::uavStateHandler(WINDOW* win) {
     wattron(win, A_STANDOUT);
   }
 
+
   wattron(win, COLOR_PAIR(color));
 
   printLimitedDouble(win, 0, 12, "Odom %5.1f Hz", avg_rate, 1000);
@@ -1557,6 +1565,8 @@ void Status::uavStateHandler(WINDOW* win) {
     printLimitedDouble(win, 3, 1, "Z %7.2f", state_z, 1000);
     printLimitedDouble(win, 4, 1, "hdg %5.2f", heading, 1000);
 
+    setupColors(have_data_);
+
     int pos = odom_frame.find("/") + 1;
     printLimitedString(win, 1, 11, odom_frame.substr(pos, odom_frame.length()), 15);
 
@@ -1567,6 +1577,7 @@ void Status::uavStateHandler(WINDOW* win) {
 
   wattroff(win, COLOR_PAIR(color));
   wattroff(win, A_BOLD);
+
   wnoutrefresh(win);
 }
 
@@ -1915,16 +1926,27 @@ void Status::flightTimeHandler(WINDOW* win) {
     nato_name = uav_status_.nato_name;
   }
 
-  double tmp_time = (ros::Time::now() - last_time_got_data_).toSec();
+  double tmp_time       = (ros::Time::now() - last_time_got_data_).toSec();
+  double tmp_short_time = (ros::Time::now() - last_time_got_short_data_).toSec();
 
-  if (tmp_time > 3.0 && active_) {
-    active_ = false;
-    setupColors(active_);
+  if (tmp_short_time < 3.0) {
+    have_short_data_ = true;
+  } else {
+    have_short_data_ = false;
   }
 
-  if (tmp_time < 3.0 && !active_) {
-    active_ = true;
-    setupColors(active_);
+  if (tmp_short_time >= 99.9) {
+    tmp_short_time = 99.9;
+  }
+
+  if (tmp_time > 3.0 && have_data_) {
+    have_data_ = false;
+    setupColors(have_data_);
+  }
+
+  if (tmp_time < 3.0 && !have_data_) {
+    have_data_ = true;
+    setupColors(have_data_);
   }
 
   if (tmp_time >= 99.9) {
@@ -1932,9 +1954,10 @@ void Status::flightTimeHandler(WINDOW* win) {
   }
 
   mvwprintw(win, 0, 10, " %s %s %s ", uav_name.c_str(), uav_type.c_str(), nato_name.c_str());
-  printLimitedDouble(win, 0, 90, "%3.1f", tmp_time, 100);
+  printLimitedDouble(win, 0, 94, "%3.1f", tmp_time, 100);
+  printLimitedDouble(win, 0, 90, "%3.1f", tmp_short_time, 100);
 
-  if (!active_) {
+  if (!have_data_) {
     wattron(win, A_BLINK);
     wattron(win, COLOR_PAIR(ALWAYS_RED));
     mvwprintw(win, 0, 33, "!NO MSGS!");
@@ -1991,7 +2014,8 @@ void Status::uavStatusCallback(const mrs_msgs::UavStatusConstPtr& msg) {
     uav_status_ = *msg;
   }
 
-  last_time_got_data_ = ros::Time::now();
+  last_time_got_data_       = ros::Time::now();
+  last_time_got_short_data_ = ros::Time::now();
 }
 
 //}
@@ -2014,7 +2038,7 @@ void Status::uavStatusShortCallback(const mrs_msgs::UavStatusShortConstPtr& msg)
     uav_status_.odom_hz    = msg->odom_hz;
   }
 
-  last_time_got_data_ = ros::Time::now();
+  last_time_got_short_data_ = ros::Time::now();
 }
 
 //}
