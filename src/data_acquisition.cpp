@@ -1131,19 +1131,33 @@ void Acquisition::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosti
     uav_status_.trackers    = msg->available_trackers;
     uav_status_.controllers = msg->available_controllers;
 
-    for (size_t i = 0; i < uav_status_.trackers.size(); i++) {
-      if ((uav_status_.trackers[i] == msg->active_tracker) && i != 0) {
-        // put the active estimator as first in the vector
-        std::swap(uav_status_.trackers[0], uav_status_.trackers[i]);
+    if (std::find(uav_status_.trackers.begin(), uav_status_.trackers.end(), msg->active_tracker) != uav_status_.trackers.end()) {
+      // active tracker is in the trackers vecotor, swap it to the first position
+      for (size_t i = 0; i < uav_status_.trackers.size(); i++) {
+        if ((uav_status_.trackers[i] == msg->active_tracker) && i != 0) {
+          // put the active estimator as first in the vector
+          std::swap(uav_status_.trackers[0], uav_status_.trackers[i]);
+        }
       }
+    } else {
+      // active tracker is not in the trackers vecotor, put it there
+      uav_status_.trackers.insert(uav_status_.trackers.begin(), msg->active_tracker);
     }
 
-    for (size_t i = 0; i < uav_status_.controllers.size(); i++) {
-      if ((uav_status_.controllers[i] == msg->active_controller) && i != 0) {
-        // put the active estimator as first in the vector
-        std::swap(uav_status_.controllers[0], uav_status_.controllers[i]);
+
+    if (std::find(uav_status_.controllers.begin(), uav_status_.controllers.end(), msg->active_controller) != uav_status_.controllers.end()) {
+      // active controller is in the controllers vecotor, swap it to the first position
+      for (size_t i = 0; i < uav_status_.controllers.size(); i++) {
+        if ((uav_status_.controllers[i] == msg->active_controller) && i != 0) {
+          // put the active estimator as first in the vector
+          std::swap(uav_status_.controllers[0], uav_status_.controllers[i]);
+        }
       }
+    } else {
+      // active tracker is not in the controllers vecotor, put it there
+      uav_status_.controllers.insert(uav_status_.controllers.begin(), msg->active_controller);
     }
+
 
     uav_status_.flying_normally   = msg->flying_normally;
     uav_status_.have_goal         = msg->tracker_status.have_goal;
