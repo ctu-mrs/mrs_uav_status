@@ -36,6 +36,7 @@
 
         <!-- Subscribers -->
       <remap from="~uav_state_in" to="odometry/uav_state" />
+      <remap from="~cmd_position_in" to="control_manager/position_cmd" />
       <remap from="~odom_diag_in" to="odometry/diagnostics" />
       <remap from="~mavros_state_in" to="mavros/state" />
       <remap from="~cmd_attitude_in" to="control_manager/attitude_cmd" />

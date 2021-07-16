@@ -1,6 +1,7 @@
 /* INCLUDES //{ */
 
 /* #include <status_window.h> */
+#include "mrs_msgs/Reference.h"
 #include "ros/duration.h"
 #include <menu.h>
 #include <input_box.h>
@@ -286,6 +287,8 @@ Status::Status() {
 
   // mrs_lib profiler
   profiler_ = mrs_lib::Profiler(nh_, "Status", _profiler_enabled_);
+
+  transformer_ = std::make_unique<mrs_lib::Transformer>("UavStatus");
 
   // Loads the default GoTo value
   goto_double_vec_.push_back(0.0);
@@ -1285,37 +1288,71 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
 
     if (remote_global_) {
 
-      double      odom_x;
-      double      odom_y;
-      double      odom_z;
-      double      odom_hdg;
+      double      cmd_x;
+      double      cmd_y;
+      double      cmd_z;
+      double      cmd_hdg;
       std::string odom_frame;
 
       {
         std::scoped_lock lock(mutex_status_msg_);
-        odom_x     = uav_status_.odom_x;
-        odom_y     = uav_status_.odom_y;
-        odom_z     = uav_status_.odom_z;
-        odom_hdg   = uav_status_.odom_hdg;
+        cmd_x      = uav_status_.cmd_x;
+        cmd_y      = uav_status_.cmd_y;
+        cmd_z      = uav_status_.cmd_z;
+        cmd_hdg    = uav_status_.cmd_hdg;
         odom_frame = uav_status_.odom_frame;
       }
 
-      reference.request.reference.position.x = odom_x + ref_in.position.x;
-      reference.request.reference.position.y = odom_y + ref_in.position.y;
-      reference.request.reference.position.z = odom_z + ref_in.position.z;
-      reference.request.reference.heading    = odom_hdg + ref_in.heading;
+      reference.request.reference.position.x = cmd_x + ref_in.position.x;
+      reference.request.reference.position.y = cmd_y + ref_in.position.y;
+      reference.request.reference.position.z = cmd_z + ref_in.position.z;
+      reference.request.reference.heading    = cmd_hdg + ref_in.heading;
       reference.request.header.frame_id      = odom_frame;
     } else {
 
       reference.request.reference = ref_in;
 
       std::string uav_name;
+      double      cmd_x;
+      double      cmd_y;
+      double      cmd_z;
+      double      cmd_hdg;
+      std::string odom_frame;
+
       {
         std::scoped_lock lock(mutex_status_msg_);
-        uav_name = uav_status_.uav_name;
+        uav_name   = uav_status_.uav_name;
+        cmd_x      = uav_status_.cmd_x;
+        cmd_y      = uav_status_.cmd_y;
+        cmd_z      = uav_status_.cmd_z;
+        cmd_hdg    = uav_status_.cmd_hdg;
+        odom_frame = uav_status_.odom_frame;
       }
 
+      mrs_msgs::ReferenceStamped cmd_reference;
+      cmd_reference.reference.position.x = cmd_x;
+      cmd_reference.reference.position.y = cmd_y;
+      cmd_reference.reference.position.z = cmd_z;
+      cmd_reference.reference.heading    = cmd_hdg;
+      cmd_reference.header.frame_id      = odom_frame;
+
       reference.request.header.frame_id = uav_name + "/fcu_untilted";
+      reference.request.header.stamp    = ros::Time::now();
+
+      auto response = transformer_->transformSingle(reference.request.header.frame_id, cmd_reference);
+      if (response) {
+        cmd_reference = response.value();
+      } else {
+        ROS_WARN_THROTTLE(1.0, "[MrsUavStatus]: Transform failed when transforming cmd_reference.");
+        return;
+      }
+
+      reference.request.reference       = cmd_reference.reference;
+      reference.request.reference.position.x += ref_in.position.x;
+      reference.request.reference.position.y += ref_in.position.y;
+      reference.request.reference.position.z += ref_in.position.z;
+      reference.request.reference.heading += ref_in.heading;
+      reference.request.header.frame_id = cmd_reference.header.frame_id;
 
       reference.request.header.stamp = ros::Time::now();
       service_goto_reference_.call(reference);
@@ -1334,25 +1371,25 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
     if (remote_global_) {
 
 
-      double      odom_x;
-      double      odom_y;
-      double      odom_z;
-      double      odom_hdg;
+      double      cmd_x;
+      double      cmd_y;
+      double      cmd_z;
+      double      cmd_hdg;
       std::string odom_frame;
 
       {
         std::scoped_lock lock(mutex_status_msg_);
-        odom_x     = uav_status_.odom_x;
-        odom_y     = uav_status_.odom_y;
-        odom_z     = uav_status_.odom_z;
-        odom_hdg   = uav_status_.odom_hdg;
+        cmd_x      = uav_status_.cmd_x;
+        cmd_y      = uav_status_.cmd_y;
+        cmd_z      = uav_status_.cmd_z;
+        cmd_hdg    = uav_status_.cmd_hdg;
         odom_frame = uav_status_.odom_frame;
       }
 
-      tmp_ref.position.x       = odom_x;
-      tmp_ref.position.y       = odom_y;
-      tmp_ref.position.z       = odom_z;
-      tmp_ref.heading          = odom_hdg;
+      tmp_ref.position.x       = cmd_x;
+      tmp_ref.position.y       = cmd_y;
+      tmp_ref.position.z       = cmd_z;
+      tmp_ref.heading          = cmd_hdg;
       tmp_traj.header.frame_id = odom_frame;
 
     } else {
@@ -2036,6 +2073,11 @@ void Status::uavStatusShortCallback(const mrs_msgs::UavStatusShortConstPtr& msg)
     uav_status_.odom_hdg   = msg->odom_hdg;
     uav_status_.odom_color = msg->odom_color;
     uav_status_.odom_hz    = msg->odom_hz;
+
+    uav_status_.cmd_x   = msg->cmd_x;
+    uav_status_.cmd_y   = msg->cmd_y;
+    uav_status_.cmd_z   = msg->cmd_z;
+    uav_status_.cmd_hdg = msg->cmd_hdg;
   }
 
   last_time_got_short_data_ = ros::Time::now();

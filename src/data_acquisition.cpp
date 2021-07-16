@@ -15,6 +15,7 @@
 #include <mrs_msgs/UavStatus.h>
 #include <mrs_msgs/UavStatusShort.h>
 #include <mrs_msgs/UavState.h>
+#include <mrs_msgs/PositionCommand.h>
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 #include <mrs_msgs/GainManagerDiagnostics.h>
 #include <mrs_msgs/ConstraintManagerDiagnostics.h>
@@ -80,6 +81,7 @@ private:
   // | ------------------------ Callbacks ----------------------- |
 
   void uavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
+  void positionCmdCallback(const mrs_msgs::PositionCommandConstPtr& msg);
   void odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg);
   void mavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
   void cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg);
@@ -155,6 +157,7 @@ private:
   // | ----------------------- Subscribers ---------------------- |
 
   ros::Subscriber uav_state_subscriber_;
+  ros::Subscriber cmd_position_subscriber_;
   ros::Subscriber odom_diag_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
   ros::Subscriber mavros_state_subscriber_;
@@ -287,6 +290,7 @@ Acquisition::Acquisition() {
   // | ----------------------- Subscribers ---------------------- |
 
   uav_state_subscriber_       = nh_.subscribe("uav_state_in", 10, &Acquisition::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
+  cmd_position_subscriber_    = nh_.subscribe("cmd_position_in", 10, &Acquisition::positionCmdCallback, this, ros::TransportHints().tcpNoDelay());
   odom_diag_subscriber_       = nh_.subscribe("odom_diag_in", 10, &Acquisition::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
   mavros_state_subscriber_    = nh_.subscribe("mavros_state_in", 10, &Acquisition::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
   attitude_cmd_subscriber_    = nh_.subscribe("cmd_attitude_in", 10, &Acquisition::cmdAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
@@ -934,6 +938,30 @@ void Acquisition::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
     uav_status_short_.odom_y   = msg->pose.position.y;
     uav_status_short_.odom_z   = msg->pose.position.z;
     uav_status_short_.odom_hdg = heading;
+  }
+}
+
+//}
+
+/* positionCmdCallback() //{ */
+
+void Acquisition::positionCmdCallback(const mrs_msgs::PositionCommandConstPtr& msg) {
+
+  if (!initialized_) {
+    return;
+  }
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.cmd_x   = msg->position.x;
+    uav_status_.cmd_y   = msg->position.y;
+    uav_status_.cmd_z   = msg->position.z;
+    uav_status_.cmd_hdg = msg->heading;
+
+    uav_status_short_.cmd_x   = msg->position.x;
+    uav_status_short_.cmd_y   = msg->position.y;
+    uav_status_short_.cmd_z   = msg->position.z;
+    uav_status_short_.cmd_hdg = msg->heading;
   }
 }
 
