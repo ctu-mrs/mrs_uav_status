@@ -205,6 +205,13 @@ private:
   unsigned long     secs_flown_ = 0;
   ros::Time         last_flight_time_;
   const std::string _time_filename_ = "/tmp/mrs_status_flight_time.txt";
+  const std::string _wh_filename_   = "/tmp/mrs_status_wh_drained.txt";
+
+  // | ------------------- Battery measurement ------------------ |
+
+  double    wh_drained_ = 0.0;
+  ros::Time last_got_batt_;
+  bool      got_bat_ = false;
 
   // | -------------------- Switches, states -------------------- |
 
@@ -328,6 +335,23 @@ Acquisition::Acquisition() {
     }
     catch (const invalid_argument& e) {
       secs_flown_ = 0;
+    }
+    file.close();
+  }
+
+  if (boost::filesystem::exists(_wh_filename_)) {
+
+    // loads time flown from a tmp file, if it exists, if it does not exists, flight time is set to 0
+
+    ifstream file(_wh_filename_);
+    string   line;
+    getline(file, line);
+
+    try {
+      wh_drained_ = stod(line);
+    }
+    catch (const invalid_argument& e) {
+      wh_drained_ = 0.0;
     }
     file.close();
   }
@@ -1038,10 +1062,24 @@ void Acquisition::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) 
 
   mavros_battery_ts_.Count();
 
+  if (!got_bat_) {
+    // first time we got the battery message, set the last_bat time to now.
+    got_bat_       = true;
+    last_got_batt_ = ros::Time::now();
+  }
+
   {
     std::scoped_lock lock(mutex_status_msg_);
     uav_status_.battery_volt = msg->voltage;
     uav_status_.battery_curr = msg->current;
+    double bat_dt            = (ros::Time::now() - last_got_batt_).toSec();
+    last_got_batt_           = ros::Time::now();
+    wh_drained_ += uav_status_.battery_volt * uav_status_.battery_curr * (bat_dt / 3600);
+    uav_status_.battery_wh_drained = wh_drained_;
+
+    ofstream outputFile(_wh_filename_);
+    outputFile << wh_drained_;
+    outputFile.close();
   }
 }
 

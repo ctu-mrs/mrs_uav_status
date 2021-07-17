@@ -305,15 +305,15 @@ Status::Status() {
   // |            Window creation and topic association           |
   // --------------------------------------------------------------
 
-  uav_state_window_       = newwin(6, 26, 5, 1);
+  uav_state_window_       = newwin(7, 26, 5, 1);
   control_manager_window_ = newwin(4, 26, 1, 1);
-  mavros_state_window_    = newwin(6, 25, 5, 27);
-  generic_topic_window_   = newwin(10, 25, 1, 52);
+  mavros_state_window_    = newwin(7, 25, 5, 27);
+  generic_topic_window_   = newwin(11, 25, 1, 52);
   general_info_window_    = newwin(4, 25, 1, 27);
   top_bar_window_         = newwin(1, 120, 0, 1);
-  bottom_window_          = newwin(1, 120, 11, 1);
-  debug_window_           = newwin(20, 120, 12, 1);
-  string_window_          = newwin(10, 32, 1, 77);
+  bottom_window_          = newwin(1, 120, 12, 1);
+  debug_window_           = newwin(20, 120, 13, 1);
+  string_window_          = newwin(11, 32, 1, 77);
 
   setupColors(have_data_);
 
@@ -1347,7 +1347,7 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
         return;
       }
 
-      reference.request.reference       = cmd_reference.reference;
+      reference.request.reference = cmd_reference.reference;
       reference.request.reference.position.x += ref_in.position.x;
       reference.request.reference.position.y += ref_in.position.y;
       reference.request.reference.position.z += ref_in.position.z;
@@ -1550,17 +1550,24 @@ void Status::genericTopicHandler(WINDOW* win) {
 
 void Status::uavStateHandler(WINDOW* win) {
 
-  double      avg_rate;
-  double      color;
-  double      heading;
-  double      state_x;
-  double      state_y;
-  double      state_z;
+  double avg_rate;
+  double color;
+  double heading;
+  double state_x;
+  double state_y;
+  double state_z;
+
+  double cmd_x;
+  double cmd_y;
+  double cmd_z;
+  double cmd_hdg;
+
   std::string odom_frame;
   std::string curr_estimator_hori;
   std::string curr_estimator_vert;
   std::string curr_estimator_hdg;
 
+  bool null_tracker;
 
   {
     std::scoped_lock lock(mutex_status_msg_);
@@ -1572,10 +1579,22 @@ void Status::uavStateHandler(WINDOW* win) {
     state_z    = uav_status_.odom_z;
     odom_frame = uav_status_.odom_frame;
 
+    cmd_x   = uav_status_.cmd_x;
+    cmd_y   = uav_status_.cmd_y;
+    cmd_z   = uav_status_.cmd_z;
+    cmd_hdg = uav_status_.cmd_hdg;
+
     uav_status_.odom_estimators_hori.empty() ? curr_estimator_hori = "NONE" : curr_estimator_hori = uav_status_.odom_estimators_hori[0];
     uav_status_.odom_estimators_vert.empty() ? curr_estimator_vert = "NONE" : curr_estimator_vert = uav_status_.odom_estimators_vert[0];
     uav_status_.odom_estimators_hdg.empty() ? curr_estimator_hdg = "NONE" : curr_estimator_hdg = uav_status_.odom_estimators_hdg[0];
+
+    null_tracker = uav_status_.null_tracker;
   }
+
+  double cerr_x   = std::fabs(state_x - cmd_x);
+  double cerr_y   = std::fabs(state_y - cmd_y);
+  double cerr_z   = std::fabs(state_z - cmd_z);
+  double cerr_hdg = std::fabs(heading - cmd_hdg);
 
   werase(win);
   wattron(win, A_BOLD);
@@ -1602,7 +1621,49 @@ void Status::uavStateHandler(WINDOW* win) {
     printLimitedDouble(win, 3, 1, "Z %7.2f", state_z, 1000);
     printLimitedDouble(win, 4, 1, "hdg %5.2f", heading, 1000);
 
-    setupColors(have_data_);
+    if (!null_tracker) {
+      wattron(win, COLOR_PAIR(NORMAL));
+      mvwprintw(win, 5, 1, "C/E");
+
+      if (cerr_x < 0.5) {
+        wattron(win, COLOR_PAIR(GREEN));
+      } else if (cerr_x < 1.0) {
+        wattron(win, COLOR_PAIR(YELLOW));
+      } else {
+        wattron(win, COLOR_PAIR(RED));
+      }
+      printLimitedDouble(win, 5, 5, "X%1.1f", cerr_x, 10);
+
+
+      if (cerr_y < 0.5) {
+        wattron(win, COLOR_PAIR(GREEN));
+      } else if (cerr_y < 1.0) {
+        wattron(win, COLOR_PAIR(YELLOW));
+      } else {
+        wattron(win, COLOR_PAIR(RED));
+      }
+      printLimitedDouble(win, 5, 10, "Y%1.1f", cerr_y, 10);
+
+      if (cerr_z < 0.5) {
+        wattron(win, COLOR_PAIR(GREEN));
+      } else if (cerr_z < 1.0) {
+        wattron(win, COLOR_PAIR(YELLOW));
+      } else {
+        wattron(win, COLOR_PAIR(RED));
+      }
+      printLimitedDouble(win, 5, 15, "Z%1.1f", cerr_z, 10);
+
+      if (cerr_hdg < 0.2) {
+        wattron(win, COLOR_PAIR(GREEN));
+      } else if (cerr_hdg < 0.4) {
+        wattron(win, COLOR_PAIR(YELLOW));
+      } else {
+        wattron(win, COLOR_PAIR(RED));
+      }
+      printLimitedDouble(win, 5, 20, "H%1.1f", cerr_hdg, 10);
+
+      wattron(win, COLOR_PAIR(color));
+    }
 
     int pos = odom_frame.find("/") + 1;
     printLimitedString(win, 1, 11, odom_frame.substr(pos, odom_frame.length()), 15);
@@ -1762,6 +1823,7 @@ void Status::mavrosStateHandler(WINDOW* win) {
   std::string mode;
   double      battery_volt;
   double      battery_curr;
+  double      battery_wh_drained;
   double      thrust;
   double      mass_estimate;
   double      mass_set;
@@ -1769,19 +1831,21 @@ void Status::mavrosStateHandler(WINDOW* win) {
 
   {
     std::scoped_lock lock(mutex_status_msg_);
-    color         = uav_status_.mavros_color;
-    mavros_rate   = uav_status_.mavros_hz;
-    state_rate    = uav_status_.mavros_state_hz;
-    cmd_rate      = uav_status_.mavros_cmd_hz;
-    battery_rate  = uav_status_.mavros_battery_hz;
-    mavros_gps_ok = uav_status_.mavros_gps_ok;
-    armed         = uav_status_.mavros_armed;
-    mode          = uav_status_.mavros_mode;
-    battery_volt  = uav_status_.battery_volt;
-    thrust        = uav_status_.thrust;
-    mass_estimate = uav_status_.mass_estimate;
-    mass_set      = uav_status_.mass_set;
-    gps_qual      = uav_status_.mavros_gps_qual;
+    color              = uav_status_.mavros_color;
+    mavros_rate        = uav_status_.mavros_hz;
+    state_rate         = uav_status_.mavros_state_hz;
+    cmd_rate           = uav_status_.mavros_cmd_hz;
+    battery_rate       = uav_status_.mavros_battery_hz;
+    mavros_gps_ok      = uav_status_.mavros_gps_ok;
+    armed              = uav_status_.mavros_armed;
+    mode               = uav_status_.mavros_mode;
+    battery_volt       = uav_status_.battery_volt;
+    battery_curr       = uav_status_.battery_curr;
+    battery_wh_drained = uav_status_.battery_wh_drained;
+    thrust             = uav_status_.thrust;
+    mass_estimate      = uav_status_.mass_estimate;
+    mass_set           = uav_status_.mass_set;
+    gps_qual           = uav_status_.mavros_gps_qual;
   }
 
   std::string tmp_string;
@@ -1856,11 +1920,12 @@ void Status::mavrosStateHandler(WINDOW* win) {
 
     printLimitedDouble(win, 3, 1, "Batt:  %4.2f V ", battery_volt, 10);
     printLimitedDouble(win, 3, 15, "%5.2f A", battery_curr, 100);
+    printLimitedDouble(win, 4, 1, "Drained: %4.1f Wh", battery_wh_drained, 100);
   }
 
   if (cmd_rate == 0) {
 
-    printNoData(win, 4, 1, "Thrst: ");
+    printNoData(win, 5, 1, "Thrst: ");
 
   } else {
 
@@ -1869,7 +1934,7 @@ void Status::mavrosStateHandler(WINDOW* win) {
     } else if (thrust > 0.65 && color != RED) {
       wattron(win, COLOR_PAIR(YELLOW));
     }
-    printLimitedDouble(win, 4, 1, "Thrst: %4.2f", thrust, 1.01);
+    printLimitedDouble(win, 5, 1, "Thrst: %4.2f", thrust, 1.01);
     wattron(win, COLOR_PAIR(color));
 
     color            = GREEN;
@@ -1887,18 +1952,18 @@ void Status::mavrosStateHandler(WINDOW* win) {
     if (mass_set > 10.0 || mass_estimate > 10.0) {
 
       wattron(win, COLOR_PAIR(NORMAL));
-      printLimitedDouble(win, 4, 13, "%.1f/", mass_set, 99.99);
+      printLimitedDouble(win, 5, 13, "%.1f/", mass_set, 99.99);
       wattron(win, COLOR_PAIR(color));
-      printLimitedDouble(win, 4, 18, "%.1f", mass_estimate, 99.99);
-      printLimitedString(win, 4, 22, "kg", 2);
+      printLimitedDouble(win, 5, 18, "%.1f", mass_estimate, 99.99);
+      printLimitedString(win, 5, 22, "kg", 2);
 
     } else {
 
       wattron(win, COLOR_PAIR(NORMAL));
-      printLimitedDouble(win, 4, 15, "%.1f/", mass_set, 99.99);
+      printLimitedDouble(win, 5, 15, "%.1f/", mass_set, 99.99);
       wattron(win, COLOR_PAIR(color));
-      printLimitedDouble(win, 4, 19, "%.1f", mass_estimate, 99.99);
-      printLimitedString(win, 4, 22, "kg", 2);
+      printLimitedDouble(win, 5, 19, "%.1f", mass_estimate, 99.99);
+      printLimitedString(win, 5, 22, "kg", 2);
     }
   }
 
