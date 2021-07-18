@@ -1353,71 +1353,71 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
       reference.request.reference.position.z += ref_in.position.z;
       reference.request.reference.heading += ref_in.heading;
       reference.request.header.frame_id = cmd_reference.header.frame_id;
-
-      reference.request.header.stamp = ros::Time::now();
-      service_goto_reference_.call(reference);
-
-      return;
     }
 
-    mrs_msgs::TrajectoryReferenceSrv traj;
-    mrs_msgs::TrajectoryReference    tmp_traj;
-    tmp_traj.use_heading = true;
-    tmp_traj.fly_now     = true;
-    tmp_traj.loop        = false;
-    tmp_traj.dt          = 0.2;
+    reference.request.header.stamp = ros::Time::now();
+    service_goto_reference_.call(reference);
 
-    mrs_msgs::Reference tmp_ref;
-    if (remote_global_) {
-
-
-      double      cmd_x;
-      double      cmd_y;
-      double      cmd_z;
-      double      cmd_hdg;
-      std::string odom_frame;
-
-      {
-        std::scoped_lock lock(mutex_status_msg_);
-        cmd_x      = uav_status_.cmd_x;
-        cmd_y      = uav_status_.cmd_y;
-        cmd_z      = uav_status_.cmd_z;
-        cmd_hdg    = uav_status_.cmd_hdg;
-        odom_frame = uav_status_.odom_frame;
-      }
-
-      tmp_ref.position.x       = cmd_x;
-      tmp_ref.position.y       = cmd_y;
-      tmp_ref.position.z       = cmd_z;
-      tmp_ref.heading          = cmd_hdg;
-      tmp_traj.header.frame_id = odom_frame;
-
-    } else {
-
-      tmp_ref.position.x = 0.0;
-      tmp_ref.position.y = 0.0;
-      tmp_ref.position.z = 0.0;
-      tmp_ref.heading    = 0;
-
-      std::string uav_name;
-      {
-        std::scoped_lock lock(mutex_status_msg_);
-        uav_name = uav_status_.uav_name;
-      }
-
-      tmp_traj.header.frame_id = uav_name + "/fcu_untilted";
-    }
-
-    for (int i = 0; i < 10; i++) {
-      tmp_ref.position.x += ref_in.position.x / 10;
-      tmp_ref.position.y += ref_in.position.y / 10;
-      tmp_ref.position.z += ref_in.position.z / 10;
-      tmp_ref.heading += ref_in.heading / 10;
-      tmp_traj.points.push_back(tmp_ref);
-    }
-    traj.request.trajectory = tmp_traj;
-    service_trajectory_reference_.call(traj, _service_num_calls_, _service_delay_);
+    return;
   }
+
+  mrs_msgs::TrajectoryReferenceSrv traj;
+  mrs_msgs::TrajectoryReference    tmp_traj;
+  tmp_traj.use_heading = true;
+  tmp_traj.fly_now     = true;
+  tmp_traj.loop        = false;
+  tmp_traj.dt          = 0.2;
+
+  mrs_msgs::Reference tmp_ref;
+  if (remote_global_) {
+
+
+    double      cmd_x;
+    double      cmd_y;
+    double      cmd_z;
+    double      cmd_hdg;
+    std::string odom_frame;
+
+    {
+      std::scoped_lock lock(mutex_status_msg_);
+      cmd_x      = uav_status_.cmd_x;
+      cmd_y      = uav_status_.cmd_y;
+      cmd_z      = uav_status_.cmd_z;
+      cmd_hdg    = uav_status_.cmd_hdg;
+      odom_frame = uav_status_.odom_frame;
+    }
+
+    tmp_ref.position.x       = cmd_x;
+    tmp_ref.position.y       = cmd_y;
+    tmp_ref.position.z       = cmd_z;
+    tmp_ref.heading          = cmd_hdg;
+    tmp_traj.header.frame_id = odom_frame;
+
+  } else {
+
+    tmp_ref.position.x = 0.0;
+    tmp_ref.position.y = 0.0;
+    tmp_ref.position.z = 0.0;
+    tmp_ref.heading    = 0;
+
+    std::string uav_name;
+    {
+      std::scoped_lock lock(mutex_status_msg_);
+      uav_name = uav_status_.uav_name;
+    }
+
+    tmp_traj.header.frame_id = uav_name + "/fcu_untilted";
+  }
+
+  for (int i = 0; i < 10; i++) {
+    tmp_ref.position.x += ref_in.position.x / 10;
+    tmp_ref.position.y += ref_in.position.y / 10;
+    tmp_ref.position.z += ref_in.position.z / 10;
+    tmp_ref.heading += ref_in.heading / 10;
+    tmp_traj.points.push_back(tmp_ref);
+  }
+  traj.request.trajectory = tmp_traj;
+  service_trajectory_reference_.call(traj, _service_num_calls_, _service_delay_);
 }
 
 //}
