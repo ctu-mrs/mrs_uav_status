@@ -1,9 +1,8 @@
 name: experiment_terminal
 root: ./
-
 startup_window: status
 tmux_options: -f tmux.conf
-
+pre_windo: export ROS_MASTER_URI=http://localhost:11311; export ROS_IP=127.0.0.1; export UAV_NAME=laptop
 windows:
   - roscore:
       layout: tiled
@@ -23,15 +22,17 @@ windows:
         # - waitForRos; export UAV_NAME=uav2; roslaunch mrs_uav_status terminal.launch
         # - waitForRos; export UAV_NAME=uav3; roslaunch mrs_uav_status terminal.launch
         # - waitForRos; export UAV_NAME=uav4; roslaunch mrs_uav_status terminal.launch
-        - waitForRos; export UAV_NAME=uav5; roslaunch mrs_uav_status terminal.launch
+        # - waitForRos; export UAV_NAME=uav5; roslaunch mrs_uav_status terminal.launch
         # - waitForRos; export UAV_NAME=uav6; roslaunch mrs_uav_status terminal.launch
         # - waitForRos; export UAV_NAME=uav7; roslaunch mrs_uav_status terminal.launch
         # - waitForRos; export UAV_NAME=uav8; roslaunch mrs_uav_status terminal.launch
         # - waitForRos; export UAV_NAME=uav9; roslaunch mrs_uav_status terminal.launch
-        # - waitForRos; export UAV_NAME=uav10; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav17; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav18; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav19; roslaunch mrs_uav_status terminal.launch
   - multi_lander:
       layout: even-vertical
       panes:
-        - "history -s rosservice call /dan/multi_lander/land_all"
-        - "history -s rosservice call /dan/multi_lander/land_one"
+        - "history -s rosservice call /laptop/multi_lander/land_all"
+        - "history -s rosservice call /laptop/multi_lander/land_one"
         - waitForRos; roslaunch multi_lander multi_lander.launch
