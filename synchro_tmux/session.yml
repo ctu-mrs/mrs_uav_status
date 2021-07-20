@@ -30,9 +30,9 @@ windows:
         - waitForRos; export UAV_NAME=uav10; roslaunch mrs_uav_status terminal.launch
         - waitForRos; export UAV_NAME=uav11; roslaunch mrs_uav_status terminal.launch
         - waitForRos; export UAV_NAME=uav12; roslaunch mrs_uav_status terminal.launch
-        - waitForRos; export UAV_NAME=uav13; roslaunch mrs_uav_status terminal.launch
+        # - waitForRos; export UAV_NAME=uav13; roslaunch mrs_uav_status terminal.launch
         # - waitForRos; export UAV_NAME=uav14; roslaunch mrs_uav_status terminal.launch
-        - waitForRos; export UAV_NAME=uav15; roslaunch mrs_uav_status terminal.launch
+        # - waitForRos; export UAV_NAME=uav15; roslaunch mrs_uav_status terminal.launch
   - multi_lander:
       layout: even-vertical
       panes:
