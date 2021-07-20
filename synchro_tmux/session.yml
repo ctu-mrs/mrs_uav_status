@@ -23,13 +23,16 @@ windows:
         # - waitForRos; export UAV_NAME=uav3; roslaunch mrs_uav_status terminal.launch
         # - waitForRos; export UAV_NAME=uav4; roslaunch mrs_uav_status terminal.launch
         # - waitForRos; export UAV_NAME=uav5; roslaunch mrs_uav_status terminal.launch
-        # - waitForRos; export UAV_NAME=uav6; roslaunch mrs_uav_status terminal.launch
-        # - waitForRos; export UAV_NAME=uav7; roslaunch mrs_uav_status terminal.launch
-        # - waitForRos; export UAV_NAME=uav8; roslaunch mrs_uav_status terminal.launch
-        # - waitForRos; export UAV_NAME=uav9; roslaunch mrs_uav_status terminal.launch
-        - waitForRos; export UAV_NAME=uav17; roslaunch mrs_uav_status terminal.launch
-        - waitForRos; export UAV_NAME=uav18; roslaunch mrs_uav_status terminal.launch
-        - waitForRos; export UAV_NAME=uav19; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav6; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav7; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav8; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav9; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav10; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav11; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav12; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav13; roslaunch mrs_uav_status terminal.launch
+        # - waitForRos; export UAV_NAME=uav14; roslaunch mrs_uav_status terminal.launch
+        - waitForRos; export UAV_NAME=uav15; roslaunch mrs_uav_status terminal.launch
   - multi_lander:
       layout: even-vertical
       panes:
