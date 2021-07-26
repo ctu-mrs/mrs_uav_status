@@ -8,13 +8,16 @@ import matplotlib.pyplot as plt
 
 LEFT_CUT = 25
 RIGHT_CUT = 15
+# volt_index = 48
 volt_index = 48
-split_index = 1250
+
+split_index_1 = 700
+split_index_2 = 1500
 
 if len(sys.argv) == 2:
 
     filename = str(sys.argv[1])
-
+    # split_index = int(sys.argv[2])
     with open(filename) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         voltages = []
@@ -33,26 +36,30 @@ if len(sys.argv) == 2:
     for idx, item in enumerate(indexes):
         # indexes[idx] = 1.0-(idx/len(indexes))
         indexes[idx] = (idx/len(indexes))
-    
-    indexes_1 = indexes[:split_index]
-    indexes_2 = indexes[split_index+1:]
 
-    voltages_1 = voltages[:split_index]
-    voltages_2 = voltages[split_index+1:]
+    indexes_1 = indexes[:split_index_1]
+    indexes_2 = indexes[split_index_1+1:split_index_2]
+    indexes_3 = indexes[split_index_2+1:]
 
-    print("first aproximation is valid for voltages: ")
-    print(str(voltages_1[0]) + " V")
-    print(str(voltages_1[-1]) + " V")
+    voltages_1 = voltages[:split_index_1]
+    voltages_2 = voltages[split_index_1+1:split_index_2]
+    voltages_3 = voltages[split_index_2+1:]
 
-    print("second aproximation is valid for voltages: ")
-    print(str(voltages_2[0]) + " V")
-    print(str(voltages_2[-1]) + " V")
+    # print("first aproximation is valid for voltages: ")
+    # print(str(voltages_1[0]) + " V")
+    # print(str(voltages_1[-1]) + " V")
+
+    # print("second aproximation is valid for voltages: ")
+    # print(str(voltages_2[0]) + " V")
+    # print(str(voltages_2[-1]) + " V")
 
     voltage_fit_1 = np.polyfit(indexes_1, voltages_1, 2)
     voltage_fit_2 = np.polyfit(indexes_2, voltages_2, 2)
+    voltage_fit_3 = np.polyfit(indexes_3, voltages_3, 2)
 
     predict_voltage_1 = np.poly1d(voltage_fit_1)
     predict_voltage_2 = np.poly1d(voltage_fit_2)
+    predict_voltage_3 = np.poly1d(voltage_fit_3)
 
     # voltage_fit = np.polyfit(indexes, voltages, 5)
 
@@ -65,39 +72,100 @@ if len(sys.argv) == 2:
     a_1 = voltage_fit_1[0]
     b_1 = voltage_fit_1[1]
     c_1 = voltage_fit_1[2]
+    # d_1 = voltage_fit_1[3]
 
-    # print(a_1);
-    # print(b_1);
-    # print(c_1);
+    print("first poly values: ")
+    print(a_1);
+    print(b_1);
+    print(c_1);
+    # print(d_1);
 
     a_2 = voltage_fit_2[0]
     b_2 = voltage_fit_2[1]
     c_2 = voltage_fit_2[2]
+    # d_2 = voltage_fit_2[3]
 
-    # print(a_2);
-    # print(b_2);
-    # print(c_2);
+    print("second poly values: ")
+    print(a_2);
+    print(b_2);
+    print(c_2);
+    # print(d_2);
+    print("________________________________")
+
+    volt = 4.2;
+    print("test for " + str(volt))
+    res1 = (-b_1 + math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    res2 = (-b_1 - math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    print(res1)
+    print(res2)
+
+    volt = 4.1;
+    print("test for " + str(volt))
+    res1 = (-b_1 + math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    res2 = (-b_1 - math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    print(res1)
+    print(res2)
+
+    volt = 4.0;
+    print("test for " + str(volt))
+    res1 = (-b_1 + math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    res2 = (-b_1 - math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    print(res1)
+    print(res2)
+
+
+    volt = 3.9;
+    print("test for " + str(volt))
+    res1 = (-b_1 + math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    res2 = (-b_1 - math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    print(res1)
+    print(res2)
+
+    volt = 3.8;
+    print("test for " + str(volt))
+    res1 = (-b_1 + math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    res2 = (-b_1 - math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    print(res1)
+    print(res2)
+
+    volt = 3.7;
+    print("test for " + str(volt))
+    res1 = (-b_1 + math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    res2 = (-b_1 - math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    print(res1)
+    print(res2)
+
+    # volt = 3.6;
+    # print("test for " + str(volt))
+    # res1 = (-b_1 + math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    # res2 = (-b_1 - math.sqrt(b_1*b_1 - 4*a_1*(c_1-volt)))/(2*a_1)
+    # print(res1)
+    # print(res2)
 
     # x_voltage_fit = range(int(voltages[0]), int(voltages[len(voltages)-1])+1)
     # x_voltage_fit = range(int(indexes[0]), int(indexes[len(indexes)-1])+1)
     # y_voltage_fit = predict_voltage(x_voltage_fit)
 
-    x_voltage_fit_1 = range(int(indexes_1[0]), int(indexes_1[len(indexes_1)-1])+1)
+    x_voltage_fit_1 =np.arange(float(indexes_1[0]), float(indexes_1[len(indexes_1)-1])+0.01, 0.01)
     y_voltage_fit_1 = predict_voltage_1(x_voltage_fit_1)
 
-    x_voltage_fit_2 = range(int(indexes_2[0]), int(indexes_2[len(indexes_2)-1])+1)
+    x_voltage_fit_2 = np.arange(float(indexes_2[0]), float(indexes_2[len(indexes_2)-1]), 0.01)
     y_voltage_fit_2 = predict_voltage_2(x_voltage_fit_2)
 
+    x_voltage_fit_3 = np.arange(float(indexes_3[0]), float(indexes_3[len(indexes_3)-1]), 0.01)
+    y_voltage_fit_3 = predict_voltage_3(x_voltage_fit_3)
     fig, (ax1) = plt.subplots(1, 1)
 
-            # res1 = (-b + math.sqrt(b*b - 4*a*(c-(tmp_mass/rotors))))/(2*a)
-            # res2 = (-b - math.sqrt(b*b - 4*a*(c-(tmp_mass/rotors))))/(2*a)
+    # res1 = (-b + math.sqrt(b*b - 4*a*(c-(tmp_mass/rotors))))/(2*a)
+    # res2 = (-b - math.sqrt(b*b - 4*a*(c-(tmp_mass/rotors))))/(2*a)
 
     ax1.plot(indexes_1, voltages_1, label='Voltage')
     ax1.plot(indexes_2, voltages_2, label='Voltage')
+    ax1.plot(indexes_3, voltages_3, label='Voltage')
 
     line_voltage_fit, = ax1.plot(x_voltage_fit_1, y_voltage_fit_1, linestyle='dotted', color='blue',  label='Quadratic polynomial regression \n${0:.3f}x^2 + {1:.3f}x + {2:.3f}$'.format(a_1,b_1,c_1))
     line_voltage_fit, = ax1.plot(x_voltage_fit_2, y_voltage_fit_2, linestyle='dotted', color='red',  label='Quadratic polynomial regression \n${0:.3f}x^2 + {1:.3f}x + {2:.3f}$'.format(a_2,b_2,c_2))
+    line_voltage_fit, = ax1.plot(x_voltage_fit_3, y_voltage_fit_3, linestyle='dotted', color='green',  label='Quadratic polynomial regression \n${0:.3f}x^2 + {1:.3f}x + {2:.3f}$'.format(a_2,b_2,c_2))
 
     ax1.set_xlabel("Battery capacity [%]")
     ax1.set_ylabel("Voltage [V]")
