@@ -430,6 +430,7 @@ void Acquisition::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
     }
     {
       std::scoped_lock lock(mutex_status_msg_);
+      uav_status_.header.stamp = ros::Time::now();
       uav_status_publisher_.publish(uav_status_);
     }
 
