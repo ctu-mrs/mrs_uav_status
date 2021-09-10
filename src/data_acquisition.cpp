@@ -1324,6 +1324,8 @@ void Acquisition::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
     return;
   }
 
+  bool got_new_tf_static = false;
+
   for (unsigned long i = 0; i < msg.transforms.size(); i++) {
 
     std::string tmp        = msg.transforms[i].child_frame_id;
@@ -1336,11 +1338,13 @@ void Acquisition::tfStaticCallback(const tf2_msgs::TFMessage& msg) {
         std::scoped_lock lock(mutex_status_msg_);
         if (std::find(generic_topic_input_vec_.begin(), generic_topic_input_vec_.end(), tf_static_list_add_[j]) == generic_topic_input_vec_.end())
           generic_topic_input_vec_.push_back(tf_static_list_add_[j]);
+        got_new_tf_static = true;
       }
     }
   }
-
-  setupGenericCallbacks();
+  if (got_new_tf_static) {
+    setupGenericCallbacks();
+  }
 }
 //}
 
