@@ -160,4 +160,22 @@ struct string_info
   }
 };
 
+struct node_info
+{
+  std::string node_name;
+  int node_pid;
+  float       node_cpu_usage;
+  long        last_utime;
+  long        last_stime;
+
+  node_info(std::string node_name_in) {
+    node_name      = node_name_in;
+    node_pid       = 0;
+    node_cpu_usage = 0.0;
+    last_utime     = 0;
+    last_stime     = 0;
+  }
+};
+
+
 #endif

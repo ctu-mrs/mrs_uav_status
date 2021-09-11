@@ -1,6 +1,7 @@
 /* INCLUDES //{ */
 
 /* #include <status_window.h> */
+#include "mrs_msgs/NodeCpuLoad.h"
 #include "mrs_msgs/Reference.h"
 #include "ros/duration.h"
 #include <menu.h>
@@ -74,6 +75,7 @@ private:
   void controlManagerHandler(WINDOW* win);
   void mavrosStateHandler(WINDOW* win);
   void genericTopicHandler(WINDOW* win);
+  void nodeStatsHandler(WINDOW* win);
   void generalInfoHandeler(WINDOW* win);
   void stringHandler(WINDOW*);
 
@@ -100,7 +102,7 @@ private:
   ros::Subscriber uav_status_short_subscriber_;
 
   // | ------------------------ publishers ------------------------- |
-  ros::Publisher cpu_load_publisher_; 
+  ros::Publisher cpu_load_publisher_;
 
   // | ------------------------- Callbacks ------------------------- |
 
@@ -120,6 +122,7 @@ private:
   WINDOW* top_bar_window_;
   WINDOW* bottom_window_;
   WINDOW* generic_topic_window_;
+  WINDOW* node_stats_window_;
   WINDOW* general_info_window_;
   WINDOW* debug_window_;
   WINDOW* string_window_;
@@ -274,9 +277,9 @@ Status::Status() {
 
   uav_status_subscriber_       = nh_.subscribe("uav_status_in", 10, &Status::uavStatusCallback, this, ros::TransportHints().tcpNoDelay());
   uav_status_short_subscriber_ = nh_.subscribe("uav_status_short_in", 10, &Status::uavStatusShortCallback, this, ros::TransportHints().tcpNoDelay());
-  
+
   // | ----------------------- Publishers ----------------------- |
-  cpu_load_publisher_ = nh_.advertise<mrs_msgs::Float64Stamped>("cpu_load_out", 1); 
+  cpu_load_publisher_ = nh_.advertise<mrs_msgs::Float64Stamped>("cpu_load_out", 1);
 
   // | ------------------------ Services ------------------------ |
 
@@ -315,12 +318,13 @@ Status::Status() {
   uav_state_window_       = newwin(7, 26, 5, 1);
   control_manager_window_ = newwin(4, 26, 1, 1);
   mavros_state_window_    = newwin(7, 25, 5, 27);
-  generic_topic_window_   = newwin(11, 25, 1, 52);
   general_info_window_    = newwin(4, 25, 1, 27);
   top_bar_window_         = newwin(1, 120, 0, 1);
   bottom_window_          = newwin(1, 120, 12, 1);
   debug_window_           = newwin(20, 120, 13, 1);
+  generic_topic_window_   = newwin(11, 25, 1, 52);
   string_window_          = newwin(11, 32, 1, 77);
+  node_stats_window_      = newwin(11, 50, 1, 109);
 
   setupColors(have_data_);
 
@@ -516,6 +520,10 @@ void Status::statusTimerSlow([[maybe_unused]] const ros::TimerEvent& event) {
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
     genericTopicHandler(generic_topic_window_);
+  }
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("nodeStatsHandler");
+    nodeStatsHandler(node_stats_window_);
   }
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
@@ -1551,6 +1559,61 @@ void Status::genericTopicHandler(WINDOW* win) {
 
 //}
 
+/* nodeStatsHandler() //{ */
+
+void Status::nodeStatsHandler(WINDOW* win) {
+
+  std::vector<mrs_msgs::NodeCpuLoad> node_cpu_load_vec;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    node_cpu_load_vec = uav_status_.node_cpu_loads;
+  }
+
+  werase(win);
+  wattron(win, A_BOLD);
+  wattroff(win, A_STANDOUT);
+  box(win, 0, 0);
+
+  if (_light_) {
+    wattron(win, A_STANDOUT);
+  }
+
+  if (!node_cpu_load_vec.empty()) {
+    size_t tmp_num_lines = node_cpu_load_vec.size();
+    if (tmp_num_lines > 9) {
+      tmp_num_lines = 9;
+    }
+
+    for (size_t i = 0; i < tmp_num_lines; i++) {
+
+      printLimitedString(win, 1 + i, 1, node_cpu_load_vec[i].node_name, 42);
+
+      short tmp_color = GREEN;
+      if (node_cpu_load_vec[i].cpu_load > 99.9) {
+        tmp_color = RED;
+      } else if (node_cpu_load_vec[i].cpu_load > 49.9) {
+        tmp_color = YELLOW;
+      }
+
+      wattron(win, COLOR_PAIR(tmp_color));
+      printLimitedDouble(win, 1 + i, 43, "%5.1f %", node_cpu_load_vec[i].cpu_load, 9999);
+      wattroff(win, COLOR_PAIR(tmp_color));
+    }
+
+
+  } else {
+
+    werase(win);
+  }
+
+  wattroff(win, A_BOLD);
+  wnoutrefresh(win);
+}
+
+//}
+
+
 /* uavStateHandler() //{ */
 
 void Status::uavStateHandler(WINDOW* win) {
@@ -2367,19 +2430,19 @@ void Status::printCpuLoad(WINDOW* win) {
   wattron(win, COLOR_PAIR(tmp_color));
 
   printLimitedDouble(win, 1, 1, "CPU: %4.1f %%", cpu_load, 99.9);
-  
+
   // publish cpu load
-  if (cpu_load_publisher_.getNumSubscribers() > 0) { 
+  if (cpu_load_publisher_.getNumSubscribers() > 0) {
     mrs_msgs::Float64Stamped msg;
     msg.header.stamp = ros::Time::now();
-    msg.value = cpu_load;
+    msg.value        = cpu_load;
     try {
       cpu_load_publisher_.publish(msg);
-    } catch (...) {
+    }
+    catch (...) {
       ROS_ERROR("exception caught during publishing topic '%s'", cpu_load_publisher_.getTopic().c_str());
     }
   }
-
 }
 
 //}

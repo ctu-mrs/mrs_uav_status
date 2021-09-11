@@ -1,6 +1,7 @@
 /* INCLUDES //{ */
 
 /* #include <status_window.h> */
+#include "mrs_msgs/NodeCpuLoad.h"
 #include <commons.h>
 #include <mrs_msgs/CustomTopic.h>
 #include <mrs_lib/profiler.h>
@@ -9,6 +10,10 @@
 #include <fstream>
 #include <thread>
 #include <boost/filesystem.hpp>
+
+#include <ros/master.h>
+#include <ros/xmlrpc_manager.h>
+#include <XmlRpcClient.h>
 
 #include <topic_tools/shape_shifter.h>  // for generic topic subscribers
 
@@ -78,6 +83,11 @@ private:
 
   void statusTimer(const ros::TimerEvent& event);
 
+  // | ------------------------ Utility ----------------------- |
+
+  int  getPort(std::string uri);
+  bool compareNodeInfo(node_info n1, node_info n2);
+
   // | ------------------------ Callbacks ----------------------- |
 
   void uavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
@@ -101,6 +111,8 @@ private:
   // | ------------------------- Windows ------------------------ |
 
   void uavStateHandler();
+  void nodeCpuLoadHandler();
+  void updateNodeList();
   void controlManagerHandler();
   void mavrosStateHandler();
   void genericTopicHandler();
@@ -136,6 +148,10 @@ private:
 
   long last_idle_  = 0;
   long last_total_ = 0;
+
+  long total_diff_ = 0;
+
+  int cpu_cores_ = 1;
 
   // | ---------------------- Misc routines --------------------- |
 
@@ -195,6 +211,8 @@ private:
   vector<ros::Subscriber> generic_subscriber_vec_;
   vector<string_info>     string_info_vec_;
 
+  vector<node_info> node_info_vec_;
+
   vector<string> tf_static_list_compare_;
   vector<string> tf_static_list_add_;
 
@@ -217,8 +235,9 @@ private:
 
   bool is_flying_ = false;
 
-  int  hz_counter_  = 0;
-  bool initialized_ = false;
+  int  sec1_counter_  = 0;
+  int  sec10_counter_ = 0;
+  bool initialized_   = false;
 };
 
 //}
@@ -383,6 +402,8 @@ Acquisition::Acquisition() {
 
   initialized_ = true;
   ROS_INFO("[AcquisitionAcquisition]: Node initialized!");
+
+  updateNodeList();
 }
 
 //}
@@ -400,17 +421,30 @@ void Acquisition::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
     uavStateHandler();
   }
 
-  hz_counter_++;
+  sec1_counter_++;
+  sec10_counter_++;
 
-  if (hz_counter_ == 10) {
+  if (sec10_counter_ == 100) {
+    sec10_counter_ = 0;
+    {
+      mrs_lib::Routine profiler_routine = profiler_.createRoutine("updateNodeList");
+      updateNodeList();
+    }
+  }
+
+  if (sec1_counter_ == 10) {
 
     ROS_INFO_ONCE("[%s]: Running data acquisition, publishing uav status.", ros::this_node::getName().c_str());
 
-    hz_counter_ = 0;
+    sec1_counter_ = 0;
 
     {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
       mavrosStateHandler();
+    }
+    {
+      mrs_lib::Routine profiler_routine = profiler_.createRoutine("nodeCpuLoadHandler");
+      nodeCpuLoadHandler();
     }
     {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
@@ -513,6 +547,177 @@ void Acquisition::uavStateHandler() {
     uav_status_.odom_color       = std::get<1>(rate_color);
     uav_status_short_.odom_hz    = uav_status_.odom_hz;
     uav_status_short_.odom_color = uav_status_.odom_color;
+  }
+}
+
+//}
+
+/* getPort //{ */
+
+int Acquisition::getPort(std::string uri) {
+  int  port         = 0;
+  bool pre_colon    = false;
+  bool start_number = false;
+  for (int i = 0; i < uri.size(); i++) {
+    if (uri[i] == ':') {
+      pre_colon = true;
+    } else {
+      if (pre_colon || start_number) {
+        if (uri[i] >= '0' && uri[i] <= '9') {
+          start_number = true;
+          port         = port * 10 + (uri[i] - '0');
+        } else if (start_number) {
+          break;
+        }
+      }
+      pre_colon = false;
+    }
+  }
+
+  return port;
+}
+
+//}
+
+/* compareNodeInfo //{ */
+
+bool Acquisition::compareNodeInfo(node_info n1, node_info n2) {
+  return (n1.node_cpu_usage < n2.node_cpu_usage);
+}
+
+//}
+
+/* updateNodeList() //{ */
+
+void Acquisition::updateNodeList() {
+  ROS_INFO("update node list");
+  vector<node_info> new_node_info_vec_;
+
+  std::vector<std::string> node_names;
+  ros::master::getNodes(node_names);
+
+  for (size_t i = 0; i < node_names.size(); i++) {
+
+    // Get URI of the node
+    XmlRpc::XmlRpcValue args, result, payload;
+    args.setSize(2);
+    args[0] = "";
+    args[1] = node_names[i];
+    ros::master::execute("lookupNode", args, result, payload, true);
+
+    // Make new client of node
+    std::string uri = result[2];
+
+    // TODO: make the getPort routine nicer
+    XmlRpc::XmlRpcClient* client = ros::XMLRPCManager::instance()->getXMLRPCClient(ros::master::getHost(), getPort(uri), uri.c_str());
+
+    // Get PID of the node
+    XmlRpc::XmlRpcValue request, response;
+    request.setSize(1);
+    /* request[0] = single_node.node_name; */
+    client->execute("getPid", request, response);
+    int pid = response[2];
+
+    ros::XMLRPCManager::instance()->releaseXMLRPCClient(client);
+
+    if (pid != 0) {
+      node_info tmp_info(node_names[i]);
+      tmp_info.node_pid = pid;
+      new_node_info_vec_.push_back(tmp_info);
+    }
+  }
+
+  for (size_t i = 0; i < new_node_info_vec_.size(); i++) {
+    for (size_t j = 0; j < node_info_vec_.size(); j++) {
+      if (new_node_info_vec_[i].node_pid == node_info_vec_[j].node_pid) {
+        new_node_info_vec_[i].last_stime = node_info_vec_[j].last_stime;
+        new_node_info_vec_[i].last_utime = node_info_vec_[j].last_utime;
+      }
+    }
+  }
+
+  node_info_vec_ = new_node_info_vec_;
+}
+
+//}
+
+/* nodeCpuLoadHandler() //{ */
+
+void Acquisition::nodeCpuLoadHandler() {
+
+  for (size_t i = 0; i < node_info_vec_.size(); i++) {
+
+    ifstream file("/proc/" + to_string(node_info_vec_[i].node_pid) + "/stat");
+    string   line;
+    getline(file, line);
+    file.close();
+
+    vector<string> results;
+    boost::split(results, line, [](char c) { return c == ' '; });
+
+    long stime;
+    long utime;
+
+    try {
+      utime = stol(results[13]);
+      stime = stol(results[14]);
+    }
+    catch (const invalid_argument& e) {
+      stime = 0;
+      utime = 0;
+    }
+
+    /* ROS_INFO_STREAM("stime: " << stime); */
+    /* ROS_INFO_STREAM("utime: " << utime); */
+
+    /* ROS_INFO_STREAM("last_stime: " << last_stime); */
+    /* ROS_INFO_STREAM("last_utime: " << last_utime); */
+
+    /* ROS_INFO_STREAM("last_last_total_" << last_last_total_); */
+    /* ROS_INFO_STREAM("last_total_" << last_total_); */
+
+    /* double dutime = utime; */
+    /* double dstime = stime; */
+
+    /* double dlast_utime = last_utime; */
+    /* double dlast_stime = last_stime; */
+
+    /* double dlast_total      = total; */
+    /* double dlast_last_total = cputotal_; */
+
+    double user_util = 100.0 * float(utime - node_info_vec_[i].last_utime) / float(total_diff_);
+    double sys_util  = 100.0 * float(stime - node_info_vec_[i].last_stime) / float(total_diff_);
+
+    node_info_vec_[i].last_stime = stime;
+    node_info_vec_[i].last_utime = utime;
+
+    /* ROS_INFO_STREAM("user_util: " << user_util); */
+    /* ROS_INFO_STREAM("sys_util: " << sys_util); */
+    /* ROS_INFO_STREAM("total_util: " << total_time * 16); */
+    /* ROS_INFO_STREAM("total_util: " << 16 * user_util / sys_util); */
+    /* ROS_INFO_STREAM("total_util: " << 16 * sys_util / user_util); */
+
+    node_info_vec_[i].node_cpu_usage = cpu_cores_ * (user_util + sys_util);
+
+
+    /*   mrs_msgs::NodeCpuLoad single_node; */
+    /*   single_node.node_name = topic_infos[i].name; */
+    /*   node_load.push_back(single_node); */
+    /* } */
+  }
+
+  sort(node_info_vec_.begin(), node_info_vec_.end(), [](const node_info& a, const node_info& b) -> bool { return a.node_cpu_usage > b.node_cpu_usage; });
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.node_cpu_loads.clear();
+
+    for (size_t i = 0; i < node_info_vec_.size(); i++) {
+      mrs_msgs::NodeCpuLoad tmp_node_load;
+      tmp_node_load.cpu_load  = node_info_vec_[i].node_cpu_usage;
+      tmp_node_load.node_name = node_info_vec_[i].node_name;
+      uav_status_.node_cpu_loads.push_back(tmp_node_load);
+    }
   }
 }
 
@@ -850,10 +1055,10 @@ void Acquisition::getCpuLoad() {
     total    = 0;
   }
 
-  long total_diff = total - last_total_;
-  long idle_diff  = idle - last_idle_;
+  total_diff_    = total - last_total_;
+  long idle_diff = idle - last_idle_;
 
-  double cpu_load = 100 * (double(total_diff - idle_diff) / double(total_diff));
+  double cpu_load = 100 * (double(total_diff_ - idle_diff) / double(total_diff_));
 
   last_total_ = total;
   last_idle_  = idle;
@@ -878,18 +1083,17 @@ void Acquisition::getCpuFreq() {
   vector<string> results;
   boost::split(results, line, [](char c) { return c == '-'; });
 
-  int num_cores;
 
   try {
-    num_cores = stoi(results[1]) + 1;
+    cpu_cores_ = stoi(results[1]) + 1;
   }
   catch (const invalid_argument& e) {
-    num_cores = 0;
+    cpu_cores_ = 1;
   }
 
   long cpu_freq = 0;
 
-  for (int i = 0; i < num_cores; i++) {
+  for (int i = 0; i < cpu_cores_; i++) {
     string   filename = "/sys/devices/system/cpu/cpu" + to_string(i) + "/cpufreq/scaling_cur_freq";
     ifstream file(filename.c_str());
     getline(file, line);
@@ -902,7 +1106,7 @@ void Acquisition::getCpuFreq() {
     }
   }
 
-  double avg_cpu_ghz = double(cpu_freq / num_cores) / 1048576;
+  double avg_cpu_ghz = double(cpu_freq / cpu_cores_) / 1048576;
 
   {
     std::scoped_lock lock(mutex_status_msg_);
