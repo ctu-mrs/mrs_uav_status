@@ -1585,6 +1585,11 @@ void Status::nodeStatsHandler(WINDOW* win) {
       tmp_num_lines = 9;
     }
 
+    wattron(win, COLOR_PAIR(GREEN));
+    printLimitedString(win, 0, 1, "ROS Node Shitlist", 40);
+    wattroff(win, COLOR_PAIR(GREEN));
+
+    printLimitedString(win, 0, 43, "CPU %%", 6);
     for (size_t i = 0; i < tmp_num_lines; i++) {
 
       printLimitedString(win, 1 + i, 1, node_cpu_load_vec[i].node_name, 42);
@@ -1597,7 +1602,7 @@ void Status::nodeStatsHandler(WINDOW* win) {
       }
 
       wattron(win, COLOR_PAIR(tmp_color));
-      printLimitedDouble(win, 1 + i, 43, "%5.1f %", node_cpu_load_vec[i].cpu_load, 9999);
+      printLimitedDouble(win, 1 + i, 43, "%5.1f", node_cpu_load_vec[i].cpu_load, 9999);
       wattroff(win, COLOR_PAIR(tmp_color));
     }
 
