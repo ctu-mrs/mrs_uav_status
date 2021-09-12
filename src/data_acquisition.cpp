@@ -235,9 +235,9 @@ private:
 
   bool is_flying_ = false;
 
-  int  sec1_counter_  = 0;
-  int  sec10_counter_ = 0;
-  bool initialized_   = false;
+  int  sec1_counter_ = 0;
+  int  sec5_counter_ = 0;
+  bool initialized_  = false;
 };
 
 //}
@@ -265,7 +265,6 @@ Acquisition::Acquisition() {
   param_loader.loadParam("sensors", _sensors_);
   param_loader.loadParam("pixgarm", _pixgarm_);
   param_loader.loadParam("turbo_remote_constraints", _turbo_remote_constraints_);
-
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
   std::vector<string> want_hz;
@@ -315,21 +314,20 @@ Acquisition::Acquisition() {
 
   // | ----------------------- Subscribers ---------------------- |
 
-  uav_state_subscriber_       = nh_.subscribe("uav_state_in", 10, &Acquisition::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
-  cmd_position_subscriber_    = nh_.subscribe("cmd_position_in", 10, &Acquisition::positionCmdCallback, this, ros::TransportHints().tcpNoDelay());
-  odom_diag_subscriber_       = nh_.subscribe("odom_diag_in", 10, &Acquisition::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_state_subscriber_    = nh_.subscribe("mavros_state_in", 10, &Acquisition::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
-  attitude_cmd_subscriber_    = nh_.subscribe("cmd_attitude_in", 10, &Acquisition::cmdAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_global_subscriber_   = nh_.subscribe("mavros_global_in", 10, &Acquisition::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
-  battery_subscriber_         = nh_.subscribe("battery_in", 10, &Acquisition::batteryCallback, this, ros::TransportHints().tcpNoDelay());
-  control_manager_subscriber_ = nh_.subscribe("control_manager_in", 10, &Acquisition::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  gain_manager_subscriber_    = nh_.subscribe("gain_manager_in", 10, &Acquisition::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  constraint_manager_subscriber_ =
-      nh_.subscribe("constraint_manager_in", 10, &Acquisition::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  string_subscriber_       = nh_.subscribe("string_in", 10, &Acquisition::stringCallback, this, ros::TransportHints().tcpNoDelay());
-  set_service_subscriber_  = nh_.subscribe("set_service_in", 10, &Acquisition::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
-  tf_static_subscriber_    = nh_.subscribe("tf_static_in", 100, &Acquisition::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_local_subscriber_ = nh_.subscribe("mavros_local_in", 10, &Acquisition::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
+  uav_state_subscriber_          = nh_.subscribe("uav_state_in", 10, &Acquisition::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
+  cmd_position_subscriber_       = nh_.subscribe("cmd_position_in", 10, &Acquisition::positionCmdCallback, this, ros::TransportHints().tcpNoDelay());
+  odom_diag_subscriber_          = nh_.subscribe("odom_diag_in", 10, &Acquisition::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_state_subscriber_       = nh_.subscribe("mavros_state_in", 10, &Acquisition::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
+  attitude_cmd_subscriber_       = nh_.subscribe("cmd_attitude_in", 10, &Acquisition::cmdAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_global_subscriber_      = nh_.subscribe("mavros_global_in", 10, &Acquisition::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
+  battery_subscriber_            = nh_.subscribe("battery_in", 10, &Acquisition::batteryCallback, this, ros::TransportHints().tcpNoDelay());
+  control_manager_subscriber_    = nh_.subscribe("control_manager_in", 10, &Acquisition::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 10, &Acquisition::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  constraint_manager_subscriber_ = nh_.subscribe("constraint_manager_in", 10, &Acquisition::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  string_subscriber_             = nh_.subscribe("string_in", 10, &Acquisition::stringCallback, this, ros::TransportHints().tcpNoDelay());
+  set_service_subscriber_        = nh_.subscribe("set_service_in", 10, &Acquisition::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
+  tf_static_subscriber_          = nh_.subscribe("tf_static_in", 100, &Acquisition::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_local_subscriber_       = nh_.subscribe("mavros_local_in", 10, &Acquisition::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
 
   // | ----------------------- Publishers ---------------------- |
 
@@ -422,10 +420,10 @@ void Acquisition::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
   }
 
   sec1_counter_++;
-  sec10_counter_++;
+  sec5_counter_++;
 
-  if (sec10_counter_ == 100) {
-    sec10_counter_ = 0;
+  if (sec5_counter_ == 50) {
+    sec5_counter_ = 0;
     {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("updateNodeList");
       updateNodeList();
@@ -648,7 +646,14 @@ void Acquisition::nodeCpuLoadHandler() {
   for (size_t i = 0; i < node_info_vec_.size(); i++) {
 
     ifstream file("/proc/" + to_string(node_info_vec_[i].node_pid) + "/stat");
-    string   line;
+
+    if (file.fail()) {
+      // file not found - means process does not exist anymore
+      node_info_vec_.erase(node_info_vec_.begin() + i);
+      continue;
+    }
+
+    string line;
     getline(file, line);
     file.close();
 
@@ -667,43 +672,13 @@ void Acquisition::nodeCpuLoadHandler() {
       utime = 0;
     }
 
-    /* ROS_INFO_STREAM("stime: " << stime); */
-    /* ROS_INFO_STREAM("utime: " << utime); */
-
-    /* ROS_INFO_STREAM("last_stime: " << last_stime); */
-    /* ROS_INFO_STREAM("last_utime: " << last_utime); */
-
-    /* ROS_INFO_STREAM("last_last_total_" << last_last_total_); */
-    /* ROS_INFO_STREAM("last_total_" << last_total_); */
-
-    /* double dutime = utime; */
-    /* double dstime = stime; */
-
-    /* double dlast_utime = last_utime; */
-    /* double dlast_stime = last_stime; */
-
-    /* double dlast_total      = total; */
-    /* double dlast_last_total = cputotal_; */
-
     double user_util = 100.0 * float(utime - node_info_vec_[i].last_utime) / float(total_diff_);
     double sys_util  = 100.0 * float(stime - node_info_vec_[i].last_stime) / float(total_diff_);
 
     node_info_vec_[i].last_stime = stime;
     node_info_vec_[i].last_utime = utime;
 
-    /* ROS_INFO_STREAM("user_util: " << user_util); */
-    /* ROS_INFO_STREAM("sys_util: " << sys_util); */
-    /* ROS_INFO_STREAM("total_util: " << total_time * 16); */
-    /* ROS_INFO_STREAM("total_util: " << 16 * user_util / sys_util); */
-    /* ROS_INFO_STREAM("total_util: " << 16 * sys_util / user_util); */
-
     node_info_vec_[i].node_cpu_usage = cpu_cores_ * (user_util + sys_util);
-
-
-    /*   mrs_msgs::NodeCpuLoad single_node; */
-    /*   single_node.node_name = topic_infos[i].name; */
-    /*   node_load.push_back(single_node); */
-    /* } */
   }
 
   sort(node_info_vec_.begin(), node_info_vec_.end(), [](const node_info& a, const node_info& b) -> bool { return a.node_cpu_usage > b.node_cpu_usage; });
