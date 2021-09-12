@@ -1563,11 +1563,13 @@ void Status::genericTopicHandler(WINDOW* win) {
 
 void Status::nodeStatsHandler(WINDOW* win) {
 
-  std::vector<mrs_msgs::NodeCpuLoad> node_cpu_load_vec;
+  mrs_msgs::NodeCpuLoad node_cpu_load_vec;
+  double                cpu_load_total;
 
   {
     std::scoped_lock lock(mutex_status_msg_);
     node_cpu_load_vec = uav_status_.node_cpu_loads;
+    cpu_load_total    = uav_status_.cpu_load_total;
   }
 
   werase(win);
@@ -1579,8 +1581,8 @@ void Status::nodeStatsHandler(WINDOW* win) {
     wattron(win, A_STANDOUT);
   }
 
-  if (!node_cpu_load_vec.empty()) {
-    size_t tmp_num_lines = node_cpu_load_vec.size();
+  if (!node_cpu_load_vec.node_names.empty()) {
+    size_t tmp_num_lines = node_cpu_load_vec.node_names.size();
     if (tmp_num_lines > 9) {
       tmp_num_lines = 9;
     }
@@ -1589,20 +1591,21 @@ void Status::nodeStatsHandler(WINDOW* win) {
     printLimitedString(win, 0, 1, "ROS Node Shitlist", 40);
     wattroff(win, COLOR_PAIR(GREEN));
 
+    printLimitedDouble(win, 0, 37, "%5.1f", cpu_load_total, 9999);
     printLimitedString(win, 0, 43, "CPU %%", 6);
     for (size_t i = 0; i < tmp_num_lines; i++) {
 
-      printLimitedString(win, 1 + i, 1, node_cpu_load_vec[i].node_name, 42);
+      printLimitedString(win, 1 + i, 1, node_cpu_load_vec.node_names[i], 42);
 
       short tmp_color = GREEN;
-      if (node_cpu_load_vec[i].cpu_load > 99.9) {
+      if (node_cpu_load_vec.cpu_loads[i] > 99.9) {
         tmp_color = RED;
-      } else if (node_cpu_load_vec[i].cpu_load > 49.9) {
+      } else if (node_cpu_load_vec.cpu_loads[i] > 49.9) {
         tmp_color = YELLOW;
       }
 
       wattron(win, COLOR_PAIR(tmp_color));
-      printLimitedDouble(win, 1 + i, 43, "%5.1f", node_cpu_load_vec[i].cpu_load, 9999);
+      printLimitedDouble(win, 1 + i, 43, "%5.1f", node_cpu_load_vec.cpu_loads[i], 9999);
       wattroff(win, COLOR_PAIR(tmp_color));
     }
 
