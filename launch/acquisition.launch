@@ -20,7 +20,7 @@
 
   <group ns="$(arg UAV_NAME)">
 
-    <node name="mrs_uav_status_acquisition" pkg="mrs_uav_status" type="data_acquisition" output="screen" respawn="false" launch-prefix="$(arg launch_prefix)">
+    <node name="mrs_uav_status_acquisition" pkg="mrs_uav_status" type="data_acquisition" output="screen" respawn="true" launch-prefix="$(arg launch_prefix)">
         
       <param name="uav_name" value="$(arg UAV_NAME)" />
       <param name="nato_name" value="$(arg NATO_NAME)" />
