@@ -31,6 +31,6 @@ tf_static_list: [
       "uvcam_back uvdar_bluefox/back/camera_info UV_BFox_Back 60",
       "basler_left basler_left/camera_info Basler Left 5",
       "basler_right basler_right/camera_info Basler Right 5",
-      "up_rgbd/link up_rgbd/rs_d435/color/camera_info RS Up 5",
-      "down_rgbd/link down_rgbd/rs_d435/color/camera_info RS Down 5",
+      "up_rgbd/link up_rgbd/color/camera_info RS Up 5",
+      "down_rgbd/link down_rgbd/color/camera_info RS Down 5",
       ]
