@@ -52,7 +52,6 @@
       <remap from="~set_controller_out" to="control_manager/switch_controller" />
       <remap from="~set_tracker_out" to="control_manager/switch_tracker" />
       <remap from="~hover_out" to="control_manager/hover" />
-      <remap from="~cpu_load_out" to="cpu_load" />
       <remap from="~profiler" to="profiler" />
 
     </node>

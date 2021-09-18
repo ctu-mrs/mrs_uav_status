@@ -87,6 +87,7 @@ private:
   double _service_delay_     = 0.1;
 
   void printCpuLoad(WINDOW* win);
+  void printCpuTemp(WINDOW* win);
   void printCpuFreq(WINDOW* win);
   void printMemLoad(WINDOW* win);
   void printDiskSpace(WINDOW* win);
@@ -101,8 +102,6 @@ private:
   ros::Subscriber uav_status_subscriber_;
   ros::Subscriber uav_status_short_subscriber_;
 
-  // | ------------------------ publishers ------------------------- |
-  ros::Publisher cpu_load_publisher_;
 
   // | ------------------------- Callbacks ------------------------- |
 
@@ -278,8 +277,6 @@ Status::Status() {
   uav_status_subscriber_       = nh_.subscribe("uav_status_in", 10, &Status::uavStatusCallback, this, ros::TransportHints().tcpNoDelay());
   uav_status_short_subscriber_ = nh_.subscribe("uav_status_short_in", 10, &Status::uavStatusShortCallback, this, ros::TransportHints().tcpNoDelay());
 
-  // | ----------------------- Publishers ----------------------- |
-  cpu_load_publisher_ = nh_.advertise<mrs_msgs::Float64Stamped>("cpu_load_out", 1);
 
   // | ------------------------ Services ------------------------ |
 
@@ -2168,6 +2165,7 @@ void Status::generalInfoHandeler(WINDOW* win) {
   }
 
   printCpuLoad(win);
+  printCpuTemp(win);
   printMemLoad(win);
   printCpuFreq(win);
   printDiskSpace(win);
@@ -2436,21 +2434,33 @@ void Status::printCpuLoad(WINDOW* win) {
   }
 
   wattron(win, COLOR_PAIR(tmp_color));
-
   printLimitedDouble(win, 1, 1, "CPU: %4.1f %%", cpu_load, 99.9);
 
-  // publish cpu load
-  if (cpu_load_publisher_.getNumSubscribers() > 0) {
-    mrs_msgs::Float64Stamped msg;
-    msg.header.stamp = ros::Time::now();
-    msg.value        = cpu_load;
-    try {
-      cpu_load_publisher_.publish(msg);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic '%s'", cpu_load_publisher_.getTopic().c_str());
-    }
+}
+
+//}
+
+/* printCpuTemp() //{ */
+
+void Status::printCpuTemp(WINDOW* win) {
+
+  double cpu_temp;
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    cpu_temp = uav_status_.cpu_temperature;
   }
+
+  int tmp_color = GREEN;
+  if (cpu_temp > 90.0) {
+    tmp_color = RED;
+  } else if (cpu_temp > 75.0) {
+    tmp_color = YELLOW;
+  }
+
+  wattron(win, COLOR_PAIR(tmp_color));
+
+  printLimitedDouble(win, 0, 1, "%5.1f °C", cpu_temp, 999.9);
+
 }
 
 //}

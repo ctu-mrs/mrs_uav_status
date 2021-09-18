@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <string>
 #include <thread>
 #include <boost/filesystem.hpp>
 
@@ -141,6 +142,7 @@ private:
   // General info window
 
   void getCpuLoad();
+  void getCpuTemperature();
   void getMemLoad();
   void getCpuFreq();
   void getDiskSpace();
@@ -797,6 +799,7 @@ void Acquisition::generalInfoThread() {
       {
         mrs_lib::Routine profiler_routine = profiler_.createRoutine("generalInfoThread");
         getCpuLoad();
+        getCpuTemperature();
         nodeCpuLoadHandler();
         getMemLoad();
         getCpuFreq();
@@ -893,6 +896,7 @@ void Acquisition::prefillUavStatus() {
   uav_status_.odom_estimators_hdg.clear();
   uav_status_.cpu_load        = 0.0;
   uav_status_.cpu_ghz         = 0.0;
+  uav_status_.cpu_temperature = 0.0;
   uav_status_.free_ram        = 0.0;
   uav_status_.free_hdd        = 0.0;
   uav_status_.mavros_hz       = 0.0;
@@ -995,6 +999,52 @@ void Acquisition::getMemLoad() {
     std::scoped_lock lock(mutex_status_msg_);
     uav_status_.free_ram  = free_ram + buffers;
     uav_status_.total_ram = total_ram;
+  }
+}
+
+//}
+
+/* getCpuTemperature() //{ */
+
+void Acquisition::getCpuTemperature() {
+
+  bool breaker       = false;
+  long max_temp      = 0;
+  int  file_iterator = 0;
+
+  while (!breaker) {
+    std::string temp_filename = "/sys/class/thermal/thermal_zone" + std::to_string(file_iterator) + "/temp";
+    file_iterator++;
+
+    if (boost::filesystem::exists(temp_filename)) {
+
+      ifstream    file(temp_filename);
+      std::string line;
+      getline(file, line);
+      file.close();
+      long temp = 0;
+
+      try {
+        temp = stol(line);
+      }
+      catch (const invalid_argument& e) {
+        temp = 0;
+      }
+      if (temp > max_temp) {
+        max_temp = temp;
+      }
+    } else {
+      breaker = true;
+    }
+    if (file_iterator > 10) {
+      breaker = true;
+    }
+  }
+
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.cpu_temperature = float(max_temp) / 1000;
   }
 }
 
