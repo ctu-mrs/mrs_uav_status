@@ -2,6 +2,29 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* added cpu temperature
+* add respawn=true to acquisition.launch
+* updated process cpu load
+* added rosnode shitlist
+* fill time in uav_status msg
+* fixed tf static problem, added more generic topics
+* Add publishing of cpuload
+* updated tracker and controller switching (human switchable)
+* updated synchro tmux
+* Added basic Control error display, and more battery stats
+* fixed remote mode setting from odom issue
+* fixing land home problem
+* moved msg time indicator
+* fixed display of controllers/trackers that are not in the list of available controllers/trackers
+* added more params to custom string msgs
+* added confirmation dialogs to land, land_home and other trig services
+* added change odometry source service
+* updated mass loading for simulation
+* pass config_file arg in status.launch
+* Contributors: Dan Hert, Daniel Hert, Matej Petrlik, Pavel Petracek, Tomas Baca, Vit Kratky
+
 1.0.1 (2021-05-16)
 ------------------
 * updated ros::shutdown
