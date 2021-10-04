@@ -2,8 +2,8 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.2 (2021-10-04)
+------------------
 * added cpu temperature
 * add respawn=true to acquisition.launch
 * updated process cpu load
