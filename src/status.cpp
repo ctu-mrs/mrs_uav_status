@@ -151,6 +151,7 @@ private:
   std::string callTerminal(const char* cmd);
 
   mrs_lib::Profiler profiler_;
+  bool              _colorblind_mode_  = false;
   bool              _profiler_enabled_ = false;
 
 
@@ -250,13 +251,14 @@ Status::Status() {
   mrs_lib::ParamLoader param_loader(nh_, "Status");
 
   param_loader.loadParam("colorscheme", _colorscheme_);
-  param_loader.loadParam("rainbow", _rainbow_);
+  param_loader.loadParam("rainbow", _rainbow_, false);
 
   param_loader.loadParam("debug_tilt", _debug_tilt_);
   param_loader.loadParam("remote_mode_is_trajectory", _remote_mode_is_trajectory_);
 
   param_loader.loadParam("turbo_remote_constraints", _turbo_remote_constraints_);
 
+  param_loader.loadParam("colorblind_mode", _colorblind_mode_);
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
   if (!param_loader.loadedSuccessfully()) {
@@ -2435,7 +2437,6 @@ void Status::printCpuLoad(WINDOW* win) {
 
   wattron(win, COLOR_PAIR(tmp_color));
   printLimitedDouble(win, 1, 1, "CPU: %4.1f %%", cpu_load, 99.9);
-
 }
 
 //}
@@ -2460,7 +2461,6 @@ void Status::printCpuTemp(WINDOW* win) {
   wattron(win, COLOR_PAIR(tmp_color));
 
   printLimitedDouble(win, 0, 1, "%5.1f °C", cpu_temp, 999.9);
-
 }
 
 //}
@@ -2689,21 +2689,29 @@ void Status::setupColors(bool active) {
   init_pair(ALWAYS_RED, COLOR_NICE_RED, BACKGROUND_DEFAULT);
 
   if (active) {
+
     init_pair(NORMAL, COLOR_WHITE, BACKGROUND_DEFAULT);
     init_pair(FIELD, COLOR_WHITE, 235);
     init_pair(RED, COLOR_NICE_RED, BACKGROUND_DEFAULT);
     init_pair(YELLOW, COLOR_NICE_YELLOW, BACKGROUND_DEFAULT);
-    init_pair(GREEN, COLOR_NICE_GREEN, BACKGROUND_DEFAULT);
-    init_pair(BLUE, COLOR_NICE_BLUE, BACKGROUND_DEFAULT);
+
+    if (_colorblind_mode_) {
+      init_pair(GREEN, COLOR_NICE_BLUE, BACKGROUND_DEFAULT);
+    } else {
+      init_pair(GREEN, COLOR_NICE_GREEN, BACKGROUND_DEFAULT);
+    }
     _light_ = false;
 
 
     if (_colorscheme_.find("COLORSCHEME_LIGHT") != std::string::npos) {
       init_pair(NORMAL, COLOR_BLACK, BACKGROUND_DEFAULT);
       init_pair(FIELD, COLOR_WHITE, 237);
-      init_pair(GREEN, COLOR_DARK_GREEN, BACKGROUND_DEFAULT);
-      init_pair(BLUE, COLOR_DARK_BLUE, BACKGROUND_DEFAULT);
       init_pair(YELLOW, COLOR_DARK_YELLOW, BACKGROUND_DEFAULT);
+      if (_colorblind_mode_) {
+        init_pair(GREEN, COLOR_DARK_BLUE, BACKGROUND_DEFAULT);
+      } else {
+        init_pair(GREEN, COLOR_DARK_GREEN, BACKGROUND_DEFAULT);
+      }
       _light_ = true;
     }
 
@@ -2713,16 +2721,11 @@ void Status::setupColors(bool active) {
     init_pair(RED, COLOR_DARK_RED, BACKGROUND_DEFAULT);
     init_pair(YELLOW, COLOR_DARK_RED, BACKGROUND_DEFAULT);
     init_pair(GREEN, COLOR_DARK_RED, BACKGROUND_DEFAULT);
-    init_pair(BLUE, COLOR_DARK_RED, BACKGROUND_DEFAULT);
     _light_ = false;
 
 
     if (_colorscheme_.find("COLORSCHEME_LIGHT") != std::string::npos) {
-      init_pair(NORMAL, COLOR_DARK_RED, BACKGROUND_DEFAULT);
       init_pair(FIELD, COLOR_DARK_RED, 237);
-      init_pair(GREEN, COLOR_DARK_RED, BACKGROUND_DEFAULT);
-      init_pair(BLUE, COLOR_DARK_RED, BACKGROUND_DEFAULT);
-      init_pair(YELLOW, COLOR_DARK_RED, BACKGROUND_DEFAULT);
       _light_ = true;
     }
   }
