@@ -1446,6 +1446,7 @@ void Status::stringHandler(WINDOW* win) {
 
   if (string_vector.empty()) {
     werase(win);
+    wnoutrefresh(win);
     return;
   }
 
