@@ -3,6 +3,7 @@
 /* #include <status_window.h> */
 #include "mrs_msgs/NodeCpuLoad.h"
 #include "mrs_msgs/Reference.h"
+#include "mrs_msgs/TarotGimbalState.h"
 #include "ros/duration.h"
 #include <menu.h>
 #include <input_box.h>
@@ -20,6 +21,7 @@ typedef enum
 {
   STANDARD,
   REMOTE,
+  GIMBAL,
   MAIN_MENU,
   GOTO_MENU,
 } status_state;
@@ -102,6 +104,9 @@ private:
   ros::Subscriber uav_status_subscriber_;
   ros::Subscriber uav_status_short_subscriber_;
 
+  // | ------------------------- Publishers ------------------------ |
+
+  ros::Publisher gimbal_command_publisher_;
 
   // | ------------------------- Callbacks ------------------------- |
 
@@ -143,6 +148,7 @@ private:
   void flightTimeHandler(WINDOW* win);
 
   void remoteHandler(int key, WINDOW* win);
+  void gimbalHandler(int key, WINDOW* win);
 
   void remoteModeFly(mrs_msgs::Reference& goal);
 
@@ -217,6 +223,10 @@ private:
 
   string old_constraints;
 
+  mrs_msgs::TarotGimbalState gimbal_command;
+  const uint16_t             gimbal_max = 2000;
+  const uint16_t             gimbal_min = 1000;
+
   std::unique_ptr<mrs_lib::Transformer> transformer_;
 
   // | -------------------- Switches, states -------------------- |
@@ -279,6 +289,9 @@ Status::Status() {
   uav_status_subscriber_       = nh_.subscribe("uav_status_in", 10, &Status::uavStatusCallback, this, ros::TransportHints().tcpNoDelay());
   uav_status_short_subscriber_ = nh_.subscribe("uav_status_short_in", 10, &Status::uavStatusShortCallback, this, ros::TransportHints().tcpNoDelay());
 
+  // | ------------------------ Publishers ------------------------ |
+
+  gimbal_command_publisher_ = nh_.advertise<mrs_msgs::TarotGimbalState>("gimbal_command_out", 1);
 
   // | ------------------------ Services ------------------------ |
 
@@ -293,7 +306,6 @@ Status::Status() {
   service_set_alt_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_alt_estimator_out");
   service_set_hdg_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_hdg_estimator_out");
   service_hover_                = mrs_lib::ServiceClientHandler<std_srvs::Trigger>(nh_, "hover_out");
-
   // mrs_lib profiler
   profiler_ = mrs_lib::Profiler(nh_, "Status", _profiler_enabled_);
 
@@ -326,7 +338,6 @@ Status::Status() {
   node_stats_window_      = newwin(11, 50, 1, 109);
 
   setupColors(have_data_);
-
   initialized_ = true;
   ROS_INFO("[Status]: Node initialized!");
 }
@@ -420,6 +431,15 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
           }
           break;
 
+        case 'G':
+
+          gimbal_command.fpv_mode    = true;
+          gimbal_command.is_on       = true;
+          gimbal_command.gimbal_pan  = 1500;
+          gimbal_command.gimbal_tilt = 1500;
+          state                      = GIMBAL;
+          break;
+
         case 'm':
           setupMainMenu();
           state = MAIN_MENU;
@@ -455,6 +475,14 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
           printServiceResult(string_service.response.success, string_service.response.message);
         }
 
+        state = STANDARD;
+      }
+      break;
+
+    case GIMBAL:
+      flushinp();
+      gimbalHandler(key_in, top_bar_window_);
+      if (key_in == 'G' || key_in == KEY_ESC) {
         state = STANDARD;
       }
       break;
@@ -1286,6 +1314,198 @@ void Status::remoteHandler(int key, WINDOW* win) {
         remote_hover_ = false;
       }
       break;
+  }
+  wattroff(win, A_BOLD);
+}
+
+//}
+
+/* gimbalHandler() //{ */
+
+void Status::gimbalHandler(int key, WINDOW* win) {
+
+  if (_light_) {
+    wattron(win, A_STANDOUT);
+  }
+
+  wattron(win, A_BOLD);
+  wattron(win, COLOR_PAIR(RED));
+  mvwprintw(win, 0, 43, "GIMBAL      MODE IS ACTIVE");
+
+  if (gimbal_command.fpv_mode) {
+    mvwprintw(win, 0, 50, "FPV");
+  }else{
+    mvwprintw(win, 0, 50, "P-T");
+  }
+
+  wattroff(win, COLOR_PAIR(RED));
+
+  const uint16_t gimbal_max       = 2000;
+  const uint16_t gimbal_min       = 1000;
+  uint16_t       gimbal_increment = 10;
+
+  switch (key) {
+
+    case 'w':
+    case 'k':
+    case KEY_UP:
+      gimbal_command.gimbal_tilt -= gimbal_increment;
+      break;
+
+    case 's':
+    case 'j':
+    case KEY_DOWN:
+      gimbal_command.gimbal_tilt += gimbal_increment;
+      break;
+
+    case 'a':
+    case 'h':
+    case KEY_LEFT:
+      gimbal_command.gimbal_pan -= gimbal_increment;
+      break;
+
+    case 'd':
+    case 'l':
+    case KEY_RIGHT:
+      gimbal_command.gimbal_pan += gimbal_increment;
+      break;
+
+    case 'm':
+      gimbal_command.fpv_mode = !gimbal_command.fpv_mode;
+      break;
+
+    case 'o':
+      gimbal_command.is_on = !gimbal_command.is_on;
+      break;
+
+    case 'r':
+      gimbal_command.is_on = true;
+      gimbal_command.fpv_mode = true;
+      gimbal_command.gimbal_tilt = 1500;
+      gimbal_command.gimbal_pan = 1500;
+      break;
+
+      /* case 'r': */
+      /*   reference.position.z = 1.0; */
+
+      /*   if (turbo_remote_) { */
+      /*     reference.position.z = 2.0; */
+      /*   } */
+
+      /*   remoteModeFly(reference); */
+      /*   remote_hover_ = true; */
+      /*   break; */
+
+      /* case 'f': */
+      /*   reference.position.z = -1.0; */
+
+      /*   if (turbo_remote_) { */
+      /*     reference.position.z = -2.0; */
+      /*   } */
+
+      /*   remoteModeFly(reference); */
+      /*   remote_hover_ = true; */
+      /*   break; */
+
+      /* case 'q': */
+      /*   reference.heading = 0.5; */
+
+      /*   if (turbo_remote_) { */
+      /*     reference.heading = 1.0; */
+      /*   } */
+
+      /*   remoteModeFly(reference); */
+      /*   remote_hover_ = true; */
+      /*   break; */
+
+      /* case 'e': */
+      /*   reference.heading = -0.5; */
+
+      /*   if (turbo_remote_) { */
+      /*     reference.heading = -1.0; */
+      /*   } */
+
+      /*   remoteModeFly(reference); */
+      /*   remote_hover_ = true; */
+      /*   break; */
+
+      /* case 'T': */
+
+      /*   bool is_flying_normally_; */
+
+      /*   { */
+      /*     std::scoped_lock lock(mutex_status_msg_); */
+      /*     is_flying_normally_ = uav_status_.flying_normally; */
+      /*   } */
+
+      /*   if (is_flying_normally_) { */
+
+      /*     if (turbo_remote_) { */
+
+      /*       turbo_remote_                = false; */
+      /*       string_service.request.value = old_constraints; */
+      /*       service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_); */
+      /*       printServiceResult(string_service.response.success, string_service.response.message); */
+
+      /*     } else { */
+
+      /*       turbo_remote_ = true; */
+
+      /*       { */
+      /*         std::scoped_lock lock(mutex_status_msg_); */
+      /*         old_constraints = uav_status_.constraints[0]; */
+      /*       } */
+
+      /*       string_service.request.value = _turbo_remote_constraints_; */
+      /*       service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_); */
+      /*       printServiceResult(string_service.response.success, string_service.response.message); */
+      /*     } */
+      /*   } */
+
+      /*   break; */
+
+      /* case 'G': */
+
+
+      /* { */
+      /*   std::scoped_lock lock(mutex_status_msg_); */
+      /*   is_flying_normally_ = uav_status_.flying_normally; */
+      /* } */
+      /*   if (is_flying_normally_) { */
+      /*     remote_global_ = !remote_global_; */
+      /*   } */
+
+      /*   break; */
+
+
+      /* default: */
+      /*   if (remote_hover_) { */
+
+      /*     service_hover_.call(trig, _service_num_calls_, _service_delay_); */
+      /*     remote_hover_ = false; */
+      /*   } */
+      /*   break; */
+  }
+
+  if (gimbal_command.gimbal_pan > gimbal_max) {
+    gimbal_command.gimbal_pan = gimbal_max;
+  }
+  if (gimbal_command.gimbal_tilt > gimbal_max) {
+    gimbal_command.gimbal_tilt = gimbal_max;
+  }
+
+  if (gimbal_command.gimbal_pan < gimbal_min) {
+    gimbal_command.gimbal_pan = gimbal_min;
+  }
+  if (gimbal_command.gimbal_tilt < gimbal_min) {
+    gimbal_command.gimbal_tilt = gimbal_min;
+  }
+
+  try {
+    gimbal_command_publisher_.publish(gimbal_command);
+  }
+  catch (...) {
+    ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", gimbal_command_publisher_.getTopic().c_str());
   }
   wattroff(win, A_BOLD);
 }

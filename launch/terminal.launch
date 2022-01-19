@@ -40,6 +40,9 @@
       <remap from="~uav_status_in" to="~uav_status" />
       <remap from="~uav_status_short_in" to="~uav_status_short" />
 
+        <!-- Publishers -->
+      <remap from="~gimbal_command_out" to="tarot_gimbal/gimbal_command" />
+
         <!-- Services -->
       <remap from="~reference_out" to="control_manager/reference" />
       <remap from="~trajectory_reference_out" to="control_manager/trajectory_reference" />
