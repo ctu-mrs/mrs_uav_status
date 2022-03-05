@@ -310,6 +310,7 @@ Status::Status() {
   profiler_ = mrs_lib::Profiler(nh_, "Status", _profiler_enabled_);
 
   transformer_ = std::make_unique<mrs_lib::Transformer>("UavStatus");
+  transformer_->retryLookupNewest(true);
 
   // Loads the default GoTo value
   goto_double_vec_.push_back(0.0);
@@ -1572,7 +1573,7 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
     reference.request.header.frame_id = uav_name + "/fcu_untilted";
     reference.request.header.stamp    = ros::Time::now();
 
-    auto response = transformer_->transformSingle(reference.request.header.frame_id, cmd_reference);
+    auto response = transformer_->transformSingle(cmd_reference, reference.request.header.frame_id);
     if (response) {
       cmd_reference = response.value();
     } else {

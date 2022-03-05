@@ -50,7 +50,6 @@
 
 #include <sensor_msgs/BatteryState.h>
 
-#include <mrs_lib/transformer.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/attitude_converter.h>
 
@@ -217,8 +216,6 @@ private:
 
   vector<string> tf_static_list_compare_;
   vector<string> tf_static_list_add_;
-
-  std::unique_ptr<mrs_lib::Transformer> transformer_;
 
   // | ---------------------- Flight timer ---------------------- |
 
