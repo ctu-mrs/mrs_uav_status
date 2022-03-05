@@ -309,7 +309,7 @@ Status::Status() {
   // mrs_lib profiler
   profiler_ = mrs_lib::Profiler(nh_, "Status", _profiler_enabled_);
 
-  transformer_ = std::make_unique<mrs_lib::Transformer>("UavStatus");
+  transformer_ = std::make_unique<mrs_lib::Transformer>(nh_, "UavStatus");
   transformer_->retryLookupNewest(true);
 
   // Loads the default GoTo value
