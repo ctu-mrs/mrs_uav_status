@@ -28,7 +28,7 @@ set(EXECUTABLES
   )
 
 catkin_package(
-  CATKIN_DEPENDS message_runtime
+  CATKIN_DEPENDS message_runtime roscpp std_msgs nav_msgs mavros_msgs mrs_msgs mrs_lib
   )
 
 include_directories(include
