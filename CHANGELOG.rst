@@ -2,8 +2,8 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.3 (2022-05-09)
+------------------
 * updated dependencies
 * updated transformer interface
 * refactored agains the new transformer
