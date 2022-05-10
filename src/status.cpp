@@ -73,6 +73,8 @@ private:
 
   // | ------------------------- Windows ------------------------ |
 
+  void setupWindows();
+
   void uavStateHandler(WINDOW* win);
   void controlManagerHandler(WINDOW* win);
   void mavrosStateHandler(WINDOW* win);
@@ -98,6 +100,7 @@ private:
   long last_total_ = 0;
   long last_gigas_ = 0;
 
+  ros::TimerEvent tmp_event;
 
   // | ------------------------- Subscribers ------------------------ |
 
@@ -243,6 +246,9 @@ private:
   int          cols_, lines_;
 
   bool initialized_ = false;
+
+  bool mini_ = true;
+  /* bool mini_ = false; */
 };
 
 //}
@@ -327,21 +333,45 @@ Status::Status() {
   // |            Window creation and topic association           |
   // --------------------------------------------------------------
 
-  uav_state_window_       = newwin(7, 26, 5, 1);
-  control_manager_window_ = newwin(4, 26, 1, 1);
-  mavros_state_window_    = newwin(7, 25, 5, 27);
-  general_info_window_    = newwin(4, 25, 1, 27);
-  top_bar_window_         = newwin(1, 120, 0, 1);
-  bottom_window_          = newwin(1, 120, 12, 1);
-  debug_window_           = newwin(20, 120, 13, 1);
-  generic_topic_window_   = newwin(11, 25, 1, 52);
-  string_window_          = newwin(11, 32, 1, 77);
-  node_stats_window_      = newwin(11, 50, 1, 109);
+  setupWindows();
 
-  setupColors(have_data_);
   initialized_ = true;
   ROS_INFO("[Status]: Node initialized!");
 }
+
+//}
+
+/* resizeTimer //{ */
+
+void Status::setupWindows() {
+
+  if (mini_) {
+    control_manager_window_ = newwin(4, 9, 1, 1);
+    uav_state_window_       = newwin(6, 9, 5, 1);
+    top_bar_window_         = newwin(1, 120, 0, 1);
+    general_info_window_    = newwin(4, 9, 1, 10);
+    mavros_state_window_    = newwin(6, 9, 5, 10);
+    generic_topic_window_   = newwin(10, 9, 1, 19);
+    debug_window_           = newwin(20, 120, 13, 1);
+
+
+  } else {
+    uav_state_window_       = newwin(7, 26, 5, 1);
+    control_manager_window_ = newwin(4, 26, 1, 1);
+    mavros_state_window_    = newwin(7, 25, 5, 27);
+    general_info_window_    = newwin(4, 25, 1, 27);
+    top_bar_window_         = newwin(1, 120, 0, 1);
+    bottom_window_          = newwin(1, 120, 12, 1);
+    debug_window_           = newwin(20, 120, 13, 1);
+    generic_topic_window_   = newwin(11, 25, 1, 52);
+    string_window_          = newwin(11, 32, 1, 77);
+    node_stats_window_      = newwin(11, 50, 1, 109);
+  }
+
+  clear();
+  setupColors(have_data_);
+}
+
 
 //}
 
@@ -393,20 +423,20 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
     return;
   }
 
-
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
     uavStateHandler(uav_state_window_);
   }
 
-  wclear(top_bar_window_);
+  /* wclear(top_bar_window_); */
 
-  if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
-    werase(bottom_window_);
-  }
+  /* if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) { */
+  /*   werase(bottom_window_); */
+  /* } */
+
   flightTimeHandler(top_bar_window_);
 
-  printHelp();
+  /* printHelp(); */
 
 
   int  key_in = getch();
@@ -453,6 +483,13 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
 
         case 'h':
           help_active_ = !help_active_;
+          break;
+
+        case 'M':
+          mini_ = !mini_;
+          setupWindows();
+          statusTimerFast(tmp_event);
+          statusTimerSlow(tmp_event);
           break;
 
         default:
@@ -517,11 +554,11 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
   /*   printDebug("something else"); */
   /* } */
 
-  if (state != MAIN_MENU && state != GOTO_MENU) {
-    wnoutrefresh(bottom_window_);
-  }
+  /* if (state != MAIN_MENU && state != GOTO_MENU) { */
+  /*   wnoutrefresh(bottom_window_); */
+  /* } */
 
-  wnoutrefresh(top_bar_window_);
+  /* wnoutrefresh(top_bar_window_); */
 
   doupdate();
 }
@@ -549,14 +586,14 @@ void Status::statusTimerSlow([[maybe_unused]] const ros::TimerEvent& event) {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
     genericTopicHandler(generic_topic_window_);
   }
-  {
+  if (!mini_) {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("nodeStatsHandler");
     nodeStatsHandler(node_stats_window_);
   }
-  {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
-    stringHandler(string_window_);
-  }
+  /* { */
+  /*   mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler"); */
+  /*   stringHandler(string_window_); */
+  /* } */
 
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("generalInfoHandler");
@@ -1335,7 +1372,7 @@ void Status::gimbalHandler(int key, WINDOW* win) {
 
   if (gimbal_command.fpv_mode) {
     mvwprintw(win, 0, 50, "FPV");
-  }else{
+  } else {
     mvwprintw(win, 0, 50, "P-T");
   }
 
@@ -1380,10 +1417,10 @@ void Status::gimbalHandler(int key, WINDOW* win) {
       break;
 
     case 'r':
-      gimbal_command.is_on = true;
-      gimbal_command.fpv_mode = true;
+      gimbal_command.is_on       = true;
+      gimbal_command.fpv_mode    = true;
       gimbal_command.gimbal_tilt = 1500;
-      gimbal_command.gimbal_pan = 1500;
+      gimbal_command.gimbal_pan  = 1500;
       break;
 
       /* case 'r': */
@@ -1758,17 +1795,30 @@ void Status::genericTopicHandler(WINDOW* win) {
   if (_light_) {
     wattron(win, A_STANDOUT);
   }
+  mrs_msgs::CustomTopic tmp_pes;
+  tmp_pes.topic_color = GREEN;
+  tmp_pes.topic_hz    = 23.4;
+  tmp_pes.topic_name  = "Bfox_left";
+  custom_topic_vec.push_back(tmp_pes);
+  tmp_pes.topic_color = RED;
+  tmp_pes.topic_hz    = 13.4;
+  tmp_pes.topic_name  = "Ouster";
+  custom_topic_vec.push_back(tmp_pes);
 
   if (!custom_topic_vec.empty()) {
     for (size_t i = 0; i < custom_topic_vec.size(); i++) {
 
       wattron(win, COLOR_PAIR(custom_topic_vec[i].topic_color));
-      printLimitedString(win, 1 + i, 1, custom_topic_vec[i].topic_name, 15);
-      printLimitedDouble(win, 1 + i, 16, "%5.1f Hz", custom_topic_vec[i].topic_hz, 1000);
+      if (mini_) {
+        printLimitedString(win, 1 + i, 1, custom_topic_vec[i].topic_name, 4);
+        printLimitedDouble(win, 1 + i, 5, "%3.0f", custom_topic_vec[i].topic_hz, 1000);
+
+      } else {
+        printLimitedString(win, 1 + i, 1, custom_topic_vec[i].topic_name, 15);
+        printLimitedDouble(win, 1 + i, 16, "%5.1f Hz", custom_topic_vec[i].topic_hz, 1000);
+      }
       wattroff(win, COLOR_PAIR(custom_topic_vec[i].topic_color));
     }
-
-
   } else {
 
     werase(win);
@@ -1905,70 +1955,101 @@ void Status::uavStateHandler(WINDOW* win) {
 
   wattron(win, COLOR_PAIR(color));
 
-  printLimitedDouble(win, 0, 12, "Odom %5.1f Hz", avg_rate, 1000);
+  /* mini //{ */
 
-  if (avg_rate == 0) {
+  if (mini_) {
+    printLimitedDouble(win, 0, 1, "Odm %3.0f", avg_rate, 1000);
 
-    printNoData(win, 0, 1);
+    if (avg_rate == 0) {
 
-  } else {
+      printNoData(win, 0, 1);
 
-    printLimitedDouble(win, 1, 1, "X %7.2f", state_x, 1000);
-    printLimitedDouble(win, 2, 1, "Y %7.2f", state_y, 1000);
-    printLimitedDouble(win, 3, 1, "Z %7.2f", state_z, 1000);
-    printLimitedDouble(win, 4, 1, "hdg %5.2f", heading, 1000);
+    } else {
 
-    if (!null_tracker) {
-      wattron(win, COLOR_PAIR(NORMAL));
-      mvwprintw(win, 5, 1, "C/E");
+      printLimitedDouble(win, 1, 1, "%4.0f", state_x, 1000);
+      printLimitedDouble(win, 2, 1, "%4.0f", state_y, 1000);
+      printLimitedDouble(win, 3, 1, "%4.0f", state_z, 1000);
+      printLimitedDouble(win, 4, 1, "%4.1f", heading, 1000);
 
-      if (cerr_x < 0.5) {
-        wattron(win, COLOR_PAIR(GREEN));
-      } else if (cerr_x < 1.0) {
-        wattron(win, COLOR_PAIR(YELLOW));
-      } else {
-        wattron(win, COLOR_PAIR(RED));
-      }
-      printLimitedDouble(win, 5, 5, "X%1.1f", cerr_x, 10);
-
-
-      if (cerr_y < 0.5) {
-        wattron(win, COLOR_PAIR(GREEN));
-      } else if (cerr_y < 1.0) {
-        wattron(win, COLOR_PAIR(YELLOW));
-      } else {
-        wattron(win, COLOR_PAIR(RED));
-      }
-      printLimitedDouble(win, 5, 10, "Y%1.1f", cerr_y, 10);
-
-      if (cerr_z < 0.5) {
-        wattron(win, COLOR_PAIR(GREEN));
-      } else if (cerr_z < 1.0) {
-        wattron(win, COLOR_PAIR(YELLOW));
-      } else {
-        wattron(win, COLOR_PAIR(RED));
-      }
-      printLimitedDouble(win, 5, 15, "Z%1.1f", cerr_z, 10);
-
-      if (cerr_hdg < 0.2) {
-        wattron(win, COLOR_PAIR(GREEN));
-      } else if (cerr_hdg < 0.4) {
-        wattron(win, COLOR_PAIR(YELLOW));
-      } else {
-        wattron(win, COLOR_PAIR(RED));
-      }
-      printLimitedDouble(win, 5, 20, "H%1.1f", cerr_hdg, 10);
-
-      wattron(win, COLOR_PAIR(color));
+      printLimitedString(win, 1, 6, curr_estimator_hori, 2);
+      printLimitedString(win, 3, 6, curr_estimator_vert, 2);
+      printLimitedString(win, 4, 6, curr_estimator_hdg, 2);
     }
-
-    int pos = odom_frame.find("/") + 1;
-    printLimitedString(win, 1, 11, odom_frame.substr(pos, odom_frame.length()), 15);
-
-    printLimitedString(win, 2, 11, "Hori: " + curr_estimator_hori, 15);
-    printLimitedString(win, 3, 11, "Vert: " + curr_estimator_vert, 15);
-    printLimitedString(win, 4, 11, "Head: " + curr_estimator_hdg, 15);
   }
+
+  //}
+
+  /* standard //{ */
+
+  else {
+
+    printLimitedDouble(win, 0, 12, "Odom %5.1f Hz", avg_rate, 1000);
+
+    if (avg_rate == 0) {
+
+      printNoData(win, 0, 1);
+
+    } else {
+
+      printLimitedDouble(win, 1, 1, "X %7.2f", state_x, 1000);
+      printLimitedDouble(win, 2, 1, "Y %7.2f", state_y, 1000);
+      printLimitedDouble(win, 3, 1, "Z %7.2f", state_z, 1000);
+      printLimitedDouble(win, 4, 1, "hdg %5.2f", heading, 1000);
+
+      if (!null_tracker) {
+        wattron(win, COLOR_PAIR(NORMAL));
+        mvwprintw(win, 5, 1, "C/E");
+
+        if (cerr_x < 0.5) {
+          wattron(win, COLOR_PAIR(GREEN));
+        } else if (cerr_x < 1.0) {
+          wattron(win, COLOR_PAIR(YELLOW));
+        } else {
+          wattron(win, COLOR_PAIR(RED));
+        }
+        printLimitedDouble(win, 5, 5, "X%1.1f", cerr_x, 10);
+
+
+        if (cerr_y < 0.5) {
+          wattron(win, COLOR_PAIR(GREEN));
+        } else if (cerr_y < 1.0) {
+          wattron(win, COLOR_PAIR(YELLOW));
+        } else {
+          wattron(win, COLOR_PAIR(RED));
+        }
+        printLimitedDouble(win, 5, 10, "Y%1.1f", cerr_y, 10);
+
+        if (cerr_z < 0.5) {
+          wattron(win, COLOR_PAIR(GREEN));
+        } else if (cerr_z < 1.0) {
+          wattron(win, COLOR_PAIR(YELLOW));
+        } else {
+          wattron(win, COLOR_PAIR(RED));
+        }
+        printLimitedDouble(win, 5, 15, "Z%1.1f", cerr_z, 10);
+
+        if (cerr_hdg < 0.2) {
+          wattron(win, COLOR_PAIR(GREEN));
+        } else if (cerr_hdg < 0.4) {
+          wattron(win, COLOR_PAIR(YELLOW));
+        } else {
+          wattron(win, COLOR_PAIR(RED));
+        }
+        printLimitedDouble(win, 5, 20, "H%1.1f", cerr_hdg, 10);
+
+        wattron(win, COLOR_PAIR(color));
+      }
+
+      int pos = odom_frame.find("/") + 1;
+      printLimitedString(win, 1, 11, odom_frame.substr(pos, odom_frame.length()), 15);
+
+      printLimitedString(win, 2, 11, "Hori: " + curr_estimator_hori, 15);
+      printLimitedString(win, 3, 11, "Vert: " + curr_estimator_vert, 15);
+      printLimitedString(win, 4, 11, "Head: " + curr_estimator_hdg, 15);
+    }
+  }
+
+  //}
 
   wattroff(win, COLOR_PAIR(color));
   wattroff(win, A_BOLD);
@@ -2020,84 +2101,147 @@ void Status::controlManagerHandler(WINDOW* win) {
 
   wattron(win, COLOR_PAIR(color));
 
-  printLimitedString(win, 0, 10, "Control Manager", 15);
+  /* mini //{ */
 
-  if (rate == 0.0) {
+  if (mini_) {
+    printLimitedDouble(win, 0, 1, "Ctr %3.0f", rate, 1000);
 
-    printNoData(win, 0, 1);
+    if (rate == 0.0) {
 
-    wattron(win, COLOR_PAIR(RED));
-    mvwprintw(win, 1, 1, "NO_CONTROLLER");
-    mvwprintw(win, 2, 1, "NO_TRACKER");
-    wattroff(win, COLOR_PAIR(color));
+      printNoData(win, 0, 1);
+      wattron(win, COLOR_PAIR(RED));
+      mvwprintw(win, 1, 1, "ERR");
+      mvwprintw(win, 2, 1, "ERR");
+      wattroff(win, COLOR_PAIR(color));
 
-  } else {
-    if (curr_controller != "Se3Controller") {
-      if (curr_controller != "MpcController") {
-        wattron(win, COLOR_PAIR(RED));
-      }
-      printLimitedString(win, 1, 1, curr_controller, 29);
     } else {
-      mvwprintw(win, 1, 1, curr_controller.c_str());
-      wattron(win, COLOR_PAIR(NORMAL));
-      mvwprintw(win, 1, 1 + curr_controller.length(), "%s", "/");
-    }
 
-    wattron(win, COLOR_PAIR(color));
-
-    if (null_tracker) {
-      curr_tracker = "NullTracker";
-    }
-
-    if (curr_tracker != "MpcTracker") {
-      if (curr_tracker == "LandoffTracker" && color != RED) {
-        wattron(win, COLOR_PAIR(YELLOW));
+      if (curr_controller != "Se3Controller") {
+        if (curr_controller != "MpcController") {
+          wattron(win, COLOR_PAIR(RED));
+          printLimitedString(win, 1, 1, curr_controller, 3);
+        }
       } else {
-        wattron(win, COLOR_PAIR(RED));
+        printLimitedString(win, 1, 1, curr_controller, 3);
+        wattron(win, COLOR_PAIR(NORMAL));
+        mvwprintw(win, 1, 4, "%s", "/");
       }
 
-      printLimitedString(win, 2, 1, curr_tracker, 29);
-
-    } else {
-      mvwprintw(win, 2, 1, curr_tracker.c_str());
-      wattron(win, COLOR_PAIR(NORMAL));
-      mvwprintw(win, 2, 1 + curr_tracker.length(), "%s", "/");
       wattron(win, COLOR_PAIR(color));
+
+      if (null_tracker) {
+        curr_tracker = "NlT";
+      }
+
+      if (curr_tracker != "MpcTracker") {
+        if (curr_tracker == "LandoffTracker" && color != RED) {
+          wattron(win, COLOR_PAIR(YELLOW));
+        } else {
+          wattron(win, COLOR_PAIR(RED));
+        }
+
+        printLimitedString(win, 2, 1, curr_tracker, 3);
+
+      } else {
+        printLimitedString(win, 2, 1, curr_tracker, 3);
+        wattron(win, COLOR_PAIR(NORMAL));
+        mvwprintw(win, 2, 4, "%s", "/");
+        wattron(win, COLOR_PAIR(color));
+      }
+
+      printLimitedString(win, 1, 5, curr_gains, 3);
+      printLimitedString(win, 2, 5, curr_constraints, 3);
     }
   }
 
-  if (!callbacks_enabled) {
+  //}
 
-    wattron(win, COLOR_PAIR(RED));
-    mvwprintw(win, 1, 20, "NO_CB");
-    wattroff(win, COLOR_PAIR(RED));
+  /* standrad //{ */
+
+  else {
+
+    /* printLimitedString(win, 0, 10, "Control Manager", 15); */
+    printLimitedDouble(win, 0, 1, "Control Manager %5.1f Hz", rate, 1000);
+
+    if (rate == 0.0) {
+
+      printNoData(win, 0, 1);
+
+      wattron(win, COLOR_PAIR(RED));
+      mvwprintw(win, 1, 1, "NO_CONTROLLER");
+      mvwprintw(win, 2, 1, "NO_TRACKER");
+      wattroff(win, COLOR_PAIR(color));
+
+    } else {
+      if (curr_controller != "Se3Controller") {
+        if (curr_controller != "MpcController") {
+          wattron(win, COLOR_PAIR(RED));
+        }
+        printLimitedString(win, 1, 1, curr_controller, 29);
+      } else {
+        mvwprintw(win, 1, 1, curr_controller.c_str());
+        wattron(win, COLOR_PAIR(NORMAL));
+        mvwprintw(win, 1, 1 + curr_controller.length(), "%s", "/");
+      }
+
+      wattron(win, COLOR_PAIR(color));
+
+      if (null_tracker) {
+        curr_tracker = "NullTracker";
+      }
+
+      if (curr_tracker != "MpcTracker") {
+        if (curr_tracker == "LandoffTracker" && color != RED) {
+          wattron(win, COLOR_PAIR(YELLOW));
+        } else {
+          wattron(win, COLOR_PAIR(RED));
+        }
+
+        printLimitedString(win, 2, 1, curr_tracker, 29);
+
+      } else {
+        mvwprintw(win, 2, 1, curr_tracker.c_str());
+        wattron(win, COLOR_PAIR(NORMAL));
+        mvwprintw(win, 2, 1 + curr_tracker.length(), "%s", "/");
+        wattron(win, COLOR_PAIR(color));
+      }
+    }
+
+    if (!callbacks_enabled) {
+
+      wattron(win, COLOR_PAIR(RED));
+      mvwprintw(win, 1, 20, "NO_CB");
+      wattroff(win, COLOR_PAIR(RED));
+    }
+
+
+    if (has_goal) {
+
+      wattron(win, COLOR_PAIR(GREEN));
+      mvwprintw(win, 2, 21, "FLY");
+      wattroff(win, COLOR_PAIR(GREEN));
+
+    } else {
+
+      wattron(win, COLOR_PAIR(YELLOW));
+      mvwprintw(win, 2, 21, "IDLE");
+      wattroff(win, COLOR_PAIR(YELLOW));
+    }
+
+    if (rate == 0) {
+      printNoData(win, 1, 2 + curr_controller.length());
+    } else {
+      printLimitedString(win, 1, 2 + curr_controller.length(), curr_gains, 10);
+    }
+
+    if (rate == 0) {
+      printNoData(win, 2, 2 + curr_tracker.length());
+    } else {
+      printLimitedString(win, 2, 2 + curr_tracker.length(), curr_constraints, 10);
+    }
   }
 
-
-  if (has_goal) {
-
-    wattron(win, COLOR_PAIR(GREEN));
-    mvwprintw(win, 2, 21, "FLY");
-    wattroff(win, COLOR_PAIR(GREEN));
-
-  } else {
-
-    wattron(win, COLOR_PAIR(YELLOW));
-    mvwprintw(win, 2, 21, "IDLE");
-    wattroff(win, COLOR_PAIR(YELLOW));
-  }
-
-  if (rate == 0) {
-    printNoData(win, 1, 2 + curr_controller.length());
-  } else {
-    printLimitedString(win, 1, 2 + curr_controller.length(), curr_gains, 10);
-  }
-
-  if (rate == 0) {
-    printNoData(win, 2, 2 + curr_tracker.length());
-  } else {
-    printLimitedString(win, 2, 2 + curr_tracker.length(), curr_constraints, 10);
-  }
+  //}
 
   wattroff(win, COLOR_PAIR(color));
   wattroff(win, A_BOLD);
@@ -2158,137 +2302,266 @@ void Status::mavrosStateHandler(WINDOW* win) {
 
 
   wattron(win, COLOR_PAIR(color));
-  // mavros local is the main source of Mavros hz
-  printLimitedDouble(win, 0, 9, "Mavros %5.1f Hz", mavros_rate, 1000);
-  wattroff(win, COLOR_PAIR(color));
 
-  if (mavros_rate == 0) {
+  /* mini //{ */
 
-    printNoData(win, 0, 1);
-  }
+  if (mini_) {
+    printLimitedDouble(win, 0, 1, "Mav %3.0f", mavros_rate, 1000);
+    wattroff(win, COLOR_PAIR(color));
 
+    if (mavros_rate == 0) {
+      printNoData(win, 0, 1);
+    }
 
-  if (state_rate == 0) {
+    if (state_rate == 0) {
 
-    wattron(win, COLOR_PAIR(RED));
-    printLimitedString(win, 1, 1, "State: ", 15);
-    printNoData(win, 1, 9);
-    printLimitedString(win, 2, 1, "Mode: ", 15);
-    printNoData(win, 1, 9);
-    wattroff(win, COLOR_PAIR(RED));
+      wattron(win, COLOR_PAIR(RED));
+      printLimitedString(win, 1, 1, "ERR", 3);
+      printLimitedString(win, 2, 1, "ERR", 3);
+      wattroff(win, COLOR_PAIR(RED));
 
-  } else {
-
-    if (armed) {
-      tmp_string = "ARMED";
-      wattron(win, COLOR_PAIR(GREEN));
     } else {
-      tmp_string = "DISARMED";
-      wattron(win, COLOR_PAIR(RED));
+
+      if (armed) {
+        tmp_string = "ARM";
+        wattron(win, COLOR_PAIR(GREEN));
+      } else {
+        tmp_string = "DIS";
+        wattron(win, COLOR_PAIR(RED));
+      }
+
+      printLimitedString(win, 1, 1, tmp_string, 15);
+      wattron(win, COLOR_PAIR(color));
+
+      if (mode != "OFFBOARD") {
+        wattron(win, COLOR_PAIR(RED));
+      }
+
+      printLimitedString(win, 2, 1, mode, 3);
+      wattron(win, COLOR_PAIR(color));
     }
 
-    printLimitedString(win, 1, 1, "State: " + tmp_string, 15);
-    wattron(win, COLOR_PAIR(color));
+    if (battery_rate == 0) {
 
-    if (mode != "OFFBOARD") {
-      wattron(win, COLOR_PAIR(RED));
+      printLimitedString(win, 3, 1, "ERR", 3);
+
+    } else {
+
+      wattron(win, COLOR_PAIR(GREEN));
+
+      (battery_volt > 17.0) ? (battery_volt = battery_volt / 6) : (battery_volt = battery_volt / 4);
+
+      if (battery_volt < 3.6) {
+        wattron(win, COLOR_PAIR(RED));
+      } else if (battery_volt < 3.7 && color != RED) {
+        wattron(win, COLOR_PAIR(YELLOW));
+      }
+      printLimitedString(win, 3, 1, "Bat", 3);
     }
 
-    printLimitedString(win, 2, 1, "Mode:  " + mode, 15);
-    wattron(win, COLOR_PAIR(color));
-  }
 
+    if (cmd_rate == 0) {
 
-  if (battery_rate == 0) {
+      printLimitedString(win, 3, 5, "ERR", 3);
 
-    printNoData(win, 3, 1, "Batt:  ");
+    } else {
 
-  } else {
+      if (thrust > 0.75) {
+        wattron(win, COLOR_PAIR(RED));
+      } else if (thrust > 0.65 && color != RED) {
+        wattron(win, COLOR_PAIR(YELLOW));
+      }
+      printLimitedDouble(win, 3, 5, ".%2.0f", thrust * 100, 100);
+      wattron(win, COLOR_PAIR(color));
 
-    wattron(win, COLOR_PAIR(GREEN));
+      color            = GREEN;
+      double mass_diff = fabs(mass_estimate - mass_set) / mass_set;
 
-    (battery_volt > 17.0) ? (battery_volt = battery_volt / 6) : (battery_volt = battery_volt / 4);
+      if (mass_diff > 0.3) {
 
-    if (battery_volt < 3.6) {
-      wattron(win, COLOR_PAIR(RED));
-    } else if (battery_volt < 3.7 && color != RED) {
-      wattron(win, COLOR_PAIR(YELLOW));
+        color = RED;
+
+      } else if (mass_diff > 0.2) {
+
+        color = YELLOW;
+      }
+
+      printLimitedDouble(win, 4, 1, "%4.1f kg", mass_estimate, 99.99);
     }
 
-    printLimitedDouble(win, 3, 1, "Batt:  %4.2f V ", battery_volt, 10);
-    printLimitedDouble(win, 3, 15, "%5.2f A", battery_curr, 100);
-    printLimitedDouble(win, 4, 1, "Drained: %4.1f Wh", battery_wh_drained, 100);
-  }
+    if (!mavros_gps_ok) {
 
-  if (cmd_rate == 0) {
-
-    printNoData(win, 5, 1, "Thrst: ");
-
-  } else {
-
-    if (thrust > 0.75) {
       wattron(win, COLOR_PAIR(RED));
-    } else if (thrust > 0.65 && color != RED) {
-      wattron(win, COLOR_PAIR(YELLOW));
-    }
-    printLimitedDouble(win, 5, 1, "Thrst: %4.2f", thrust, 1.01);
-    wattron(win, COLOR_PAIR(color));
+      printLimitedString(win, 1, 5, "GPS", 6);
+      wattroff(win, COLOR_PAIR(RED));
 
-    color            = GREEN;
-    double mass_diff = fabs(mass_estimate - mass_set) / mass_set;
+    } else {
 
-    if (mass_diff > 0.3) {
+      wattron(win, COLOR_PAIR(GREEN));
+      printLimitedString(win, 1, 5, "GPS", 6);
+      wattroff(win, COLOR_PAIR(GREEN));
 
       color = RED;
 
-    } else if (mass_diff > 0.2) {
+      if (gps_qual < 5.0) {
+        color = GREEN;
+      } else if (gps_qual < 10.0) {
+        color = YELLOW;
+      }
 
-      color = YELLOW;
+      wattron(win, COLOR_PAIR(color));
+
+      if (gps_qual < 10.0) {
+        printLimitedDouble(win, 2, 5, "%3.1f", gps_qual, 9.9);
+      } else {
+        printLimitedString(win, 2, 5, ">10", 3);
+      }
+      wattroff(win, COLOR_PAIR(color));
     }
 
-    if (mass_set > 10.0 || mass_estimate > 10.0) {
+  }
 
-      wattron(win, COLOR_PAIR(NORMAL));
-      printLimitedDouble(win, 5, 13, "%.1f/", mass_set, 99.99);
-      wattron(win, COLOR_PAIR(color));
-      printLimitedDouble(win, 5, 18, "%.1f", mass_estimate, 99.99);
-      printLimitedString(win, 5, 22, "kg", 2);
+  //}
+
+  /* standard  //{ */
+
+  else {
+
+
+    // mavros local is the main source of Mavros hz
+    printLimitedDouble(win, 0, 9, "Mavros %5.1f Hz", mavros_rate, 1000);
+    wattroff(win, COLOR_PAIR(color));
+
+    if (mavros_rate == 0) {
+
+      printNoData(win, 0, 1);
+    }
+
+
+    if (state_rate == 0) {
+
+      wattron(win, COLOR_PAIR(RED));
+      printLimitedString(win, 1, 1, "State: ", 15);
+      printNoData(win, 1, 9);
+      printLimitedString(win, 2, 1, "Mode: ", 15);
+      printNoData(win, 1, 9);
+      wattroff(win, COLOR_PAIR(RED));
 
     } else {
 
-      wattron(win, COLOR_PAIR(NORMAL));
-      printLimitedDouble(win, 5, 15, "%.1f/", mass_set, 99.99);
+      if (armed) {
+        tmp_string = "ARMED";
+        wattron(win, COLOR_PAIR(GREEN));
+      } else {
+        tmp_string = "DISARMED";
+        wattron(win, COLOR_PAIR(RED));
+      }
+
+      printLimitedString(win, 1, 1, "State: " + tmp_string, 15);
       wattron(win, COLOR_PAIR(color));
-      printLimitedDouble(win, 5, 19, "%.1f", mass_estimate, 99.99);
-      printLimitedString(win, 5, 22, "kg", 2);
+
+      if (mode != "OFFBOARD") {
+        wattron(win, COLOR_PAIR(RED));
+      }
+
+      printLimitedString(win, 2, 1, "Mode:  " + mode, 15);
+      wattron(win, COLOR_PAIR(color));
+    }
+
+
+    if (battery_rate == 0) {
+
+      printNoData(win, 3, 1, "Batt:  ");
+
+    } else {
+
+      wattron(win, COLOR_PAIR(GREEN));
+
+      (battery_volt > 17.0) ? (battery_volt = battery_volt / 6) : (battery_volt = battery_volt / 4);
+
+      if (battery_volt < 3.6) {
+        wattron(win, COLOR_PAIR(RED));
+      } else if (battery_volt < 3.7 && color != RED) {
+        wattron(win, COLOR_PAIR(YELLOW));
+      }
+
+      printLimitedDouble(win, 3, 1, "Batt:  %4.2f V ", battery_volt, 10);
+      printLimitedDouble(win, 3, 15, "%5.2f A", battery_curr, 100);
+      printLimitedDouble(win, 4, 1, "Drained: %4.1f Wh", battery_wh_drained, 100);
+    }
+
+    if (cmd_rate == 0) {
+
+      printNoData(win, 5, 1, "Thrst: ");
+
+    } else {
+
+      if (thrust > 0.75) {
+        wattron(win, COLOR_PAIR(RED));
+      } else if (thrust > 0.65 && color != RED) {
+        wattron(win, COLOR_PAIR(YELLOW));
+      }
+      printLimitedDouble(win, 5, 1, "Thrst: %4.2f", thrust, 1.01);
+      wattron(win, COLOR_PAIR(color));
+
+      color            = GREEN;
+      double mass_diff = fabs(mass_estimate - mass_set) / mass_set;
+
+      if (mass_diff > 0.3) {
+
+        color = RED;
+
+      } else if (mass_diff > 0.2) {
+
+        color = YELLOW;
+      }
+
+      if (mass_set > 10.0 || mass_estimate > 10.0) {
+
+        wattron(win, COLOR_PAIR(NORMAL));
+        printLimitedDouble(win, 5, 13, "%.1f/", mass_set, 99.99);
+        wattron(win, COLOR_PAIR(color));
+        printLimitedDouble(win, 5, 18, "%.1f", mass_estimate, 99.99);
+        printLimitedString(win, 5, 22, "kg", 2);
+
+      } else {
+
+        wattron(win, COLOR_PAIR(NORMAL));
+        printLimitedDouble(win, 5, 15, "%.1f/", mass_set, 99.99);
+        wattron(win, COLOR_PAIR(color));
+        printLimitedDouble(win, 5, 19, "%.1f", mass_estimate, 99.99);
+        printLimitedString(win, 5, 22, "kg", 2);
+      }
+    }
+
+
+    if (!mavros_gps_ok) {
+
+      wattron(win, COLOR_PAIR(RED));
+      printLimitedString(win, 1, 18, "NO_GPS", 6);
+      wattroff(win, COLOR_PAIR(RED));
+
+    } else {
+
+      wattron(win, COLOR_PAIR(GREEN));
+      printLimitedString(win, 1, 18, "GPS_OK", 6);
+      wattroff(win, COLOR_PAIR(GREEN));
+
+      color = RED;
+
+      if (gps_qual < 5.0) {
+        color = GREEN;
+      } else if (gps_qual < 10.0) {
+        color = YELLOW;
+      }
+
+      wattron(win, COLOR_PAIR(color));
+      printLimitedDouble(win, 2, 17, "Q: %4.1f", gps_qual, 99.9);
+      wattroff(win, COLOR_PAIR(color));
     }
   }
 
-
-  if (!mavros_gps_ok) {
-
-    wattron(win, COLOR_PAIR(RED));
-    printLimitedString(win, 1, 18, "NO_GPS", 6);
-    wattroff(win, COLOR_PAIR(RED));
-
-  } else {
-
-    wattron(win, COLOR_PAIR(GREEN));
-    printLimitedString(win, 1, 18, "GPS_OK", 6);
-    wattroff(win, COLOR_PAIR(GREEN));
-
-    color = RED;
-
-    if (gps_qual < 5.0) {
-      color = GREEN;
-    } else if (gps_qual < 10.0) {
-      color = YELLOW;
-    }
-
-    wattron(win, COLOR_PAIR(color));
-    printLimitedDouble(win, 2, 17, "Q: %4.1f", gps_qual, 99.9);
-    wattroff(win, COLOR_PAIR(color));
-  }
+  //}
 
   wattroff(win, COLOR_PAIR(color));
   wattroff(win, A_BOLD);
@@ -2389,9 +2662,11 @@ void Status::generalInfoHandeler(WINDOW* win) {
   }
 
   printCpuLoad(win);
-  printCpuTemp(win);
+  /* printCpuTemp(win); */
   printMemLoad(win);
-  printCpuFreq(win);
+  if (!mini_) {
+    printCpuFreq(win);
+  }
   printDiskSpace(win);
 
   wnoutrefresh(win);
@@ -2634,8 +2909,11 @@ void Status::printMemLoad(WINDOW* win) {
   }
 
   wattron(win, COLOR_PAIR(tmp_color));
-
-  printLimitedDouble(win, 2, 1, "RAM: %4.1f G", free_ram, 100);
+  if (mini_) {
+    printLimitedString(win, 2, 1, "RAM", 3);
+  } else {
+    printLimitedDouble(win, 2, 1, "RAM: %4.1f G", free_ram, 100);
+  }
 }
 
 //}
@@ -2658,9 +2936,12 @@ void Status::printCpuLoad(WINDOW* win) {
   }
 
   wattron(win, COLOR_PAIR(tmp_color));
-  printLimitedDouble(win, 1, 1, "CPU: %4.1f %%", cpu_load, 99.9);
+  if (mini_) {
+    printLimitedString(win, 1, 1, "CPU", 3);
+  } else {
+    printLimitedDouble(win, 1, 1, "CPU: %4.1f %%", cpu_load, 99.9);
+  }
 }
-
 //}
 
 /* printCpuTemp() //{ */
@@ -2681,8 +2962,11 @@ void Status::printCpuTemp(WINDOW* win) {
   }
 
   wattron(win, COLOR_PAIR(tmp_color));
-
-  printLimitedDouble(win, 0, 1, "%5.1f °C", cpu_temp, 999.9);
+  if (mini_) {
+    printLimitedDouble(win, 0, 1, "%3.0f °C", cpu_temp, 999.9);
+  } else {
+    printLimitedDouble(win, 0, 1, "%5.1f °C", cpu_temp, 999.9);
+  }
 }
 
 //}
@@ -2719,12 +3003,35 @@ void Status::printDiskSpace(WINDOW* win) {
   }
   if (gigas < 100) {
     wattron(win, COLOR_PAIR(RED));
-    printLimitedDouble(win, 2, 14, "HDD: %3.1f G", double(gigas) / 10, 10);
-  } else {
-    if (gigas < 1000) {
+    if (mini_) {
+      printLimitedString(win, 1, 5, "HDD", 3);
+      printLimitedDouble(win, 2, 5, "%3.1f", double(gigas) / 10, 10);
+    } else {
+      printLimitedDouble(win, 2, 14, "HDD: %3.1f G", double(gigas) / 10, 10);
+    }
+  }
+  if (gigas < 1000) {
+    if (mini_) {
+      printLimitedString(win, 1, 5, "HDD", 3);
+      printLimitedInt(win, 2, 6, "%i", gigas / 10, 1000);
+    } else {
       printLimitedInt(win, 2, 14, "HDD:  %i G", gigas / 10, 1000);
+    }
+  }
+  if (gigas < 10000) {
+
+    if (mini_) {
+      printLimitedString(win, 1, 5, "HDD", 3);
+      printLimitedInt(win, 2, 5, "%i", gigas / 10, 1000);
     } else {
       printLimitedInt(win, 2, 14, "HDD: %i G", gigas / 10, 1000);
+    }
+  } else {
+    if (mini_) {
+      printLimitedString(win, 1, 5, "HDD", 3);
+      printLimitedInt(win, 2, 5, "%i T", gigas / 10000, 10);
+    } else {
+      printLimitedDouble(win, 2, 14, "HDD: %3.1f T", gigas / 10000, 1000);
     }
   }
 }
@@ -2833,7 +3140,11 @@ void Status::printNoData(WINDOW* win, int y, int x) {
 
   wattron(win, A_BLINK);
   wattron(win, COLOR_PAIR(RED));
-  mvwprintw(win, y, x, "!NO DATA!");
+  if (mini_) {
+    mvwprintw(win, y, x, "NO DATA");
+  } else {
+    mvwprintw(win, y, x, "!NO DATA!");
+  }
   wattroff(win, COLOR_PAIR(RED));
   wattroff(win, A_BLINK);
 }
