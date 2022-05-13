@@ -62,6 +62,7 @@ private:
   void printLimitedInt(WINDOW* win, int y, int x, string str_in, int num, int limit);
   void printLimitedDouble(WINDOW* win, int y, int x, string str_in, double num, double limit);
   void printLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
+  void printCompressedLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit);
   void printServiceResult(bool success, string msg);
   void printError(string msg);
   void printDebug(string msg);
@@ -247,8 +248,7 @@ private:
 
   bool initialized_ = false;
 
-  bool mini_ = true;
-  /* bool mini_ = false; */
+  bool mini_ = false;
 };
 
 //}
@@ -351,8 +351,10 @@ void Status::setupWindows() {
     top_bar_window_         = newwin(1, 120, 0, 1);
     general_info_window_    = newwin(4, 9, 1, 10);
     mavros_state_window_    = newwin(6, 9, 5, 10);
-    generic_topic_window_   = newwin(10, 9, 1, 19);
     debug_window_           = newwin(20, 120, 13, 1);
+    generic_topic_window_   = newwin(10, 9, 1, 19);
+    string_window_          = newwin(10, 15, 1, 28);
+    bottom_window_          = newwin(1, 120, 11, 1);
 
 
   } else {
@@ -428,15 +430,17 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
     uavStateHandler(uav_state_window_);
   }
 
-  /* wclear(top_bar_window_); */
+  wclear(top_bar_window_);
 
-  /* if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) { */
-  /*   werase(bottom_window_); */
-  /* } */
+  if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
+    werase(bottom_window_);
+  }
 
   flightTimeHandler(top_bar_window_);
 
-  /* printHelp(); */
+  if (!mini_) {
+    printHelp();
+  }
 
 
   int  key_in = getch();
@@ -554,11 +558,11 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
   /*   printDebug("something else"); */
   /* } */
 
-  /* if (state != MAIN_MENU && state != GOTO_MENU) { */
-  /*   wnoutrefresh(bottom_window_); */
-  /* } */
+  if (state != MAIN_MENU && state != GOTO_MENU) {
+    wnoutrefresh(bottom_window_);
+  }
 
-  /* wnoutrefresh(top_bar_window_); */
+  wnoutrefresh(top_bar_window_);
 
   doupdate();
 }
@@ -590,10 +594,10 @@ void Status::statusTimerSlow([[maybe_unused]] const ros::TimerEvent& event) {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("nodeStatsHandler");
     nodeStatsHandler(node_stats_window_);
   }
-  /* { */
-  /*   mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler"); */
-  /*   stringHandler(string_window_); */
-  /* } */
+  {
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
+    stringHandler(string_window_);
+  }
 
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("generalInfoHandler");
@@ -1174,17 +1178,33 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
   wattron(win, A_BOLD);
   wattron(win, COLOR_PAIR(RED));
-  mvwprintw(win, 0, 43, "REMOTE MODE IS ACTIVE");
+  if (mini_) {
+    mvwprintw(win, 0, 25, "REMOTE");
+  } else {
+    mvwprintw(win, 0, 43, "REMOTE MODE IS ACTIVE");
+  }
 
   if (remote_global_) {
-    mvwprintw(win, 0, 75, "GLOBAL MODE");
+    if (mini_) {
+      mvwprintw(win, 0, 32, "GLOBAL");
+    } else {
+      mvwprintw(win, 0, 75, "GLOBAL MODE");
+    }
   } else {
-    mvwprintw(win, 0, 75, "LOCAL MODE");
+    if (mini_) {
+      mvwprintw(win, 0, 32, "LOCAL");
+    } else {
+      mvwprintw(win, 0, 75, "LOCAL MODE");
+    }
   }
 
   if (turbo_remote_) {
     wattron(win, A_BLINK);
-    mvwprintw(win, 0, 66, "!TURBO!");
+    if (mini_) {
+      mvwprintw(win, 0, 38, "!T!");
+    } else {
+      mvwprintw(win, 0, 66, "!TURBO!");
+    }
     wattroff(win, A_BLINK);
   }
 
@@ -1757,7 +1777,11 @@ void Status::stringHandler(WINDOW* win) {
 
     wattron(win, COLOR_PAIR(tmp_color));
 
-    printLimitedString(win, (i) + 1, 1, tmp_display_string, 30);
+    if (mini_) {
+      printCompressedLimitedString(win, (i) + 1, 1, tmp_display_string, 15);
+    } else {
+      printLimitedString(win, (i) + 1, 1, tmp_display_string, 30);
+    }
 
     /* if (tmp_display_string.length() > 30) { */
     /*   printLimitedString(win, 1 + (3 * i) + 1, 1, tmp_display_string.substr(30), 30); */
@@ -1810,7 +1834,7 @@ void Status::genericTopicHandler(WINDOW* win) {
 
       wattron(win, COLOR_PAIR(custom_topic_vec[i].topic_color));
       if (mini_) {
-        printLimitedString(win, 1 + i, 1, custom_topic_vec[i].topic_name, 4);
+        printCompressedLimitedString(win, 1 + i, 1, custom_topic_vec[i].topic_name, 4);
         printLimitedDouble(win, 1 + i, 5, "%3.0f", custom_topic_vec[i].topic_hz, 1000);
 
       } else {
@@ -2116,11 +2140,9 @@ void Status::controlManagerHandler(WINDOW* win) {
 
     } else {
 
-      if (curr_controller != "Se3Controller") {
-        if (curr_controller != "MpcController") {
-          wattron(win, COLOR_PAIR(RED));
-          printLimitedString(win, 1, 1, curr_controller, 3);
-        }
+      if (curr_controller != "Se3Controller" && curr_controller != "MpcController") {
+        wattron(win, COLOR_PAIR(RED));
+        printLimitedString(win, 1, 1, curr_controller, 3);
       } else {
         printLimitedString(win, 1, 1, curr_controller, 3);
         wattron(win, COLOR_PAIR(NORMAL));
@@ -2173,10 +2195,8 @@ void Status::controlManagerHandler(WINDOW* win) {
       wattroff(win, COLOR_PAIR(color));
 
     } else {
-      if (curr_controller != "Se3Controller") {
-        if (curr_controller != "MpcController") {
-          wattron(win, COLOR_PAIR(RED));
-        }
+      if (curr_controller != "Se3Controller" && curr_controller != "MpcController") {
+        wattron(win, COLOR_PAIR(RED));
         printLimitedString(win, 1, 1, curr_controller, 29);
       } else {
         mvwprintw(win, 1, 1, curr_controller.c_str());
@@ -2626,8 +2646,11 @@ void Status::flightTimeHandler(WINDOW* win) {
   }
 
   mvwprintw(win, 0, 10, " %s %s %s ", uav_name.c_str(), uav_type.c_str(), nato_name.c_str());
-  printLimitedDouble(win, 0, 94, "%3.1f", tmp_time, 100);
-  printLimitedDouble(win, 0, 90, "%3.1f", tmp_short_time, 100);
+
+  if (!mini_) {
+    printLimitedDouble(win, 0, 94, "%3.1f", tmp_time, 100);
+    printLimitedDouble(win, 0, 90, "%3.1f", tmp_short_time, 100);
+  }
 
   if (!have_data_) {
     wattron(win, A_BLINK);
@@ -2895,16 +2918,17 @@ void Status::printMemLoad(WINDOW* win) {
   {
     std::scoped_lock lock(mutex_status_msg_);
     free_ram  = uav_status_.free_ram;
-    total_ram = uav_status_.free_ram;
+    total_ram = uav_status_.total_ram;
   }
 
   double used_ram = total_ram - free_ram;
 
   int    tmp_color = GREEN;
   double ram_ratio = used_ram / total_ram;
-  if (ram_ratio > 0.8) {
+  if (ram_ratio > 0.7) {
     tmp_color = RED;
-  } else if (ram_ratio > 0.6) {
+    wattron(win, A_BLINK);
+  } else if (ram_ratio > 0.5) {
     tmp_color = YELLOW;
   }
 
@@ -2914,6 +2938,7 @@ void Status::printMemLoad(WINDOW* win) {
   } else {
     printLimitedDouble(win, 2, 1, "RAM: %4.1f G", free_ram, 100);
   }
+  wattroff(win, A_BLINK);
 }
 
 //}
@@ -3122,6 +3147,27 @@ void Status::printLimitedDouble(WINDOW* win, int y, int x, string str_in, double
 /* printLimitedString() //{ */
 
 void Status::printLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit) {
+
+  if (str_in.length() > limit) {
+    str_in.resize(limit);
+  }
+
+  const char* format = str_in.c_str();
+
+  mvwprintw(win, y, x, format);
+}
+
+//}
+
+/* printCompressedLimitedString() //{ */
+
+void Status::printCompressedLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit) {
+
+  std::string chars("aeiouAEIOU :");
+  for (int i = 0; i < chars.length(); i++) {
+    str_in.erase(std::remove(str_in.begin() + 1, str_in.end(), chars.at(i)), str_in.end());
+  }
+
 
   if (str_in.length() > limit) {
     str_in.resize(limit);
