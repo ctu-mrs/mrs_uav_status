@@ -277,6 +277,8 @@ Status::Status() {
   param_loader.loadParam("colorblind_mode", _colorblind_mode_);
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
+  param_loader.loadParam("start_minimized", mini_);
+
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[Status]: Could not load all parameters!");
     ros::shutdown();
@@ -1819,15 +1821,6 @@ void Status::genericTopicHandler(WINDOW* win) {
   if (_light_) {
     wattron(win, A_STANDOUT);
   }
-  mrs_msgs::CustomTopic tmp_pes;
-  tmp_pes.topic_color = GREEN;
-  tmp_pes.topic_hz    = 23.4;
-  tmp_pes.topic_name  = "Bfox_left";
-  custom_topic_vec.push_back(tmp_pes);
-  tmp_pes.topic_color = RED;
-  tmp_pes.topic_hz    = 13.4;
-  tmp_pes.topic_name  = "Ouster";
-  custom_topic_vec.push_back(tmp_pes);
 
   if (!custom_topic_vec.empty()) {
     for (size_t i = 0; i < custom_topic_vec.size(); i++) {
@@ -3239,18 +3232,19 @@ void Status::printHelp() {
     printLimitedString(debug_window_, 1, 0, "How to use mrs_status:", 120);
     printLimitedString(debug_window_, 2, 0, "Press the 'm' key to enter a services menu", 120);
     printLimitedString(debug_window_, 3, 0, "Press the 'g' key to set a goto reference", 120);
-    printLimitedString(debug_window_, 4, 0, "Press the 'R' key to enter 'remote' mode to take direct control of the uav with your keyboad", 120);
-    printLimitedString(debug_window_, 5, 0, "   In remote mode, use these keys to control the drone:", 120);
-    printLimitedString(debug_window_, 6, 0, "      'w','s','a','d' to control pitch and roll ('h','j','k','l' works too)", 120);
-    printLimitedString(debug_window_, 7, 0, "      'q','e'         to control heading", 120);
-    printLimitedString(debug_window_, 8, 0, "      'r','f'         to control altitude", 120);
-    printLimitedString(debug_window_, 10, 0, "You can also use topics provided by mrs_status to display info from your node, and to control it:", 120);
-    printLimitedString(debug_window_, 12, 0, "   topic mrs_status/display_string (std_msgs::String)", 120);
-    printLimitedString(debug_window_, 13, 0, "      Publish any string to this topic and it will show up in mrs_status", 120);
-    printLimitedString(debug_window_, 15, 0, "   topic mrs_status/set_trigger_service (std_msgs::String)", 120);
-    printLimitedString(debug_window_, 16, 0, "      If your node has a std_srvs:Trigger service, you can add it to the mrs_status services menu", 120);
-    printLimitedString(debug_window_, 17, 0, "      Publish a String in this format: 'node_name/service_name display_name' and it will show in the menu", 120);
-    printLimitedString(debug_window_, 19, 0, "Press 'h' to hide help", 120);
+    printLimitedString(debug_window_, 4, 0, "Press the 'M' key to switch into minimalistic mode, which takes less screen space", 120);
+    printLimitedString(debug_window_, 5, 0, "Press the 'R' key to enter 'remote' mode to take direct control of the uav with your keyboad", 120);
+    printLimitedString(debug_window_, 6, 0, "   In remote mode, use these keys to control the drone:", 120);
+    printLimitedString(debug_window_, 7, 0, "      'w','s','a','d' to control pitch and roll ('h','j','k','l' works too)", 120);
+    printLimitedString(debug_window_, 8, 0, "      'q','e'         to control heading", 120);
+    printLimitedString(debug_window_, 9, 0, "      'r','f'         to control altitude", 120);
+    printLimitedString(debug_window_, 11, 0, "You can also use topics provided by mrs_status to display info from your node, and to control it:", 120);
+    printLimitedString(debug_window_, 13, 0, "   topic mrs_status/display_string (std_msgs::String)", 120);
+    printLimitedString(debug_window_, 14, 0, "      Publish any string to this topic and it will show up in mrs_status", 120);
+    printLimitedString(debug_window_, 16, 0, "   topic mrs_status/set_trigger_service (std_msgs::String)", 120);
+    printLimitedString(debug_window_, 17, 0, "      If your node has a std_srvs:Trigger service, you can add it to the mrs_status services menu", 120);
+    printLimitedString(debug_window_, 18, 0, "      Publish a String in this format: 'node_name/service_name display_name' and it will show in the menu", 120);
+    printLimitedString(debug_window_, 20, 0, "Press 'h' to hide help", 120);
 
   } else {
     printLimitedString(debug_window_, 1, 0, "Press 'h' key for help", 120);
@@ -3261,7 +3255,7 @@ void Status::printHelp() {
 
 //}
 
-/* printHelp() //{ */
+/* setupColors() //{ */
 
 void Status::setupColors(bool active) {
 

@@ -4,6 +4,8 @@ enable_profiler: False # Set True to change green color to blue
 debug_tilt: False # Set True to see pixhawk tilt, roll and pitch
 remote_mode_is_trajectory: False # Set True to send trajectory messages when flying in remote mode, instead of references
 
+start_minimized: False
+
 turbo_remote_constraints: "fast"
 
 # List of topics to monitor, format is:
