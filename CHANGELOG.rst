@@ -2,6 +2,16 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.0.3 (2022-05-09)
+------------------
+* updated dependencies
+* updated transformer interface
+* refactored agains the new transformer
+* + install in cmakelists
+* added gimbal mode
+* fixed colorblind mode
+* Contributors: Dan Hert, Tomas Baca
+
 1.0.2 (2021-10-04)
 ------------------
 * added cpu temperature
