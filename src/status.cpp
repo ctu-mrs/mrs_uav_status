@@ -67,6 +67,7 @@ private:
   void printError(string msg);
   void printDebug(string msg);
   void printHelp();
+  void printBox(WINDOW* win);
 
   void printNoData(WINDOW* win, int y, int x);
   void printNoData(WINDOW* win, int y, int x, string text);
@@ -149,7 +150,7 @@ private:
 
   void prefillUavStatus();
 
-  void flightTimeHandler(WINDOW* win);
+  void topLineHandler(WINDOW* win);
 
   void remoteHandler(int key, WINDOW* win);
   void gimbalHandler(int key, WINDOW* win);
@@ -241,7 +242,8 @@ private:
   bool have_data_       = false;
   bool have_short_data_ = false;
 
-  bool is_flying_ = false;
+  bool avoiding_collision_ = false;
+  bool is_flying_          = false;
 
   status_state state = STANDARD;
   int          cols_, lines_;
@@ -350,7 +352,7 @@ void Status::setupWindows() {
   if (mini_) {
     control_manager_window_ = newwin(4, 9, 1, 1);
     uav_state_window_       = newwin(6, 9, 5, 1);
-    top_bar_window_         = newwin(1, 120, 0, 1);
+    top_bar_window_         = newwin(1, 140, 0, 1);
     general_info_window_    = newwin(4, 9, 1, 10);
     mavros_state_window_    = newwin(6, 9, 5, 10);
     debug_window_           = newwin(20, 120, 13, 1);
@@ -364,7 +366,7 @@ void Status::setupWindows() {
     control_manager_window_ = newwin(4, 26, 1, 1);
     mavros_state_window_    = newwin(7, 25, 5, 27);
     general_info_window_    = newwin(4, 25, 1, 27);
-    top_bar_window_         = newwin(1, 120, 0, 1);
+    top_bar_window_         = newwin(1, 140, 0, 1);
     bottom_window_          = newwin(1, 120, 12, 1);
     debug_window_           = newwin(20, 120, 13, 1);
     generic_topic_window_   = newwin(11, 25, 1, 52);
@@ -427,18 +429,19 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
     return;
   }
 
+  wclear(top_bar_window_);
+  topLineHandler(top_bar_window_);
+
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
     uavStateHandler(uav_state_window_);
   }
 
-  wclear(top_bar_window_);
 
   if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
     werase(bottom_window_);
   }
 
-  flightTimeHandler(top_bar_window_);
 
   if (!mini_) {
     printHelp();
@@ -1181,20 +1184,20 @@ void Status::remoteHandler(int key, WINDOW* win) {
   wattron(win, A_BOLD);
   wattron(win, COLOR_PAIR(RED));
   if (mini_) {
-    mvwprintw(win, 0, 25, "REMOTE");
+    mvwprintw(win, 0, 33, "REM");
   } else {
-    mvwprintw(win, 0, 43, "REMOTE MODE IS ACTIVE");
+    mvwprintw(win, 0, 55, "REMOTE MODE");
   }
 
   if (remote_global_) {
     if (mini_) {
-      mvwprintw(win, 0, 32, "GLOBAL");
+      mvwprintw(win, 0, 37, "G");
     } else {
       mvwprintw(win, 0, 75, "GLOBAL MODE");
     }
   } else {
     if (mini_) {
-      mvwprintw(win, 0, 32, "LOCAL");
+      mvwprintw(win, 0, 37, "L");
     } else {
       mvwprintw(win, 0, 75, "LOCAL MODE");
     }
@@ -1203,9 +1206,9 @@ void Status::remoteHandler(int key, WINDOW* win) {
   if (turbo_remote_) {
     wattron(win, A_BLINK);
     if (mini_) {
-      mvwprintw(win, 0, 38, "!T!");
+      mvwprintw(win, 0, 39, "!T!");
     } else {
-      mvwprintw(win, 0, 66, "!TURBO!");
+      mvwprintw(win, 0, 67, "!TURBO!");
     }
     wattroff(win, A_BLINK);
   }
@@ -1733,7 +1736,7 @@ void Status::stringHandler(WINDOW* win) {
   werase(win);
   wattron(win, A_BOLD);
   wattroff(win, A_STANDOUT);
-  box(win, 0, 0);
+  printBox(win);
 
   if (_light_) {
     wattron(win, A_STANDOUT);
@@ -1816,7 +1819,7 @@ void Status::genericTopicHandler(WINDOW* win) {
   werase(win);
   wattron(win, A_BOLD);
   wattroff(win, A_STANDOUT);
-  box(win, 0, 0);
+  printBox(win);
 
   if (_light_) {
     wattron(win, A_STANDOUT);
@@ -1863,7 +1866,7 @@ void Status::nodeStatsHandler(WINDOW* win) {
   werase(win);
   wattron(win, A_BOLD);
   wattroff(win, A_STANDOUT);
-  box(win, 0, 0);
+  printBox(win);
 
   if (_light_) {
     wattron(win, A_STANDOUT);
@@ -1963,7 +1966,7 @@ void Status::uavStateHandler(WINDOW* win) {
   werase(win);
   wattron(win, A_BOLD);
   wattroff(win, A_STANDOUT);
-  box(win, 0, 0);
+  printBox(win);
 
   if (_light_) {
     wattron(win, A_STANDOUT);
@@ -2109,7 +2112,7 @@ void Status::controlManagerHandler(WINDOW* win) {
   werase(win);
   wattron(win, A_BOLD);
   wattroff(win, A_STANDOUT);
-  box(win, 0, 0);
+  printBox(win);
 
   if (_light_) {
     wattron(win, A_STANDOUT);
@@ -2307,7 +2310,7 @@ void Status::mavrosStateHandler(WINDOW* win) {
   werase(win);
   wattron(win, A_BOLD);
   wattroff(win, A_STANDOUT);
-  box(win, 0, 0);
+  printBox(win);
 
   if (_light_) {
     wattron(win, A_STANDOUT);
@@ -2582,9 +2585,9 @@ void Status::mavrosStateHandler(WINDOW* win) {
 }
 //}
 
-/* flightTimeHandler() //{ */
+/* topLineHandler() //{ */
 
-void Status::flightTimeHandler(WINDOW* win) {
+void Status::topLineHandler(WINDOW* win) {
 
   int secs_flown;
 
@@ -2604,11 +2607,18 @@ void Status::flightTimeHandler(WINDOW* win) {
   std::string uav_type;
   std::string nato_name;
 
+  bool collision_avoidance_enabled;
+
+  uint16_t num_other_uavs;
+
   {
     std::scoped_lock lock(mutex_status_msg_);
-    uav_name  = uav_status_.uav_name;
-    uav_type  = uav_status_.uav_type;
-    nato_name = uav_status_.nato_name;
+    uav_name                    = uav_status_.uav_name;
+    uav_type                    = uav_status_.uav_type;
+    nato_name                   = uav_status_.nato_name;
+    collision_avoidance_enabled = uav_status_.collision_avoidance_enabled;
+    avoiding_collision_         = uav_status_.avoiding_collision;
+    num_other_uavs              = uav_status_.num_other_uavs;
   }
 
   double tmp_time       = (ros::Time::now() - last_time_got_data_).toSec();
@@ -2643,12 +2653,61 @@ void Status::flightTimeHandler(WINDOW* win) {
   if (!mini_) {
     printLimitedDouble(win, 0, 94, "%3.1f", tmp_time, 100);
     printLimitedDouble(win, 0, 90, "%3.1f", tmp_short_time, 100);
+
+    if (collision_avoidance_enabled) {
+      if (avoiding_collision_) {
+        wattron(win, COLOR_PAIR(RED));
+        wattron(win, A_BLINK);
+        mvwprintw(win, 0, 26, "!! AVOIDING COLLISION !!");
+        wattroff(win, COLOR_PAIR(RED));
+        wattroff(win, A_BLINK);
+      } else {
+        wattron(win, COLOR_PAIR(GREEN));
+        mvwprintw(win, 0, 26, "COL AVOID ENABLED,");
+        if (num_other_uavs == 0) {
+          wattron(win, COLOR_PAIR(RED));
+        }
+        mvwprintw(win, 0, 45, "UAVs: ");
+        printLimitedInt(win, 0, 51, "%i", num_other_uavs, 100);
+        wattroff(win, COLOR_PAIR(GREEN));
+        wattroff(win, COLOR_PAIR(RED));
+      }
+    } else {
+      wattron(win, COLOR_PAIR(RED));
+      mvwprintw(win, 0, 26, "COL AVOID DISABLED");
+      wattroff(win, COLOR_PAIR(RED));
+    }
+  } else {
+
+    if (collision_avoidance_enabled) {
+
+      if (avoiding_collision_) {
+        wattron(win, COLOR_PAIR(RED));
+        wattron(win, A_BLINK);
+        mvwprintw(win, 0, 22, "!AVOIDING!");
+        wattroff(win, COLOR_PAIR(RED));
+        wattroff(win, A_BLINK);
+      } else {
+        wattron(win, COLOR_PAIR(GREEN));
+        mvwprintw(win, 0, 27, "C/A");
+        if (num_other_uavs == 0) {
+          wattron(win, COLOR_PAIR(RED));
+        }
+        printLimitedInt(win, 0, 31, "%i", num_other_uavs, 100);
+        wattroff(win, COLOR_PAIR(GREEN));
+        wattroff(win, COLOR_PAIR(RED));
+      }
+    } else {
+      wattron(win, COLOR_PAIR(RED));
+      mvwprintw(win, 0, 27, "C/A");
+      wattroff(win, COLOR_PAIR(RED));
+    }
   }
 
   if (!have_data_) {
     wattron(win, A_BLINK);
     wattron(win, COLOR_PAIR(ALWAYS_RED));
-    mvwprintw(win, 0, 33, "!NO MSGS!");
+    mvwprintw(win, 0, 0, "!NO MSGS!");
     wattroff(win, COLOR_PAIR(ALWAYS_RED));
     wattroff(win, A_BLINK);
   }
@@ -2671,7 +2730,7 @@ void Status::generalInfoHandeler(WINDOW* win) {
   wattron(win, COLOR_PAIR(NORMAL));
   wattroff(win, COLOR_PAIR(NORMAL));
   wattroff(win, A_STANDOUT);
-  box(win, 0, 0);
+  printBox(win);
 
   if (_light_) {
     wattron(win, A_STANDOUT);
@@ -3251,6 +3310,23 @@ void Status::printHelp() {
   }
 
   wnoutrefresh(debug_window_);
+}
+
+//}
+
+/* printHelp() //{ */
+
+void Status::printBox(WINDOW* win) {
+  if (avoiding_collision_) {
+
+    wattron(win, COLOR_PAIR(RED));
+    wattron(win, A_BLINK);
+    wattron(win, A_STANDOUT);
+  }
+  box(win, 0, 0);
+  wattroff(win, A_BLINK);
+  wattroff(win, COLOR_PAIR(RED));
+  wattroff(win, A_STANDOUT);
 }
 
 //}

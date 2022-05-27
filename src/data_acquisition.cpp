@@ -27,6 +27,7 @@
 #include <mrs_msgs/ConstraintManagerDiagnostics.h>
 #include <mrs_msgs/AttitudeCommand.h>
 #include <mrs_msgs/OdometryDiag.h>
+#include <mrs_msgs/MpcTrackerDiagnostics.h>
 
 #include <mrs_msgs/ReferenceStampedSrv.h>
 #include <mrs_msgs/Reference.h>
@@ -92,6 +93,7 @@ private:
   void uavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
   void positionCmdCallback(const mrs_msgs::PositionCommandConstPtr& msg);
   void odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg);
+  void mpcDiagCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr& msg);
   void mavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
   void cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg);
   void batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
@@ -316,6 +318,7 @@ Acquisition::Acquisition() {
   uav_state_subscriber_       = nh_.subscribe("uav_state_in", 10, &Acquisition::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
   cmd_position_subscriber_    = nh_.subscribe("cmd_position_in", 10, &Acquisition::positionCmdCallback, this, ros::TransportHints().tcpNoDelay());
   odom_diag_subscriber_       = nh_.subscribe("odom_diag_in", 10, &Acquisition::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
+  mpc_diag_subscriber_        = nh_.subscribe("mpc_diag_in", 10, &Acquisition::mpcDiagCallback, this, ros::TransportHints().tcpNoDelay());
   mavros_state_subscriber_    = nh_.subscribe("mavros_state_in", 10, &Acquisition::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
   attitude_cmd_subscriber_    = nh_.subscribe("cmd_attitude_in", 10, &Acquisition::cmdAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
   mavros_global_subscriber_   = nh_.subscribe("mavros_global_in", 10, &Acquisition::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
@@ -1253,6 +1256,26 @@ void Acquisition::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
         std::swap(uav_status_.odom_estimators_hdg[0], uav_status_.odom_estimators_hdg[i]);
       }
     }
+  }
+}
+
+//}
+
+/* mpcDiagCallback() //{ */
+
+void Acquisition::mpcDiagCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr& msg) {
+
+  if (!initialized_) {
+    return;
+  }
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+
+    uav_status_.avoiding_collision = msg->avoiding_collision;
+    uav_status_.collision_avoidance_enabled = msg->collision_avoidance_active;
+    uav_status_.num_other_uavs = uint16_t(msg->avoidance_active_uavs.size());
+
   }
 }
 
