@@ -37,6 +37,7 @@
 #include <mrs_msgs/CustomTopic.h>
 
 #include <std_msgs/String.h>
+#include <std_msgs/Bool.h>
 
 #include <mrs_lib/mutex.h>
 
@@ -105,6 +106,7 @@ private:
   void tfStaticCallback(const tf2_msgs::TFMessage& msg);
   void mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg);
   void mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg);
+  void automaticStartCallback_(const std_msgs::BoolConstPtr& msg);
 
   // generic callback, for any topic, to monitor its rate
   void genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
@@ -190,6 +192,7 @@ private:
   ros::Subscriber string_subscriber_;
   ros::Subscriber set_service_subscriber_;
   ros::Subscriber tf_static_subscriber_;
+  ros::Subscriber automatic_start_;
 
   // | ----------------------- Publishers ---------------------- |
 
@@ -331,6 +334,7 @@ Acquisition::Acquisition() {
   set_service_subscriber_  = nh_.subscribe("set_service_in", 10, &Acquisition::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
   tf_static_subscriber_    = nh_.subscribe("tf_static_in", 100, &Acquisition::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
   mavros_local_subscriber_ = nh_.subscribe("mavros_local_in", 10, &Acquisition::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
+  automatic_start_         = nh_.subscribe("automatic_start_in", 10, &Acquisition::automaticStartCallback_, this, ros::TransportHints().tcpNoDelay());
 
   // | ----------------------- Publishers ---------------------- |
 
@@ -1272,10 +1276,9 @@ void Acquisition::mpcDiagCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr&
   {
     std::scoped_lock lock(mutex_status_msg_);
 
-    uav_status_.avoiding_collision = msg->avoiding_collision;
+    uav_status_.avoiding_collision          = msg->avoiding_collision;
     uav_status_.collision_avoidance_enabled = msg->collision_avoidance_active;
-    uav_status_.num_other_uavs = uint16_t(msg->avoidance_active_uavs.size());
-
+    uav_status_.num_other_uavs              = uint16_t(msg->avoidance_active_uavs.size());
   }
 }
 
@@ -1517,6 +1520,22 @@ void Acquisition::gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsCons
         std::swap(uav_status_.gains[0], uav_status_.gains[i]);
       }
     }
+  }
+}
+
+//}
+
+/* automaticStartCallback_() //{ */
+
+void Acquisition::automaticStartCallback_(const std_msgs::BoolConstPtr& msg) {
+
+  if (!initialized_) {
+    return;
+  }
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.automatic_start_can_takeoff = msg->data;
   }
 }
 

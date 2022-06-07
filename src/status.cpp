@@ -242,8 +242,10 @@ private:
   bool have_data_       = false;
   bool have_short_data_ = false;
 
-  bool avoiding_collision_ = false;
-  bool is_flying_          = false;
+  bool avoiding_collision_          = false;
+  bool automatic_start_can_takeoff_ = false;
+  bool null_tracker_                = false;
+  bool is_flying_                   = false;
 
   status_state state = STANDARD;
   int          cols_, lines_;
@@ -2613,12 +2615,14 @@ void Status::topLineHandler(WINDOW* win) {
 
   {
     std::scoped_lock lock(mutex_status_msg_);
-    uav_name                    = uav_status_.uav_name;
-    uav_type                    = uav_status_.uav_type;
-    nato_name                   = uav_status_.nato_name;
-    collision_avoidance_enabled = uav_status_.collision_avoidance_enabled;
-    avoiding_collision_         = uav_status_.avoiding_collision;
-    num_other_uavs              = uav_status_.num_other_uavs;
+    uav_name                     = uav_status_.uav_name;
+    uav_type                     = uav_status_.uav_type;
+    nato_name                    = uav_status_.nato_name;
+    collision_avoidance_enabled  = uav_status_.collision_avoidance_enabled;
+    avoiding_collision_          = uav_status_.avoiding_collision;
+    automatic_start_can_takeoff_ = uav_status_.automatic_start_can_takeoff;
+    null_tracker_                = uav_status_.null_tracker;
+    num_other_uavs               = uav_status_.num_other_uavs;
   }
 
   double tmp_time       = (ros::Time::now() - last_time_got_data_).toSec();
@@ -3317,12 +3321,21 @@ void Status::printHelp() {
 /* printHelp() //{ */
 
 void Status::printBox(WINDOW* win) {
+
   if (avoiding_collision_) {
 
     wattron(win, COLOR_PAIR(RED));
     wattron(win, A_BLINK);
     wattron(win, A_STANDOUT);
   }
+
+  if (!automatic_start_can_takeoff_ && null_tracker_) {
+
+    wattron(win, COLOR_PAIR(YELLOW));
+    wattron(win, A_STANDOUT);
+  }
+
+
   box(win, 0, 0);
   wattroff(win, A_BLINK);
   wattroff(win, COLOR_PAIR(RED));
