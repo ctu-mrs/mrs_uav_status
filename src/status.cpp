@@ -24,6 +24,7 @@ typedef enum
   GIMBAL,
   MAIN_MENU,
   GOTO_MENU,
+  DISPLAY_MENU,
 } status_state;
 
 /* class Status //{ */
@@ -67,6 +68,7 @@ private:
   void printError(string msg);
   void printDebug(string msg);
   void printHelp();
+  void printTmuxDump(int tmux_window);
   void printBox(WINDOW* win);
 
   void printNoData(WINDOW* win, int y, int x);
@@ -174,6 +176,9 @@ private:
   void setupGotoMenu();
   bool gotoMenuHandler(int key_in);
 
+  void setupDisplayMenu();
+  bool displayMenuHandler(int key_in);
+
   // | --------------------- Service Clients -------------------- |
 
 
@@ -211,6 +216,7 @@ private:
   vector<service> service_vec_;
   vector<string>  service_input_vec_;
   vector<string>  main_menu_text_;
+  vector<string>  display_menu_text_;
   vector<string>  constraints_text_;
   vector<string>  gains_text_;
   vector<string>  controllers_text_;
@@ -252,7 +258,9 @@ private:
 
   bool initialized_ = false;
 
-  bool mini_ = false;
+  bool        mini_                 = false;
+  int         selected_tmux_window_ = 0;
+  std::string session_name_;
 };
 
 //}
@@ -351,13 +359,17 @@ Status::Status() {
 
 void Status::setupWindows() {
 
+  char command[50] = "tmux display-message -p '#S'";
+  session_name_    = callTerminal(command);
+  session_name_.erase(std::remove(session_name_.begin(), session_name_.end(), '\n'), session_name_.end());
+
   if (mini_) {
     control_manager_window_ = newwin(4, 9, 1, 1);
     uav_state_window_       = newwin(6, 9, 5, 1);
     top_bar_window_         = newwin(1, 140, 0, 1);
     general_info_window_    = newwin(4, 9, 1, 10);
     mavros_state_window_    = newwin(6, 9, 5, 10);
-    debug_window_           = newwin(20, 120, 13, 1);
+    debug_window_           = newwin(20, 158, 13, 1);
     generic_topic_window_   = newwin(10, 9, 1, 19);
     string_window_          = newwin(10, 15, 1, 28);
     bottom_window_          = newwin(1, 120, 11, 1);
@@ -370,7 +382,7 @@ void Status::setupWindows() {
     general_info_window_    = newwin(4, 25, 1, 27);
     top_bar_window_         = newwin(1, 140, 0, 1);
     bottom_window_          = newwin(1, 120, 12, 1);
-    debug_window_           = newwin(20, 120, 13, 1);
+    debug_window_           = newwin(20, 158, 13, 1);
     generic_topic_window_   = newwin(11, 25, 1, 52);
     string_window_          = newwin(11, 32, 1, 77);
     node_stats_window_      = newwin(11, 50, 1, 109);
@@ -434,6 +446,14 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
   wclear(top_bar_window_);
   topLineHandler(top_bar_window_);
 
+  if (!mini_) {
+    if (selected_tmux_window_ > 0) {
+      printTmuxDump(selected_tmux_window_);
+    } else {
+      printHelp();
+    }
+  }
+
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
     uavStateHandler(uav_state_window_);
@@ -443,12 +463,6 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
   if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
     werase(bottom_window_);
   }
-
-
-  if (!mini_) {
-    printHelp();
-  }
-
 
   int  key_in = getch();
   bool is_flying_normally_;
@@ -503,6 +517,14 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
           statusTimerSlow(tmp_event);
           break;
 
+        case 'D':
+          setupDisplayMenu();
+          state = DISPLAY_MENU;
+          break;
+          /* display_tmux_ = !display_tmux_; */
+          /* statusTimerFast(tmp_event); */
+          /* break; */
+
         default:
           flushinp();
           break;
@@ -555,6 +577,15 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
         state = STANDARD;
       }
       break;
+
+    case DISPLAY_MENU:
+      flushinp();
+      if (displayMenuHandler(key_in)) {
+        menu_vec_.clear();
+        submenu_vec_.clear();
+        state = STANDARD;
+      }
+      break;
   }
 
   /* if (state == STANDARD) { */
@@ -565,7 +596,7 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
   /*   printDebug("something else"); */
   /* } */
 
-  if (state != MAIN_MENU && state != GOTO_MENU) {
+  if (state != MAIN_MENU && state != GOTO_MENU && state != DISPLAY_MENU) {
     wnoutrefresh(bottom_window_);
   }
 
@@ -1166,6 +1197,39 @@ bool Status::gotoMenuHandler(int key_in) {
       goto_menu_inputs_[i].Print(i + 1, true);
     } else {
       goto_menu_inputs_[i].Print(i + 1, false);
+    }
+  }
+
+  wnoutrefresh(menu_vec_[0].getWin());
+  return false;
+}
+
+//}
+
+/* displayMenuHandler() //{ */
+
+bool Status::displayMenuHandler(int key_in) {
+
+  display_menu_text_[selected_tmux_window_][1] = '*';
+
+  optional<tuple<int, int>> ret = menu_vec_[0].iterate(display_menu_text_, key_in, false);
+
+  if (ret.has_value()) {
+    size_t line = get<0>(ret.value());
+    int    key  = get<1>(ret.value());
+
+    if (line == 666 && key == 666) {
+
+      menu_vec_.clear();
+      return true;
+    }
+
+    else if (key == KEY_ENT) {
+      display_menu_text_[selected_tmux_window_][1] = ' ';
+      selected_tmux_window_                        = (int)line;
+      display_menu_text_[selected_tmux_window_][1] = '*';
+      menu_vec_.clear();
+      return true;
     }
   }
 
@@ -2960,6 +3024,28 @@ void Status::setupGotoMenu() {
 
 //}
 
+/* setupDisplayMenu() //{ */
+
+void Status::setupDisplayMenu() {
+
+  display_menu_text_.clear();
+  display_menu_text_.push_back("[ ] NONE");
+
+  char                     command[50] = "tmux list-windows | cut -d' ' -f-2";
+  std::string              response    = callTerminal(command);
+  std::vector<std::string> results;
+  boost::split(results, response, boost::is_any_of("\n"));
+
+  for (size_t i = 0; i < results.size() - 1; i++) {
+    display_menu_text_.push_back("[ ] " + results[i]);
+  }
+
+  Menu menu(1, 32, display_menu_text_);
+  menu_vec_.push_back(menu);
+}
+
+//}
+
 //}
 
 /* PRINT FUNCTIONS //{ */
@@ -3318,7 +3404,27 @@ void Status::printHelp() {
 
 //}
 
-/* printHelp() //{ */
+/* printTmuxDump() //{ */
+
+void Status::printTmuxDump(int tmux_window) {
+
+  werase(debug_window_);
+  printBox(debug_window_);
+
+  std::string command_str = "tmux resize-window -t " + session_name_ + ":" + std::to_string(selected_tmux_window_ - 1) + " -A";
+  callTerminal(command_str.c_str());
+
+  command_str          = "tmux capture-pane -pt " + session_name_ + ":" + std::to_string(selected_tmux_window_ - 1) + " -S 0 | tail -n 18";
+  std::string response = callTerminal(command_str.c_str());
+
+  mvwaddstr(debug_window_, 1, 1, response.c_str());
+
+  wnoutrefresh(debug_window_);
+}
+
+//}
+
+/* printBox() //{ */
 
 void Status::printBox(WINDOW* win) {
 
