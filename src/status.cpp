@@ -68,7 +68,7 @@ private:
   void printError(string msg);
   void printDebug(string msg);
   void printHelp();
-  void printTmuxDump(int tmux_window);
+  void printTmuxDump();
   void printBox(WINDOW* win);
 
   void printNoData(WINDOW* win, int y, int x);
@@ -136,6 +136,8 @@ private:
   WINDOW* node_stats_window_;
   WINDOW* general_info_window_;
   WINDOW* debug_window_;
+  WINDOW* sub_tmux_window_1_;
+  WINDOW* sub_tmux_window_2_;
   WINDOW* string_window_;
 
   ros::Time bottom_window_clear_time_ = ros::Time::now();
@@ -149,6 +151,8 @@ private:
   /* StatusWindow* generic_topic_window_; */
 
   // | ---------------------- Misc routines --------------------- |
+
+  bool updateTermSize();
 
   void prefillUavStatus();
 
@@ -258,9 +262,10 @@ private:
 
   bool initialized_ = false;
 
-  bool        mini_                 = false;
-  int         selected_tmux_window_ = 0;
-  std::string session_name_;
+  bool             mini_ = false;
+  std::vector<int> selected_tmux_window_;
+  std::string      session_name_;
+  const int        MAX_SELECTED_TMUX_WINDOWS = 2;
 };
 
 //}
@@ -347,6 +352,9 @@ Status::Status() {
   // |            Window creation and topic association           |
   // --------------------------------------------------------------
 
+  ROS_INFO_STREAM("[Status]: Node initialized! " << cols_ << " " << lines_);
+  updateTermSize();
+  ROS_INFO_STREAM("[Status]: Node initialized! " << cols_ << " " << lines_);
   setupWindows();
 
   initialized_ = true;
@@ -359,9 +367,27 @@ Status::Status() {
 
 void Status::setupWindows() {
 
-  char command[50] = "tmux display-message -p '#S'";
-  session_name_    = callTerminal(command);
+  std::string command = "tmux display-message -p '#S'";
+  session_name_       = callTerminal(command.c_str());
   session_name_.erase(std::remove(session_name_.begin(), session_name_.end(), '\n'), session_name_.end());
+
+  command                           = "tmux list-panes -F '#{pane_width}x#{pane_height}'";
+  std::string              response = callTerminal(command.c_str());
+  std::vector<std::string> results;
+  boost::split(results, response, [](char c) { return c == 'x'; });
+
+  int cols, lines;
+
+  try {
+    cols  = stoi(results[0]);
+    lines = stoi(results[1]);
+  }
+
+  catch (const invalid_argument& e) {
+    cols  = 0;
+    lines = 0;
+  }
+
 
   if (mini_) {
     control_manager_window_ = newwin(4, 9, 1, 1);
@@ -369,11 +395,10 @@ void Status::setupWindows() {
     top_bar_window_         = newwin(1, 140, 0, 1);
     general_info_window_    = newwin(4, 9, 1, 10);
     mavros_state_window_    = newwin(6, 9, 5, 10);
-    debug_window_           = newwin(20, 158, 13, 1);
+    debug_window_           = newwin(lines_ - 15, cols_ - 1, 13, 1);
     generic_topic_window_   = newwin(10, 9, 1, 19);
     string_window_          = newwin(10, 15, 1, 28);
     bottom_window_          = newwin(1, 120, 11, 1);
-
 
   } else {
     uav_state_window_       = newwin(7, 26, 5, 1);
@@ -382,10 +407,14 @@ void Status::setupWindows() {
     general_info_window_    = newwin(4, 25, 1, 27);
     top_bar_window_         = newwin(1, 140, 0, 1);
     bottom_window_          = newwin(1, 120, 12, 1);
-    debug_window_           = newwin(20, 158, 13, 1);
-    generic_topic_window_   = newwin(11, 25, 1, 52);
-    string_window_          = newwin(11, 32, 1, 77);
-    node_stats_window_      = newwin(11, 50, 1, 109);
+    debug_window_           = newwin(lines_ - 15, cols_ - 1, 13, 1);
+    int half_lines          = (lines_ - 18) / 2;
+    sub_tmux_window_1_      = derwin(debug_window_, half_lines, cols_ - 3, 1, 1);
+    sub_tmux_window_2_      = derwin(debug_window_, half_lines, cols_ - 3, half_lines + 2, 1);
+
+    generic_topic_window_ = newwin(11, 25, 1, 52);
+    string_window_        = newwin(11, 32, 1, 77);
+    node_stats_window_    = newwin(11, 50, 1, 109);
   }
 
   clear();
@@ -403,11 +432,25 @@ void Status::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
     return;
   }
 
-  // TODO resizing causes screen flicker, should be called just before general refresh.
-  // TODO display breaks when screen is resized to very small number of cols
+  if (updateTermSize()) {
+    if (cols_ > 30) {
+      resize_term(lines_, cols_);
+      setupWindows();
+    }
+  }
+}
 
-  char                     command[50] = "tmux list-panes -F '#{pane_width}x#{pane_height}'";
-  std::string              response    = callTerminal(command);
+
+//}
+
+/* resizeTimer //{ */
+
+bool Status::updateTermSize() {
+
+  bool changed = false;
+
+  std::string              command  = "tmux list-panes -F '#{pane_width}x#{pane_height}'";
+  std::string              response = callTerminal(command.c_str());
   std::vector<std::string> results;
   boost::split(results, response, [](char c) { return c == 'x'; });
 
@@ -422,14 +465,13 @@ void Status::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
     cols  = 0;
     lines = 0;
   }
-  if (cols_ != cols || lines_ != lines) {
-    lines_ = lines;
-    cols_  = cols;
 
-    if (cols > 30) {
-      resize_term(lines_, cols_);
-    }
+  if (cols_ != cols || lines_ != lines) {
+    lines_  = lines;
+    cols_   = cols;
+    changed = true;
   }
+  return (changed);
 }
 
 
@@ -447,8 +489,8 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
   topLineHandler(top_bar_window_);
 
   if (!mini_) {
-    if (selected_tmux_window_ > 0) {
-      printTmuxDump(selected_tmux_window_);
+    if (!selected_tmux_window_.empty()) {
+      printTmuxDump();
     } else {
       printHelp();
     }
@@ -521,9 +563,6 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
           setupDisplayMenu();
           state = DISPLAY_MENU;
           break;
-          /* display_tmux_ = !display_tmux_; */
-          /* statusTimerFast(tmp_event); */
-          /* break; */
 
         default:
           flushinp();
@@ -1210,8 +1249,6 @@ bool Status::gotoMenuHandler(int key_in) {
 
 bool Status::displayMenuHandler(int key_in) {
 
-  display_menu_text_[selected_tmux_window_][1] = '*';
-
   optional<tuple<int, int>> ret = menu_vec_[0].iterate(display_menu_text_, key_in, false);
 
   if (ret.has_value()) {
@@ -1225,11 +1262,16 @@ bool Status::displayMenuHandler(int key_in) {
     }
 
     else if (key == KEY_ENT) {
-      display_menu_text_[selected_tmux_window_][1] = ' ';
-      selected_tmux_window_                        = (int)line;
-      display_menu_text_[selected_tmux_window_][1] = '*';
-      menu_vec_.clear();
-      return true;
+
+      auto it = std::find(selected_tmux_window_.begin(), selected_tmux_window_.end(), line);
+
+      if (it != selected_tmux_window_.end()) {
+        display_menu_text_[line][1] = ' ';
+        selected_tmux_window_.erase(it);
+      } else if (selected_tmux_window_.size() < MAX_SELECTED_TMUX_WINDOWS) {
+        display_menu_text_[line][1] = '*';
+        selected_tmux_window_.push_back(line);
+      }
     }
   }
 
@@ -3029,7 +3071,6 @@ void Status::setupGotoMenu() {
 void Status::setupDisplayMenu() {
 
   display_menu_text_.clear();
-  display_menu_text_.push_back("[ ] NONE");
 
   char                     command[50] = "tmux list-windows | cut -d' ' -f-2";
   std::string              response    = callTerminal(command);
@@ -3038,6 +3079,10 @@ void Status::setupDisplayMenu() {
 
   for (size_t i = 0; i < results.size() - 1; i++) {
     display_menu_text_.push_back("[ ] " + results[i]);
+  }
+
+  for (size_t i = 0; i < selected_tmux_window_.size(); i++) {
+    display_menu_text_[selected_tmux_window_[i]][1] = '*';
   }
 
   Menu menu(1, 32, display_menu_text_);
@@ -3406,20 +3451,48 @@ void Status::printHelp() {
 
 /* printTmuxDump() //{ */
 
-void Status::printTmuxDump(int tmux_window) {
+void Status::printTmuxDump() {
 
   werase(debug_window_);
   printBox(debug_window_);
 
-  std::string command_str = "tmux resize-window -t " + session_name_ + ":" + std::to_string(selected_tmux_window_ - 1) + " -A";
-  callTerminal(command_str.c_str());
+  if (selected_tmux_window_.size() > MAX_SELECTED_TMUX_WINDOWS) {
+    return;
+  }
 
-  command_str          = "tmux capture-pane -pt " + session_name_ + ":" + std::to_string(selected_tmux_window_ - 1) + " -S 0 | tail -n 18";
-  std::string response = callTerminal(command_str.c_str());
+  int tmp_cols, tmp_rows;
+  getmaxyx(sub_tmux_window_1_, tmp_rows, tmp_cols);
 
-  mvwaddstr(debug_window_, 1, 1, response.c_str());
+  for (size_t i = 0; i < selected_tmux_window_.size(); i++) {
+    std::string command_str = "tmux resize-window -t " + session_name_ + ":" + std::to_string(selected_tmux_window_[i]) + " -A";
+    callTerminal(command_str.c_str());
+    command_str = "tmux capture-pane -pt " + session_name_ + ":" + std::to_string(selected_tmux_window_[i]) + " -S 0 | tail -n " + std::to_string(tmp_rows+1);
+    std::string response = callTerminal(command_str.c_str());
+    switch (i) {
+      case 0: {
+        mvwaddstr(sub_tmux_window_1_, 0, 0, response.c_str());
+        break;
+      }
+      case 1: {
+        mvwaddstr(sub_tmux_window_2_, 0, 0, response.c_str());
+        break;
+      }
+    }
+  }
+  mvwhline(debug_window_, tmp_rows + 1, 1, 0, tmp_cols - 1);
+
+  if (selected_tmux_window_.size() > 1) {
+  printLimitedString(debug_window_, tmp_rows + 1, 3, display_menu_text_[selected_tmux_window_[1]], 50);
+  }
+  if (selected_tmux_window_.size() > 0) {
+  printLimitedString(debug_window_, 0, 3, display_menu_text_[selected_tmux_window_[0]], 50);
+  }
 
   wnoutrefresh(debug_window_);
+  touchwin(debug_window_);
+
+  wnoutrefresh(sub_tmux_window_1_);
+  wnoutrefresh(sub_tmux_window_2_);
 }
 
 //}
