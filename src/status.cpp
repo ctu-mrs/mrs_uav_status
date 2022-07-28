@@ -364,7 +364,7 @@ Status::Status() {
   updateTermSize();
   setupWindows();
 
-  _display_config_filename_ = _pwd_ + "/mrs_status_display_config.txt";
+  _display_config_filename_ = _pwd_ + "/.mrs_status_display_config~";
 
   if (boost::filesystem::exists(_display_config_filename_)) {
     selected_tmux_window_.clear();
