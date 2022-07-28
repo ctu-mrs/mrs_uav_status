@@ -1,6 +1,7 @@
 <launch>
 
   <arg name="UAV_NAME" default="$(env UAV_NAME)"/>
+  <arg name="PWD" default="$(env PWD)"/>
   <arg name="NATO_NAME" default="$(env NATO_NAME)"/>
   <arg name="UAV_TYPE" default="$(env UAV_TYPE)"/>
   <arg name="SENSORS" default="$(env SENSORS)"/>
@@ -23,6 +24,7 @@
     <node name="mrs_uav_status" pkg="mrs_uav_status" type="mrs_uav_status" output="screen" respawn="false" launch-prefix="$(arg launch_prefix)">
 
       <param name="uav_name" value="$(arg UAV_NAME)" />
+      <param name="pwd" value="$(arg PWD)" />
       <param name="nato_name" value="$(arg NATO_NAME)" />
       <param name="uav_type" value="$(arg UAV_TYPE)" />
       <param if="$(eval arg('RUN_TYPE') == 'uav')" name="uav_mass" value="$(arg UAV_MASS)" />

@@ -11,6 +11,8 @@
 #include <mrs_lib/profiler.h>
 #include <mrs_msgs/Float64Stamped.h>
 
+#include <boost/filesystem.hpp>
+
 
 using namespace std;
 using topic_tools::ShapeShifter;
@@ -34,10 +36,13 @@ class Status {
 public:
   Status();
 
-  string _colorscheme_;
-  bool   _rainbow_;
-  bool   _debug_tilt_;
-  bool   _remote_mode_is_trajectory_;
+  std::string _colorscheme_;
+  std::string _pwd_;
+  std::string _display_config_filename_;
+
+  bool _rainbow_;
+  bool _debug_tilt_;
+  bool _remote_mode_is_trajectory_;
 
   bool _light_ = false;
 
@@ -181,6 +186,8 @@ private:
   bool gotoMenuHandler(int key_in);
 
   void setupDisplayMenu();
+  void setupDisplayText();
+
   bool displayMenuHandler(int key_in);
 
   // | --------------------- Service Clients -------------------- |
@@ -283,6 +290,8 @@ Status::Status() {
 
   mrs_lib::ParamLoader param_loader(nh_, "Status");
 
+  param_loader.loadParam("pwd", _pwd_);
+
   param_loader.loadParam("colorscheme", _colorscheme_);
   param_loader.loadParam("rainbow", _rainbow_, false);
 
@@ -352,10 +361,26 @@ Status::Status() {
   // |            Window creation and topic association           |
   // --------------------------------------------------------------
 
-  ROS_INFO_STREAM("[Status]: Node initialized! " << cols_ << " " << lines_);
   updateTermSize();
-  ROS_INFO_STREAM("[Status]: Node initialized! " << cols_ << " " << lines_);
   setupWindows();
+
+  _display_config_filename_ = _pwd_ + "/mrs_status_display_config.txt";
+
+  if (boost::filesystem::exists(_display_config_filename_)) {
+    selected_tmux_window_.clear();
+    ifstream    file(_display_config_filename_);
+    std::string line;
+    for (int i = 0; i < MAX_SELECTED_TMUX_WINDOWS; i++) {
+      getline(file, line);
+      try {
+        selected_tmux_window_.push_back(stoi(line));
+      }
+      catch (const invalid_argument& e) {
+      }
+    }
+    file.close();
+    setupDisplayText();
+  }
 
   initialized_ = true;
   ROS_INFO("[Status]: Node initialized!");
@@ -1272,6 +1297,12 @@ bool Status::displayMenuHandler(int key_in) {
         display_menu_text_[line][1] = '*';
         selected_tmux_window_.push_back(line);
       }
+
+      ofstream outputFile(_display_config_filename_, std::ofstream::out | std::ofstream::trunc);
+      for (size_t i = 0; i < selected_tmux_window_.size(); i++) {
+        outputFile << selected_tmux_window_[i] << '\n';
+      }
+      outputFile.close();
     }
   }
 
@@ -3070,6 +3101,18 @@ void Status::setupGotoMenu() {
 
 void Status::setupDisplayMenu() {
 
+  setupDisplayText();
+
+  Menu menu(1, 32, display_menu_text_);
+  menu_vec_.push_back(menu);
+}
+
+//}
+
+/* setupDisplayText() //{ */
+
+void Status::setupDisplayText() {
+
   display_menu_text_.clear();
 
   char                     command[50] = "tmux list-windows | cut -d' ' -f-2";
@@ -3084,9 +3127,6 @@ void Status::setupDisplayMenu() {
   for (size_t i = 0; i < selected_tmux_window_.size(); i++) {
     display_menu_text_[selected_tmux_window_[i]][1] = '*';
   }
-
-  Menu menu(1, 32, display_menu_text_);
-  menu_vec_.push_back(menu);
 }
 
 //}
@@ -3466,7 +3506,7 @@ void Status::printTmuxDump() {
   for (size_t i = 0; i < selected_tmux_window_.size(); i++) {
     std::string command_str = "tmux resize-window -t " + session_name_ + ":" + std::to_string(selected_tmux_window_[i]) + " -A";
     callTerminal(command_str.c_str());
-    command_str = "tmux capture-pane -pt " + session_name_ + ":" + std::to_string(selected_tmux_window_[i]) + " -S 0 | tail -n " + std::to_string(tmp_rows+1);
+    command_str = "tmux capture-pane -pt " + session_name_ + ":" + std::to_string(selected_tmux_window_[i]) + " -S 0 | tail -n " + std::to_string(tmp_rows + 1);
     std::string response = callTerminal(command_str.c_str());
     switch (i) {
       case 0: {
@@ -3479,13 +3519,14 @@ void Status::printTmuxDump() {
       }
     }
   }
+
   mvwhline(debug_window_, tmp_rows + 1, 1, 0, tmp_cols - 1);
 
   if (selected_tmux_window_.size() > 1) {
-  printLimitedString(debug_window_, tmp_rows + 1, 3, display_menu_text_[selected_tmux_window_[1]], 50);
+    printLimitedString(debug_window_, tmp_rows + 1, 3, display_menu_text_[selected_tmux_window_[1]], 50);
   }
   if (selected_tmux_window_.size() > 0) {
-  printLimitedString(debug_window_, 0, 3, display_menu_text_[selected_tmux_window_[0]], 50);
+    printLimitedString(debug_window_, 0, 3, display_menu_text_[selected_tmux_window_[0]], 50);
   }
 
   wnoutrefresh(debug_window_);
