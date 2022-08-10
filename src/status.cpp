@@ -388,7 +388,7 @@ Status::Status() {
 
 //}
 
-/* resizeTimer //{ */
+/* setupWindows //{ */
 
 void Status::setupWindows() {
 
@@ -510,7 +510,7 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
     return;
   }
 
-  wclear(top_bar_window_);
+  werase(top_bar_window_);
   topLineHandler(top_bar_window_);
 
   if (!mini_) {
