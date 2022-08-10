@@ -41,6 +41,7 @@ public:
   std::string _display_config_filename_;
 
   bool _rainbow_;
+  bool _spam_my_screen_;
   bool _debug_tilt_;
   bool _remote_mode_is_trajectory_;
 
@@ -294,6 +295,7 @@ Status::Status() {
 
   param_loader.loadParam("colorscheme", _colorscheme_);
   param_loader.loadParam("rainbow", _rainbow_, false);
+  param_loader.loadParam("spam_my_screen", _spam_my_screen_, true);
 
   param_loader.loadParam("debug_tilt", _debug_tilt_);
   param_loader.loadParam("remote_mode_is_trajectory", _remote_mode_is_trajectory_);
@@ -3676,6 +3678,25 @@ int main(int argc, char** argv) {
     refresh();
     while (1) {
     }
+  }
+  //}
+
+  /* DEBUG SPAM ME //{ */
+  if (status._spam_my_screen_) {
+    while (ros::ok()) {
+
+      clear();
+      erase();
+      for (int i = 0; i < 100; i++) {
+        for (int j = 0; j < 100; j++) {
+          mvwprintw(stdscr, i, j, "a");
+        }
+      }
+      doupdate();
+      refresh();
+      ros::Duration(0.1).sleep();
+    }
+    return 0;
   }
   //}
 
