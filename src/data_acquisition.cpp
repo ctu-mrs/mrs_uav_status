@@ -439,7 +439,7 @@ void Acquisition::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
   if (sec1_counter_ == 10) {
 
-    ROS_INFO_ONCE("[%s]: Running data acquisition, publishing uav status.", ros::this_node::getName().c_str());
+    /* ROS_INFO_ONCE("[%s]: Running data acquisition, publishing uav status.", ros::this_node::getName().c_str()); */
 
     sec1_counter_ = 0;
 

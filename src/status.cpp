@@ -510,7 +510,6 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
     return;
   }
 
-  werase(top_bar_window_);
   topLineHandler(top_bar_window_);
 
   if (!mini_) {
@@ -2728,6 +2727,7 @@ void Status::mavrosStateHandler(WINDOW* win) {
 
 void Status::topLineHandler(WINDOW* win) {
 
+  werase(win);
   int secs_flown;
 
   {
@@ -2858,6 +2858,7 @@ void Status::topLineHandler(WINDOW* win) {
 
   mvwprintw(win, 0, 0, "ToF: %i:%02i", mins, secs);
   wattroff(win, A_BOLD);
+  wnoutrefresh(win);
 }
 
 //}
