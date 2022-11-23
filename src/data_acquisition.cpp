@@ -821,10 +821,6 @@ void Acquisition::generalInfoThread() {
 
 void Acquisition::setupGenericCallbacks() {
 
-  if (!initialized_) {
-    return;
-  }
-
   generic_topic_vec_.clear();
   generic_subscriber_vec_.clear();
 
