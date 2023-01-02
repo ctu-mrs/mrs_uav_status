@@ -41,7 +41,7 @@
       <remap from="~mpc_diag_in" to="control_manager/mpc_tracker/diagnostics" />
       <remap from="~hw_api_diag_in" to="hw_api/diagnostics" />
       <remap from="~cmd_attitude_in" to="control_manager/attitude_cmd" />
-      <remap from="~battery_in" to="hw_api/battery" />
+      <remap from="~battery_in" to="hw_api/battery_state" />
       <remap from="~control_manager_in" to="control_manager/diagnostics" />
       <remap from="~gain_manager_in" to="gain_manager/diagnostics" />
       <remap from="~constraint_manager_in" to="constraint_manager/diagnostics" />
