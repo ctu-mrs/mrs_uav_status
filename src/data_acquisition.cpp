@@ -43,7 +43,7 @@
 
 #include <sensor_msgs/NavSatFix.h>
 
-#include <mavros_msgs/State.h>
+#include <mrs_msgs/HwApiDiagnostics.h>
 #include <mavros_msgs/AttitudeTarget.h>
 
 #include <geometry_msgs/Pose.h>
@@ -95,7 +95,7 @@ private:
   void positionCmdCallback(const mrs_msgs::PositionCommandConstPtr& msg);
   void odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg);
   void mpcDiagCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr& msg);
-  void mavrosStateCallback(const mavros_msgs::StateConstPtr& msg);
+  void hwApiStateCallback(const mrs_msgs::HwApiDiagnosticsConstPtr& msg);
   void cmdAttitudeCallback(const mrs_msgs::AttitudeCommandConstPtr& msg);
   void batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
   void controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg);
@@ -117,7 +117,7 @@ private:
   void nodeCpuLoadHandler();
   void updateNodeList();
   void controlManagerHandler();
-  void mavrosStateHandler();
+  void hwApiDiagHandler();
   void genericTopicHandler();
   void stringHandler();
 
@@ -127,7 +127,7 @@ private:
   double control_manager_expected_rate_ = 10.0;
   double mavros_local_expected_rate_    = 100.0;
   double mavros_global_expected_rate_   = 100.0;
-  double mavros_state_expected_rate_    = 100.0;
+  double hw_api_state_expected_rate_    = 100.0;
   double mavros_cmd_expected_rate_      = 100.0;
   double mavros_battery_expected_rate_  = 0.5;
 
@@ -135,7 +135,7 @@ private:
   TopicInfo control_manager_ts_{1, BUFFER_LEN_SECS, control_manager_expected_rate_};
   TopicInfo mavros_local_ts_{1, BUFFER_LEN_SECS, mavros_local_expected_rate_};
   TopicInfo mavros_global_ts_{1, BUFFER_LEN_SECS, mavros_global_expected_rate_};
-  TopicInfo mavros_state_ts_{1, BUFFER_LEN_SECS, mavros_state_expected_rate_};
+  TopicInfo hw_api_state_ts_{1, BUFFER_LEN_SECS, hw_api_state_expected_rate_};
   TopicInfo mavros_cmd_ts_{1, BUFFER_LEN_SECS, mavros_cmd_expected_rate_};
   TopicInfo mavros_battery_ts_{1, BUFFER_LEN_SECS, mavros_battery_expected_rate_};
 
@@ -181,7 +181,7 @@ private:
   ros::Subscriber cmd_position_subscriber_;
   ros::Subscriber odom_diag_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
-  ros::Subscriber mavros_state_subscriber_;
+  ros::Subscriber hw_api_diag_subscriber_;
   ros::Subscriber mavros_global_subscriber_;
   ros::Subscriber mavros_local_subscriber_;
   ros::Subscriber attitude_cmd_subscriber_;
@@ -322,7 +322,7 @@ Acquisition::Acquisition() {
   cmd_position_subscriber_    = nh_.subscribe("cmd_position_in", 10, &Acquisition::positionCmdCallback, this, ros::TransportHints().tcpNoDelay());
   odom_diag_subscriber_       = nh_.subscribe("odom_diag_in", 10, &Acquisition::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
   mpc_diag_subscriber_        = nh_.subscribe("mpc_diag_in", 10, &Acquisition::mpcDiagCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_state_subscriber_    = nh_.subscribe("mavros_state_in", 10, &Acquisition::mavrosStateCallback, this, ros::TransportHints().tcpNoDelay());
+  hw_api_diag_subscriber_     = nh_.subscribe("hw_api_diag_in", 10, &Acquisition::hwApiStateCallback, this, ros::TransportHints().tcpNoDelay());
   attitude_cmd_subscriber_    = nh_.subscribe("cmd_attitude_in", 10, &Acquisition::cmdAttitudeCallback, this, ros::TransportHints().tcpNoDelay());
   mavros_global_subscriber_   = nh_.subscribe("mavros_global_in", 10, &Acquisition::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
   battery_subscriber_         = nh_.subscribe("battery_in", 10, &Acquisition::batteryCallback, this, ros::TransportHints().tcpNoDelay());
@@ -445,7 +445,7 @@ void Acquisition::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
 
     {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
-      mavrosStateHandler();
+      hwApiDiagHandler();
     }
     {
       mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
@@ -712,11 +712,11 @@ void Acquisition::controlManagerHandler() {
 
 /* mavrosStateHandler() //{ */
 
-void Acquisition::mavrosStateHandler() {
+void Acquisition::hwApiDiagHandler() {
 
   std::tuple<double, int16_t> local_rate_color   = mavros_local_ts_.GetHz();
   std::tuple<double, int16_t> global_rate_color  = mavros_global_ts_.GetHz();
-  std::tuple<double, int16_t> state_rate_color   = mavros_state_ts_.GetHz();
+  std::tuple<double, int16_t> state_rate_color   = hw_api_state_ts_.GetHz();
   std::tuple<double, int16_t> cmd_rate_color     = mavros_cmd_ts_.GetHz();
   std::tuple<double, int16_t> battery_rate_color = mavros_battery_ts_.GetHz();
 
@@ -1280,15 +1280,15 @@ void Acquisition::mpcDiagCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr&
 
 //}
 
-/* mavrosStateCallback() //{ */
+/* hwApiStateCallback() //{ */
 
-void Acquisition::mavrosStateCallback(const mavros_msgs::StateConstPtr& msg) {
+void Acquisition::hwApiStateCallback(const mrs_msgs::HwApiDiagnosticsConstPtr& msg) {
 
   if (!initialized_) {
     return;
   }
 
-  mavros_state_ts_.Count();
+  hw_api_state_ts_.Count();
 
   {
     std::scoped_lock lock(mutex_status_msg_);

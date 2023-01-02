@@ -21,7 +21,7 @@
   <group ns="$(arg UAV_NAME)">
 
     <node name="mrs_uav_status_acquisition" pkg="mrs_uav_status" type="data_acquisition" output="screen" respawn="true" launch-prefix="$(arg launch_prefix)">
-        
+
       <param name="uav_name" value="$(arg UAV_NAME)" />
       <param name="nato_name" value="$(arg NATO_NAME)" />
       <param name="uav_type" value="$(arg UAV_TYPE)" />
@@ -39,9 +39,9 @@
       <remap from="~cmd_position_in" to="control_manager/position_cmd" />
       <remap from="~odom_diag_in" to="odometry/diagnostics" />
       <remap from="~mpc_diag_in" to="control_manager/mpc_tracker/diagnostics" />
-      <remap from="~mavros_state_in" to="mavros/state" />
+      <remap from="~hw_api_diag_in" to="hw_api/diagnostics" />
       <remap from="~cmd_attitude_in" to="control_manager/attitude_cmd" />
-      <remap from="~battery_in" to="mavros/battery" />
+      <remap from="~battery_in" to="hw_api/battery" />
       <remap from="~control_manager_in" to="control_manager/diagnostics" />
       <remap from="~gain_manager_in" to="gain_manager/diagnostics" />
       <remap from="~constraint_manager_in" to="constraint_manager/diagnostics" />
