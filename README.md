@@ -2,8 +2,8 @@
 
 ![](.fig/thumbnail.jpg)
 
-| Build status | [![Build Status](https://github.com/ctu-mrs/mrs_uav_status/workflows/Melodic/badge.svg)](https://github.com/ctu-mrs/mrs_uav_status/actions) | [![Build Status](https://github.com/ctu-mrs/mrs_uav_status/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/mrs_uav_status/actions) |
-|--------------|---------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| Build status | [![Build Status](https://github.com/ctu-mrs/mrs_uav_status/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/mrs_uav_status/actions) |
+|--------------|--------------------------------------------------------------------------------------------------------------------------------------------|
 
 ## Real-time Terminal User Interface for monitoring and control
 
@@ -56,12 +56,12 @@ Simply publish a [std_msgs/String](http://docs.ros.org/melodic/api/std_msgs/html
     * If you want to display more messages from one node/nodelet manager, you can use the argument -id my_id
     * At the begining of you string, put "-id my_id the rest of my message"
     * Message will be displayed for each unique id
-* -p 
+* -p
     * You can add "-p " at the beginning of your string, to make the message persistent, it will not disappear, only if it is overriden by a new message
 * -r, -y,- g, -R, -Y -G
-    * By default, the messages will be displayed as black/white (depending on the current colorsheme). You can use -r -y -g parameters to set the color to red/yellow/green. If you use 
+    * By default, the messages will be displayed as black/white (depending on the current colorsheme). You can use -r -y -g parameters to set the color to red/yellow/green. If you use
       capital letter as the parameter, it will make the displayed message blink
-      
+
 ### Monitoring ROS topic rates
 MRS UAV Status can monitor rates of different ROS topics, and warn the user if the topic is published less frequently than required, or not published at all. There are two ways how to add monitored topics:
 
