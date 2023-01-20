@@ -2,6 +2,24 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* updated ci, updated readme
+* bugfix
+* display improvements
+* fixed launch, env->optenv
+* small update
+* hiding the config file
+* added persistent tmux displays
+* updated tmux display mode
+* adding tmux throughput mode
+* added safety area check
+* added collision avoidance display
+* finishing minimalistic mode
+* updates
+* minimialistic mode
+* Contributors: Dan Hert, Tomas Baca
+
 1.0.3 (2022-05-09)
 ------------------
 * updated dependencies
