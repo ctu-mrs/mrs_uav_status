@@ -2,8 +2,8 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.4 (2023-01-20)
+------------------
 * updated ci, updated readme
 * bugfix
 * display improvements
