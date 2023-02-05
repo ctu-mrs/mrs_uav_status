@@ -21,7 +21,7 @@
 #include <mrs_msgs/UavStatus.h>
 #include <mrs_msgs/UavStatusShort.h>
 #include <mrs_msgs/UavState.h>
-#include <mrs_msgs/PositionCommand.h>
+#include <mrs_msgs/TrackerCommand.h>
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 #include <mrs_msgs/GainManagerDiagnostics.h>
 #include <mrs_msgs/ConstraintManagerDiagnostics.h>
@@ -92,7 +92,7 @@ private:
   // | ------------------------ Callbacks ----------------------- |
 
   void uavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
-  void positionCmdCallback(const mrs_msgs::PositionCommandConstPtr& msg);
+  void positionCmdCallback(const mrs_msgs::TrackerCommandConstPtr& msg);
   void odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg);
   void mpcDiagCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr& msg);
   void hwApiStateCallback(const mrs_msgs::HwApiDiagnosticsConstPtr& msg);
@@ -1197,7 +1197,7 @@ void Acquisition::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
 
 /* positionCmdCallback() //{ */
 
-void Acquisition::positionCmdCallback(const mrs_msgs::PositionCommandConstPtr& msg) {
+void Acquisition::positionCmdCallback(const mrs_msgs::TrackerCommandConstPtr& msg) {
 
   if (!initialized_) {
     return;
