@@ -36,7 +36,7 @@
 
         <!-- Subscribers -->
       <remap from="~uav_state_in" to="odometry/uav_state" />
-      <remap from="~cmd_position_in" to="control_manager/position_cmd" />
+      <remap from="~cmd_tracker_in" to="control_manager/tracker_cmd" />
       <remap from="~odom_diag_in" to="odometry/diagnostics" />
       <remap from="~mpc_diag_in" to="control_manager/mpc_tracker/diagnostics" />
       <remap from="~hw_api_diag_in" to="hw_api/diagnostics" />
