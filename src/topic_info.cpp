@@ -1,6 +1,5 @@
 #include <commons.h>
 
-
 /* TopicInfo() //{ */
 
 TopicInfo::TopicInfo(double window_rate_in, int buffer_len, double desired_rate_in) {

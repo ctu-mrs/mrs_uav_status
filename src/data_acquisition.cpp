@@ -1,7 +1,7 @@
 /* INCLUDES //{ */
 
 /* #include <status_window.h> */
-#include "mrs_msgs/NodeCpuLoad.h"
+#include <mrs_msgs/NodeCpuLoad.h>
 #include <commons.h>
 #include <mrs_msgs/CustomTopic.h>
 #include <mrs_lib/profiler.h>
@@ -44,7 +44,6 @@
 #include <sensor_msgs/NavSatFix.h>
 
 #include <mrs_msgs/HwApiDiagnostics.h>
-#include <mavros_msgs/AttitudeTarget.h>
 
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>

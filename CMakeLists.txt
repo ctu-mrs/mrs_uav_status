@@ -6,7 +6,6 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   nav_msgs
-  mavros_msgs
   message_generation
   mrs_msgs
   mrs_lib
@@ -28,7 +27,7 @@ set(EXECUTABLES
   )
 
 catkin_package(
-  CATKIN_DEPENDS message_runtime roscpp std_msgs nav_msgs mavros_msgs mrs_msgs mrs_lib
+  CATKIN_DEPENDS message_runtime roscpp std_msgs nav_msgs mrs_msgs mrs_lib
   )
 
 include_directories(include

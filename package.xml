@@ -16,7 +16,6 @@
   <depend>rospy</depend>
   <depend>std_msgs</depend>
   <depend>mrs_msgs</depend>
-  <depend>mavros_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>mrs_lib</depend>
   <depend>message_runtime</depend>

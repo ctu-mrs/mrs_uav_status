@@ -43,9 +43,6 @@
 
 #include <sensor_msgs/NavSatFix.h>
 
-#include <mavros_msgs/State.h>
-#include <mavros_msgs/AttitudeTarget.h>
-
 #include <std_srvs/Trigger.h>
 
 #include <geometry_msgs/Pose.h>
