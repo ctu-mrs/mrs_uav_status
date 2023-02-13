@@ -29,7 +29,6 @@
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 #include <mrs_msgs/GainManagerDiagnostics.h>
 #include <mrs_msgs/ConstraintManagerDiagnostics.h>
-#include <mrs_msgs/AttitudeCommand.h>
 #include <mrs_msgs/OdometryDiag.h>
 
 #include <mrs_msgs/ReferenceStampedSrv.h>
