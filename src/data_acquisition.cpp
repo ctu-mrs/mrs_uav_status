@@ -92,7 +92,7 @@ private:
   // | ------------------------ Callbacks ----------------------- |
 
   void uavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
-  void positionCmdCallback(const mrs_msgs::TrackerCommandConstPtr& msg);
+  void trackerCommandCallback(const mrs_msgs::TrackerCommandConstPtr& msg);
   void odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg);
   void mpcDiagCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr& msg);
   void hwApiStateCallback(const mrs_msgs::HwApiDiagnosticsConstPtr& msg);
@@ -321,7 +321,7 @@ Acquisition::Acquisition() {
   // | ----------------------- Subscribers ---------------------- |
 
   uav_state_subscriber_    = nh_.subscribe("uav_state_in", 10, &Acquisition::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
-  cmd_position_subscriber_ = nh_.subscribe("cmd_tracker_in", 10, &Acquisition::positionCmdCallback, this, ros::TransportHints().tcpNoDelay());
+  cmd_position_subscriber_ = nh_.subscribe("cmd_tracker_in", 10, &Acquisition::trackerCommandCallback, this, ros::TransportHints().tcpNoDelay());
   odom_diag_subscriber_    = nh_.subscribe("odom_diag_in", 10, &Acquisition::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
   mpc_diag_subscriber_     = nh_.subscribe("mpc_diag_in", 10, &Acquisition::mpcDiagCallback, this, ros::TransportHints().tcpNoDelay());
   hw_api_diag_subscriber_  = nh_.subscribe("hw_api_diag_in", 10, &Acquisition::hwApiStateCallback, this, ros::TransportHints().tcpNoDelay());
@@ -1199,9 +1199,9 @@ void Acquisition::uavStateCallback(const mrs_msgs::UavStateConstPtr& msg) {
 
 //}
 
-/* positionCmdCallback() //{ */
+/* trackerCommandCallback() //{ */
 
-void Acquisition::positionCmdCallback(const mrs_msgs::TrackerCommandConstPtr& msg) {
+void Acquisition::trackerCommandCallback(const mrs_msgs::TrackerCommandConstPtr& msg) {
 
   if (!initialized_) {
     return;
