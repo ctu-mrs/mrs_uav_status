@@ -35,9 +35,9 @@
       <rosparam if="$(eval not arg('config_file') == '')" file="$(arg config_file)" />
 
         <!-- Subscribers -->
-      <remap from="~uav_state_in" to="odometry/uav_state" />
+      <remap from="~uav_state_in" to="estimation_manager/uav_state" />
       <remap from="~cmd_position_in" to="control_manager/position_cmd" />
-      <remap from="~odom_diag_in" to="odometry/diagnostics" />
+      <remap from="~odom_diag_in" to="estimation_manager/diagnostics_legacy" />
       <remap from="~mpc_diag_in" to="control_manager/mpc_tracker/diagnostics" />
       <remap from="~mavros_state_in" to="mavros/state" />
       <remap from="~cmd_attitude_in" to="control_manager/attitude_cmd" />
