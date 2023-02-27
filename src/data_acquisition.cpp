@@ -44,7 +44,7 @@
 
 #include <sensor_msgs/NavSatFix.h>
 
-#include <mrs_msgs/HwApiDiagnostics.h>
+#include <mrs_msgs/HwApiStatus.h>
 
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -95,7 +95,7 @@ private:
   void trackerCommandCallback(const mrs_msgs::TrackerCommandConstPtr& msg);
   void odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg);
   void mpcDiagCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr& msg);
-  void hwApiStateCallback(const mrs_msgs::HwApiDiagnosticsConstPtr& msg);
+  void hwApiStatusCallback(const mrs_msgs::HwApiStatusConstPtr& msg);
   void batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
   void throttleCallback(const std_msgs::Float64ConstPtr& msg);
   void controllerDiagnosticsCallback(const mrs_msgs::ControllerDiagnosticsConstPtr& msg);
@@ -182,7 +182,7 @@ private:
   ros::Subscriber cmd_position_subscriber_;
   ros::Subscriber odom_diag_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
-  ros::Subscriber hw_api_diag_subscriber_;
+  ros::Subscriber hw_api_status_subscriber_;
   ros::Subscriber mavros_global_subscriber_;
   ros::Subscriber mavros_local_subscriber_;
   ros::Subscriber controller_diagnostics_subscriber_;
@@ -320,12 +320,12 @@ Acquisition::Acquisition() {
 
   // | ----------------------- Subscribers ---------------------- |
 
-  uav_state_subscriber_    = nh_.subscribe("uav_state_in", 10, &Acquisition::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
-  cmd_position_subscriber_ = nh_.subscribe("cmd_tracker_in", 10, &Acquisition::trackerCommandCallback, this, ros::TransportHints().tcpNoDelay());
-  odom_diag_subscriber_    = nh_.subscribe("odom_diag_in", 10, &Acquisition::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
-  mpc_diag_subscriber_     = nh_.subscribe("mpc_diag_in", 10, &Acquisition::mpcDiagCallback, this, ros::TransportHints().tcpNoDelay());
-  hw_api_diag_subscriber_  = nh_.subscribe("hw_api_diag_in", 10, &Acquisition::hwApiStateCallback, this, ros::TransportHints().tcpNoDelay());
-  throttle_subscriber_     = nh_.subscribe("throttle_in", 10, &Acquisition::throttleCallback, this, ros::TransportHints().tcpNoDelay());
+  uav_state_subscriber_     = nh_.subscribe("uav_state_in", 10, &Acquisition::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
+  cmd_position_subscriber_  = nh_.subscribe("cmd_tracker_in", 10, &Acquisition::trackerCommandCallback, this, ros::TransportHints().tcpNoDelay());
+  odom_diag_subscriber_     = nh_.subscribe("odom_diag_in", 10, &Acquisition::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
+  mpc_diag_subscriber_      = nh_.subscribe("mpc_diag_in", 10, &Acquisition::mpcDiagCallback, this, ros::TransportHints().tcpNoDelay());
+  hw_api_status_subscriber_ = nh_.subscribe("hw_api_status_in", 10, &Acquisition::hwApiStatusCallback, this, ros::TransportHints().tcpNoDelay());
+  throttle_subscriber_      = nh_.subscribe("throttle_in", 10, &Acquisition::throttleCallback, this, ros::TransportHints().tcpNoDelay());
   controller_diagnostics_subscriber_ =
       nh_.subscribe("controller_diagnostics_in", 10, &Acquisition::controllerDiagnosticsCallback, this, ros::TransportHints().tcpNoDelay());
   mavros_global_subscriber_   = nh_.subscribe("mavros_global_in", 10, &Acquisition::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
@@ -1284,9 +1284,9 @@ void Acquisition::mpcDiagCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr&
 
 //}
 
-/* hwApiStateCallback() //{ */
+/* hwApiStatusCallback() //{ */
 
-void Acquisition::hwApiStateCallback(const mrs_msgs::HwApiDiagnosticsConstPtr& msg) {
+void Acquisition::hwApiStatusCallback(const mrs_msgs::HwApiStatusConstPtr& msg) {
 
   if (!initialized_) {
     return;
