@@ -25,7 +25,7 @@
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 #include <mrs_msgs/GainManagerDiagnostics.h>
 #include <mrs_msgs/ConstraintManagerDiagnostics.h>
-#include <mrs_msgs/OdometryDiag.h>
+#include <mrs_msgs/EstimationDiagnostics.h>
 #include <mrs_msgs/MpcTrackerDiagnostics.h>
 #include <mrs_msgs/ControllerDiagnostics.h>
 
@@ -93,7 +93,7 @@ private:
 
   void uavStateCallback(const mrs_msgs::UavStateConstPtr& msg);
   void trackerCommandCallback(const mrs_msgs::TrackerCommandConstPtr& msg);
-  void odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg);
+  void estimationDiagCallback(const mrs_msgs::EstimationDiagnosticsConstPtr& msg);
   void mpcDiagCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr& msg);
   void hwApiStatusCallback(const mrs_msgs::HwApiStatusConstPtr& msg);
   void batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
@@ -180,7 +180,7 @@ private:
 
   ros::Subscriber uav_state_subscriber_;
   ros::Subscriber cmd_position_subscriber_;
-  ros::Subscriber odom_diag_subscriber_;
+  ros::Subscriber estimation_diag_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
   ros::Subscriber hw_api_status_subscriber_;
   ros::Subscriber mavros_global_subscriber_;
@@ -322,7 +322,7 @@ Acquisition::Acquisition() {
 
   uav_state_subscriber_     = nh_.subscribe("uav_state_in", 10, &Acquisition::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
   cmd_position_subscriber_  = nh_.subscribe("cmd_tracker_in", 10, &Acquisition::trackerCommandCallback, this, ros::TransportHints().tcpNoDelay());
-  odom_diag_subscriber_     = nh_.subscribe("odom_diag_in", 10, &Acquisition::odomDiagCallback, this, ros::TransportHints().tcpNoDelay());
+  estimation_diag_subscriber_     = nh_.subscribe("estimation_diag_in", 10, &Acquisition::estimationDiagCallback, this, ros::TransportHints().tcpNoDelay());
   mpc_diag_subscriber_      = nh_.subscribe("mpc_diag_in", 10, &Acquisition::mpcDiagCallback, this, ros::TransportHints().tcpNoDelay());
   hw_api_status_subscriber_ = nh_.subscribe("hw_api_status_in", 10, &Acquisition::hwApiStatusCallback, this, ros::TransportHints().tcpNoDelay());
   throttle_subscriber_      = nh_.subscribe("throttle_in", 10, &Acquisition::throttleCallback, this, ros::TransportHints().tcpNoDelay());
@@ -1223,9 +1223,9 @@ void Acquisition::trackerCommandCallback(const mrs_msgs::TrackerCommandConstPtr&
 
 //}
 
-/* odomDiagCallback() //{ */
+/* estimationDiagCallback() //{ */
 
-void Acquisition::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
+void Acquisition::estimationDiagCallback(const mrs_msgs::EstimationDiagnosticsConstPtr& msg) {
 
   if (!initialized_) {
     return;
@@ -1234,28 +1234,28 @@ void Acquisition::odomDiagCallback(const mrs_msgs::OdometryDiagConstPtr& msg) {
   {
     std::scoped_lock lock(mutex_status_msg_);
 
-    uav_status_.odom_estimators_hori = msg->available_lat_estimators;
+    uav_status_.odom_estimators_hori = msg->switchable_state_estimators;
 
     for (size_t i = 0; i < uav_status_.odom_estimators_hori.size(); i++) {
-      if ((uav_status_.odom_estimators_hori[i] == msg->estimator_type.name) && i != 0) {
+      if ((uav_status_.odom_estimators_hori[i] == msg->current_state_estimator) && i != 0) {
         // put the active estimator as first in the vector
         std::swap(uav_status_.odom_estimators_hori[0], uav_status_.odom_estimators_hori[i]);
       }
     }
 
-    uav_status_.odom_estimators_vert = msg->available_alt_estimators;
+    uav_status_.odom_estimators_vert = msg->switchable_state_estimators;
 
     for (size_t i = 0; i < uav_status_.odom_estimators_vert.size(); i++) {
-      if ((uav_status_.odom_estimators_vert[i] == msg->altitude_type.name) && i != 0) {
+      if ((uav_status_.odom_estimators_vert[i] == msg->current_state_estimator) && i != 0) {
         // put the active estimator as first in the vector
         std::swap(uav_status_.odom_estimators_vert[0], uav_status_.odom_estimators_vert[i]);
       }
     }
 
-    uav_status_.odom_estimators_hdg = msg->available_hdg_estimators;
+    uav_status_.odom_estimators_hdg = msg->switchable_state_estimators;
 
     for (size_t i = 0; i < uav_status_.odom_estimators_hdg.size(); i++) {
-      if ((uav_status_.odom_estimators_hdg[i] == msg->heading_type.name) && i != 0) {
+      if ((uav_status_.odom_estimators_hdg[i] == msg->current_state_estimator) && i != 0) {
         // put the active estimator as first in the vector
         std::swap(uav_status_.odom_estimators_hdg[0], uav_status_.odom_estimators_hdg[i]);
       }
