@@ -49,10 +49,7 @@
       <remap from="~reference_out" to="control_manager/reference" />
       <remap from="~trajectory_reference_out" to="control_manager/trajectory_reference" />
       <remap from="~set_constraints_out" to="constraint_manager/set_constraints" />
-      <remap from="~set_odometry_source_out" to="odometry/change_odometry_source" />
-      <remap from="~set_odometry_lat_estimator_out" to="odometry/change_estimator_type_string" />
-      <remap from="~set_odometry_alt_estimator_out" to="odometry/change_alt_estimator_type_string" />
-      <remap from="~set_odometry_hdg_estimator_out" to="odometry/change_hdg_estimator_type_string" />
+      <remap from="~set_odometry_source_out" to="estimation_manager/change_estimator" />
       <remap from="~set_gains_out" to="gain_manager/set_gains" />
       <remap from="~set_controller_out" to="control_manager/switch_controller" />
       <remap from="~set_tracker_out" to="control_manager/switch_tracker" />
