@@ -49,6 +49,8 @@
       <remap from="~mavros_global_in" to="mavros/global_position/global" />
       <remap from="~mavros_local_in" to="mavros/local_position/pose" />
       <remap from="~automatic_start_in" to="automatic_start/can_takeoff" />
+      <remap from="~throttle_in" to="control_manager/throttle" />
+      <remap from="~mass_estimate_in" to="control_manager/mass_estimate" />
 
       <remap from="~string_in" to="mrs_uav_status/display_string" />
       <remap from="~set_service_in" to="mrs_uav_status/set_trigger_service" />

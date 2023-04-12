@@ -98,7 +98,7 @@ private:
   void hwApiStatusCallback(const mrs_msgs::HwApiStatusConstPtr& msg);
   void batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
   void throttleCallback(const std_msgs::Float64ConstPtr& msg);
-  void controllerDiagnosticsCallback(const mrs_msgs::ControllerDiagnosticsConstPtr& msg);
+  void callbackMassEstimate(const std_msgs::Float64ConstPtr& msg);
   void controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg);
   void gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
   void constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
@@ -185,7 +185,7 @@ private:
   ros::Subscriber hw_api_status_subscriber_;
   ros::Subscriber mavros_global_subscriber_;
   ros::Subscriber mavros_local_subscriber_;
-  ros::Subscriber controller_diagnostics_subscriber_;
+  ros::Subscriber mass_estimate_subscriber_;
   ros::Subscriber throttle_subscriber_;
   ros::Subscriber battery_subscriber_;
   ros::Subscriber control_manager_subscriber_;
@@ -320,14 +320,13 @@ Acquisition::Acquisition() {
 
   // | ----------------------- Subscribers ---------------------- |
 
-  uav_state_subscriber_     = nh_.subscribe("uav_state_in", 10, &Acquisition::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
-  cmd_position_subscriber_  = nh_.subscribe("cmd_tracker_in", 10, &Acquisition::trackerCommandCallback, this, ros::TransportHints().tcpNoDelay());
-  estimation_diag_subscriber_     = nh_.subscribe("estimation_diag_in", 10, &Acquisition::estimationDiagCallback, this, ros::TransportHints().tcpNoDelay());
-  mpc_diag_subscriber_      = nh_.subscribe("mpc_diag_in", 10, &Acquisition::mpcDiagCallback, this, ros::TransportHints().tcpNoDelay());
-  hw_api_status_subscriber_ = nh_.subscribe("hw_api_status_in", 10, &Acquisition::hwApiStatusCallback, this, ros::TransportHints().tcpNoDelay());
-  throttle_subscriber_      = nh_.subscribe("throttle_in", 10, &Acquisition::throttleCallback, this, ros::TransportHints().tcpNoDelay());
-  controller_diagnostics_subscriber_ =
-      nh_.subscribe("controller_diagnostics_in", 10, &Acquisition::controllerDiagnosticsCallback, this, ros::TransportHints().tcpNoDelay());
+  uav_state_subscriber_       = nh_.subscribe("uav_state_in", 10, &Acquisition::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
+  cmd_position_subscriber_    = nh_.subscribe("cmd_tracker_in", 10, &Acquisition::trackerCommandCallback, this, ros::TransportHints().tcpNoDelay());
+  estimation_diag_subscriber_ = nh_.subscribe("estimation_diag_in", 10, &Acquisition::estimationDiagCallback, this, ros::TransportHints().tcpNoDelay());
+  mpc_diag_subscriber_        = nh_.subscribe("mpc_diag_in", 10, &Acquisition::mpcDiagCallback, this, ros::TransportHints().tcpNoDelay());
+  hw_api_status_subscriber_   = nh_.subscribe("hw_api_status_in", 10, &Acquisition::hwApiStatusCallback, this, ros::TransportHints().tcpNoDelay());
+  throttle_subscriber_        = nh_.subscribe("throttle_in", 10, &Acquisition::throttleCallback, this, ros::TransportHints().tcpNoDelay());
+  mass_estimate_subscriber_   = nh_.subscribe("mass_estimate_in", 10, &Acquisition::callbackMassEstimate, this, ros::TransportHints().tcpNoDelay());
   mavros_global_subscriber_   = nh_.subscribe("mavros_global_in", 10, &Acquisition::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
   battery_subscriber_         = nh_.subscribe("battery_in", 10, &Acquisition::batteryCallback, this, ros::TransportHints().tcpNoDelay());
   control_manager_subscriber_ = nh_.subscribe("control_manager_in", 10, &Acquisition::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
@@ -1352,9 +1351,9 @@ void Acquisition::throttleCallback(const std_msgs::Float64ConstPtr& msg) {
 
 //}
 
-/* controllerDiagnosticsCallback() //{ */
+/* callbackMassEstimate() //{ */
 
-void Acquisition::controllerDiagnosticsCallback(const mrs_msgs::ControllerDiagnosticsConstPtr& msg) {
+void Acquisition::callbackMassEstimate(const std_msgs::Float64ConstPtr& msg) {
 
   if (!initialized_) {
     return;
@@ -1362,7 +1361,7 @@ void Acquisition::controllerDiagnosticsCallback(const mrs_msgs::ControllerDiagno
 
   {
     std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.mass_estimate = msg->total_mass;
+    uav_status_.mass_estimate = msg->data;
     uav_status_.mass_set      = _uav_mass_;
   }
 }
