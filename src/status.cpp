@@ -2423,6 +2423,8 @@ void Status::mavrosStateHandler(WINDOW* win) {
   double      mass_estimate;
   double      mass_set;
   double      gps_qual;
+  double      mag_norm;
+  double      mag_norm_rate;
 
   {
     std::scoped_lock lock(mutex_status_msg_);
@@ -2441,6 +2443,8 @@ void Status::mavrosStateHandler(WINDOW* win) {
     mass_estimate      = uav_status_.mass_estimate;
     mass_set           = uav_status_.mass_set;
     gps_qual           = uav_status_.mavros_gps_qual;
+    mag_norm           = uav_status_.mag_norm;
+    mag_norm_rate        = uav_status_.mag_norm_hz;
   }
 
   std::string tmp_string;
@@ -2622,10 +2626,9 @@ void Status::mavrosStateHandler(WINDOW* win) {
       wattron(win, COLOR_PAIR(color));
     }
 
-
     if (battery_rate == 0) {
 
-      printNoData(win, 3, 1, "Batt:  ");
+      printNoData(win, 4, 1, "Batt:  ");
 
     } else {
 
@@ -2638,10 +2641,25 @@ void Status::mavrosStateHandler(WINDOW* win) {
       } else if (battery_volt < 3.7 && color != RED) {
         wattron(win, COLOR_PAIR(YELLOW));
       }
+      printLimitedDouble(win, 4, 1, "%4.2fV ", battery_volt, 10);
+      printLimitedDouble(win, 4, 8, "%5.2fA", battery_curr, 100);
+      printLimitedDouble(win, 4, 15, " %4.1f Wh", battery_wh_drained, 100);
+    }
 
-      printLimitedDouble(win, 3, 1, "Batt:  %4.2f V ", battery_volt, 10);
-      printLimitedDouble(win, 3, 15, "%5.2f A", battery_curr, 100);
-      printLimitedDouble(win, 4, 1, "Drained: %4.1f Wh", battery_wh_drained, 100);
+    if (mag_norm_rate == 0) {
+
+      printNoData(win, 3, 1, "Mag:  ");
+
+    } else {
+
+      wattron(win, COLOR_PAIR(GREEN));
+
+      if (mag_norm > 0.9 || mag_norm < 0.25) {
+        wattron(win, COLOR_PAIR(RED));
+      } else if (mag_norm > 0.65) {
+        wattron(win, COLOR_PAIR(YELLOW));
+      }
+      printLimitedDouble(win, 3, 1, "Mag: %4.2f", mag_norm, 9.99);
     }
 
     if (cmd_rate == 0) {
@@ -2649,6 +2667,8 @@ void Status::mavrosStateHandler(WINDOW* win) {
       printNoData(win, 5, 1, "Thrst: ");
 
     } else {
+
+      wattron(win, COLOR_PAIR(GREEN));
 
       if (thrust > 0.75) {
         wattron(win, COLOR_PAIR(RED));

@@ -42,6 +42,7 @@
 #include <mrs_lib/mutex.h>
 
 #include <sensor_msgs/NavSatFix.h>
+#include <sensor_msgs/MagneticField.h>
 
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/AttitudeTarget.h>
@@ -56,6 +57,8 @@
 #include <mrs_lib/attitude_converter.h>
 
 #include <tf2_msgs/TFMessage.h>
+
+#include <cmath>
 
 using namespace std;
 using topic_tools::ShapeShifter;
@@ -107,6 +110,7 @@ private:
   void mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg);
   void mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg);
   void automaticStartCallback_(const std_msgs::BoolConstPtr& msg);
+  void magCallback_(const sensor_msgs::MagneticFieldConstPtr& msg);
 
   // generic callback, for any topic, to monitor its rate
   void genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
@@ -130,6 +134,7 @@ private:
   double mavros_state_expected_rate_    = 100.0;
   double mavros_cmd_expected_rate_      = 100.0;
   double mavros_battery_expected_rate_  = 0.5;
+  double mavros_mag_expected_rate_      = 10;
 
   TopicInfo uav_state_ts_{10, BUFFER_LEN_SECS, uav_state_expected_rate_};
   TopicInfo control_manager_ts_{1, BUFFER_LEN_SECS, control_manager_expected_rate_};
@@ -138,6 +143,7 @@ private:
   TopicInfo mavros_state_ts_{1, BUFFER_LEN_SECS, mavros_state_expected_rate_};
   TopicInfo mavros_cmd_ts_{1, BUFFER_LEN_SECS, mavros_cmd_expected_rate_};
   TopicInfo mavros_battery_ts_{1, BUFFER_LEN_SECS, mavros_battery_expected_rate_};
+  TopicInfo mavros_msg_ts_{1, BUFFER_LEN_SECS, mavros_mag_expected_rate_};
 
   double general_info_window_rate_  = 1;
   double generic_topic_window_rate_ = 1;
@@ -192,7 +198,8 @@ private:
   ros::Subscriber string_subscriber_;
   ros::Subscriber set_service_subscriber_;
   ros::Subscriber tf_static_subscriber_;
-  ros::Subscriber automatic_start_;
+  ros::Subscriber automatic_start_subscriber_;
+  ros::Subscriber mag_subscriber_;
 
   // | ----------------------- Publishers ---------------------- |
 
@@ -330,11 +337,13 @@ Acquisition::Acquisition() {
   gain_manager_subscriber_    = nh_.subscribe("gain_manager_in", 10, &Acquisition::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
   constraint_manager_subscriber_ =
       nh_.subscribe("constraint_manager_in", 10, &Acquisition::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  string_subscriber_       = nh_.subscribe("string_in", 10, &Acquisition::stringCallback, this, ros::TransportHints().tcpNoDelay());
-  set_service_subscriber_  = nh_.subscribe("set_service_in", 10, &Acquisition::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
-  tf_static_subscriber_    = nh_.subscribe("tf_static_in", 100, &Acquisition::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_local_subscriber_ = nh_.subscribe("mavros_local_in", 10, &Acquisition::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
-  automatic_start_         = nh_.subscribe("automatic_start_in", 10, &Acquisition::automaticStartCallback_, this, ros::TransportHints().tcpNoDelay());
+  string_subscriber_          = nh_.subscribe("string_in", 10, &Acquisition::stringCallback, this, ros::TransportHints().tcpNoDelay());
+  set_service_subscriber_     = nh_.subscribe("set_service_in", 10, &Acquisition::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
+  tf_static_subscriber_       = nh_.subscribe("tf_static_in", 100, &Acquisition::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
+  mavros_local_subscriber_    = nh_.subscribe("mavros_local_in", 10, &Acquisition::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
+  automatic_start_subscriber_ = nh_.subscribe("automatic_start_in", 10, &Acquisition::automaticStartCallback_, this, ros::TransportHints().tcpNoDelay());
+  mag_subscriber_             = nh_.subscribe("mag_in", 10, &Acquisition::magCallback_, this, ros::TransportHints().tcpNoDelay());
+
 
   // | ----------------------- Publishers ---------------------- |
 
@@ -1532,6 +1541,26 @@ void Acquisition::automaticStartCallback_(const std_msgs::BoolConstPtr& msg) {
   {
     std::scoped_lock lock(mutex_status_msg_);
     uav_status_.automatic_start_can_takeoff = msg->data;
+  }
+}
+
+//}
+
+/* magCallback_() //{ */
+
+void Acquisition::magCallback_(const sensor_msgs::MagneticFieldConstPtr& msg) {
+
+  if (!initialized_) {
+    return;
+  }
+  mavros_msg_ts_.Count();
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    std::tuple<double, int16_t> rate_color = mavros_msg_ts_.GetHz();
+    uav_status_.mag_norm = 10000 * (sqrt(pow(msg->magnetic_field.x, 2) + pow(msg->magnetic_field.y, 2) + pow(msg->magnetic_field.z, 2)));
+    uav_status_.mag_norm_hz    = std::get<0>(rate_color);
+    /* ROS_INFO_STREAM("[%s]: Absolute: "  << 10000*(sqrt(pow(msg->magnetic_field.x, 2) + pow(msg->magnetic_field.y, 2) + pow(msg->magnetic_field.z, 2))) << "
+     * X: " <<  10000*(msg->magnetic_field.x) << " Y: " <<  10000*(msg->magnetic_field.y) << " Z: " <<  10000*(msg->magnetic_field.z)); */
   }
 }
 
