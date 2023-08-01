@@ -8,6 +8,7 @@
   <arg name="PIXGARM" default="$(optenv PIXGARM false)"/>
   <arg name="COLORSCHEME" default="$(optenv PROFILES_BOTH COLORSCHEME_LIGHT)"/>
   <arg name="RAINBOW" default="false"/>
+	<arg name="OLD_PX4_FW" default="$(optenv OLD_PX4_FW false)" />
 
   <arg name="debug" default="false"/>
 
@@ -47,7 +48,8 @@
       <remap from="~constraint_manager_in" to="constraint_manager/diagnostics" />
       <remap from="~tf_static_in" to="/tf_static" />
       <remap from="~mavros_global_in" to="mavros/global_position/global" />
-      <remap from="~mavros_local_in" to="mavros/local_position/pose" />
+      <remap if="$(eval arg('OLD_PX4_FW') == 0)" from="~mavros_local_in" to="mavros/odometry/in" />
+      <remap if="$(eval arg('OLD_PX4_FW') == 1)" from="~mavros_local_in" to="mavros/local_position/odom" />
       <remap from="~automatic_start_in" to="automatic_start/can_takeoff" />
       <remap from="~mag_in" to="mavros/imu/mag" />
 

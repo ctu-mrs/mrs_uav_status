@@ -47,6 +47,8 @@
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/AttitudeTarget.h>
 
+#include <nav_msgs/Odometry.h>
+
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Vector3.h>
@@ -108,7 +110,7 @@ private:
   void setServiceCallback(const std_msgs::String& msg);
   void tfStaticCallback(const tf2_msgs::TFMessage& msg);
   void mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg);
-  void mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg);
+  void mavrosLocalCallback(const nav_msgs::OdometryConstPtr& msg);
   void automaticStartCallback_(const std_msgs::BoolConstPtr& msg);
   void magCallback_(const sensor_msgs::MagneticFieldConstPtr& msg);
 
@@ -1385,7 +1387,7 @@ void Acquisition::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg
 
 /* mavrosLocalCallback() //{ */
 
-void Acquisition::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) {
+void Acquisition::mavrosLocalCallback(const nav_msgs::OdometryConstPtr& msg) {
 
   if (!initialized_) {
     return;
