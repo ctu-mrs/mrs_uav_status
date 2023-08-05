@@ -19,6 +19,9 @@
   <depend>nav_msgs</depend>
   <depend>mrs_lib</depend>
   <depend>message_runtime</depend>
+  <depend>topic_tools</depend>
+  <depend>libncurses</depend>
+  <depend>libncurses-dev</depend>
 
   <export>
   </export>

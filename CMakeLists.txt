@@ -1,15 +1,19 @@
 cmake_minimum_required(VERSION 3.1.2)
 project(mrs_uav_status)
 
-find_package(catkin REQUIRED COMPONENTS
+set(DEPENDENCIES
   roscpp
   rospy
   std_msgs
   nav_msgs
-  message_generation
+  message_runtime
   mrs_msgs
   mrs_lib
   topic_tools
+  )
+
+find_package(catkin REQUIRED COMPONENTS
+  ${DEPENDENCIES}
   )
 
 find_package(Curses REQUIRED)
@@ -27,7 +31,7 @@ set(EXECUTABLES
   )
 
 catkin_package(
-  CATKIN_DEPENDS message_runtime roscpp std_msgs nav_msgs mrs_msgs mrs_lib
+  CATKIN_DEPENDS ${DEPENDENCIES}
   )
 
 include_directories(include
@@ -81,9 +85,4 @@ install(TARGETS ${EXECUTABLES}
 
 install(DIRECTORY launch config
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-  )
-
-install(DIRECTORY ./
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-  FILES_MATCHING PATTERN "*.xml"
   )
