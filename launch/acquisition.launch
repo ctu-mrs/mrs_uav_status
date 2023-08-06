@@ -26,12 +26,12 @@
       <param name="nato_name" value="$(arg NATO_NAME)" />
       <param name="uav_type" value="$(arg UAV_TYPE)" />
       <param if="$(eval arg('RUN_TYPE') == 'uav')" name="uav_mass" value="$(arg UAV_MASS)" />
+      <param if="$(eval arg('RUN_TYPE') == 'simulation')" name="uav_mass" value="1.0" />
       <param name="run_type" value="$(arg RUN_TYPE)" />
       <param name="sensors" value="$(arg SENSORS)" />
       <param name="pixgarm" type="bool" value="$(arg PIXGARM)" />
 
       <rosparam file="$(find mrs_uav_status)/config/default.yaml" command="load" />
-      <rosparam if="$(eval arg('RUN_TYPE') == 'simulation')" file="$(find mrs_uav_managers)/config/$(arg RUN_TYPE)/$(arg UAV_TYPE)/mass.yaml" />
       <rosparam if="$(eval not arg('config_file') == '')" file="$(arg config_file)" />
 
         <!-- Subscribers -->

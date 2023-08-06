@@ -35,7 +35,6 @@
       <param name="rainbow" type="bool" value="$(arg RAINBOW)" />
 
       <rosparam file="$(find mrs_uav_status)/config/default.yaml" command="load" />
-      <rosparam if="$(eval arg('RUN_TYPE') == 'simulation')" file="$(find mrs_uav_managers)/config/$(arg RUN_TYPE)/$(arg UAV_TYPE)/mass.yaml" />
       <rosparam if="$(eval not arg('config_file') == '')" file="$(arg config_file)" />
 
         <!-- Subscribers -->
