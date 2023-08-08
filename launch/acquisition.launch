@@ -16,7 +16,7 @@
 
   <arg name="config_file" default=""/>
 
-  <arg if="$(eval arg('RUN_TYPE') == 'uav')" name="UAV_MASS" default="$(env UAV_MASS)" />
+  <arg if="$(eval arg('RUN_TYPE') == 'realworld')" name="UAV_MASS" default="$(env UAV_MASS)" />
 
   <group ns="$(arg UAV_NAME)">
 
@@ -25,11 +25,14 @@
       <param name="uav_name" value="$(arg UAV_NAME)" />
       <param name="nato_name" value="$(arg NATO_NAME)" />
       <param name="uav_type" value="$(arg UAV_TYPE)" />
-      <param if="$(eval arg('RUN_TYPE') == 'uav')" name="uav_mass" value="$(arg UAV_MASS)" />
-      <param if="$(eval arg('RUN_TYPE') == 'simulation')" name="uav_mass" value="1.0" />
       <param name="run_type" value="$(arg RUN_TYPE)" />
       <param name="sensors" value="$(arg SENSORS)" />
       <param name="pixgarm" type="bool" value="$(arg PIXGARM)" />
+
+      <param if="$(eval arg('RUN_TYPE') == 'realworld')" name="uav_mass" value="$(arg UAV_MASS)" />
+
+      <!-- TODO this needs to be somehow obtained from the control manager -->
+      <param if="$(eval arg('RUN_TYPE') == 'simulation')" name="uav_mass" value="1.0" />
 
       <rosparam file="$(find mrs_uav_status)/config/default.yaml" command="load" />
       <rosparam if="$(eval not arg('config_file') == '')" file="$(arg config_file)" />
