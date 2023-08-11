@@ -1,19 +1,20 @@
-cmake_minimum_required(VERSION 3.1.2)
+cmake_minimum_required(VERSION 3.5)
 project(mrs_uav_status)
 
-set(DEPENDENCIES
+set(CATKIN_DEPENDENCIES
+  cmake_modules
   roscpp
   rospy
   std_msgs
-  nav_msgs
-  message_runtime
   mrs_msgs
+  nav_msgs
   mrs_lib
+  message_runtime
   topic_tools
   )
 
 find_package(catkin REQUIRED COMPONENTS
-  ${DEPENDENCIES}
+  ${CATKIN_DEPENDENCIES}
   )
 
 find_package(Curses REQUIRED)
@@ -31,7 +32,7 @@ set(EXECUTABLES
   )
 
 catkin_package(
-  CATKIN_DEPENDS ${DEPENDENCIES}
+  CATKIN_DEPENDS ${CATKIN_DEPENDENCIES}
   )
 
 include_directories(include
