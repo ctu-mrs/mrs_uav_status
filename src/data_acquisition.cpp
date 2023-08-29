@@ -43,8 +43,11 @@
 #include <mrs_lib/mutex.h>
 
 #include <sensor_msgs/NavSatFix.h>
+#include <sensor_msgs/MagneticField.h>
 
 #include <mrs_msgs/HwApiStatus.h>
+
+#include <nav_msgs/Odometry.h>
 
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -56,6 +59,8 @@
 #include <mrs_lib/attitude_converter.h>
 
 #include <tf2_msgs/TFMessage.h>
+
+#include <cmath>
 
 using namespace std;
 using topic_tools::ShapeShifter;
@@ -105,9 +110,10 @@ private:
   void stringCallback(const ros::MessageEvent<std_msgs::String const>& event);
   void setServiceCallback(const std_msgs::String& msg);
   void tfStaticCallback(const tf2_msgs::TFMessage& msg);
-  void mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg);
-  void mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg);
+  void hwApiGnssCallback(const sensor_msgs::NavSatFixConstPtr& msg);
+  void hwApiOdometryCallback(const nav_msgs::OdometryConstPtr& msg);
   void automaticStartCallback_(const std_msgs::BoolConstPtr& msg);
+  void magCallback_(const sensor_msgs::MagneticFieldConstPtr& msg);
 
   // generic callback, for any topic, to monitor its rate
   void genericCallback(const ShapeShifter::ConstPtr& msg, const string& topic_name, const int id);
@@ -126,19 +132,21 @@ private:
 
   double uav_state_expected_rate_       = 100.0;
   double control_manager_expected_rate_ = 10.0;
-  double mavros_local_expected_rate_    = 100.0;
-  double mavros_global_expected_rate_   = 100.0;
+  double hw_api_odometry_expected_rate_ = 100.0;
+  double hw_api_gnss_expected_rate_     = 100.0;
   double hw_api_state_expected_rate_    = 100.0;
-  double mavros_cmd_expected_rate_      = 100.0;
-  double mavros_battery_expected_rate_  = 0.5;
+  double hw_api_cmd_expected_rate_      = 100.0;
+  double hw_api_battery_expected_rate_  = 0.5;
+  double hw_api_mag_expected_rate_      = 10;
 
   TopicInfo uav_state_ts_{10, BUFFER_LEN_SECS, uav_state_expected_rate_};
   TopicInfo control_manager_ts_{1, BUFFER_LEN_SECS, control_manager_expected_rate_};
-  TopicInfo mavros_local_ts_{1, BUFFER_LEN_SECS, mavros_local_expected_rate_};
-  TopicInfo mavros_global_ts_{1, BUFFER_LEN_SECS, mavros_global_expected_rate_};
+  TopicInfo hw_api_odometry_ts_{1, BUFFER_LEN_SECS, hw_api_odometry_expected_rate_};
+  TopicInfo hw_api_gnss_ts_{1, BUFFER_LEN_SECS, hw_api_gnss_expected_rate_};
   TopicInfo hw_api_state_ts_{1, BUFFER_LEN_SECS, hw_api_state_expected_rate_};
-  TopicInfo mavros_cmd_ts_{1, BUFFER_LEN_SECS, mavros_cmd_expected_rate_};
-  TopicInfo mavros_battery_ts_{1, BUFFER_LEN_SECS, mavros_battery_expected_rate_};
+  TopicInfo hw_api_cmd_ts_{1, BUFFER_LEN_SECS, hw_api_cmd_expected_rate_};
+  TopicInfo hw_api_battery_ts_{1, BUFFER_LEN_SECS, hw_api_battery_expected_rate_};
+  TopicInfo hw_api_mag_ts_{1, BUFFER_LEN_SECS, hw_api_mag_expected_rate_};
 
   double general_info_window_rate_  = 1;
   double generic_topic_window_rate_ = 1;
@@ -183,8 +191,8 @@ private:
   ros::Subscriber estimation_diag_subscriber_;
   ros::Subscriber mpc_diag_subscriber_;
   ros::Subscriber hw_api_status_subscriber_;
-  ros::Subscriber mavros_global_subscriber_;
-  ros::Subscriber mavros_local_subscriber_;
+  ros::Subscriber hw_api_gnss_subscriber_;
+  ros::Subscriber hw_api_odometry_subscriber_;
   ros::Subscriber mass_estimate_subscriber_;
   ros::Subscriber throttle_subscriber_;
   ros::Subscriber battery_subscriber_;
@@ -194,7 +202,8 @@ private:
   ros::Subscriber string_subscriber_;
   ros::Subscriber set_service_subscriber_;
   ros::Subscriber tf_static_subscriber_;
-  ros::Subscriber automatic_start_;
+  ros::Subscriber automatic_start_subscriber_;
+  ros::Subscriber mag_subscriber_;
 
   // | ----------------------- Publishers ---------------------- |
 
@@ -327,17 +336,19 @@ Acquisition::Acquisition() {
   hw_api_status_subscriber_   = nh_.subscribe("hw_api_status_in", 10, &Acquisition::hwApiStatusCallback, this, ros::TransportHints().tcpNoDelay());
   throttle_subscriber_        = nh_.subscribe("throttle_in", 10, &Acquisition::throttleCallback, this, ros::TransportHints().tcpNoDelay());
   mass_estimate_subscriber_   = nh_.subscribe("mass_estimate_in", 10, &Acquisition::callbackMassEstimate, this, ros::TransportHints().tcpNoDelay());
-  mavros_global_subscriber_   = nh_.subscribe("mavros_global_in", 10, &Acquisition::mavrosGlobalCallback, this, ros::TransportHints().tcpNoDelay());
+  hw_api_gnss_subscriber_     = nh_.subscribe("gnss_in", 10, &Acquisition::hwApiGnssCallback, this, ros::TransportHints().tcpNoDelay());
   battery_subscriber_         = nh_.subscribe("battery_in", 10, &Acquisition::batteryCallback, this, ros::TransportHints().tcpNoDelay());
   control_manager_subscriber_ = nh_.subscribe("control_manager_in", 10, &Acquisition::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
   gain_manager_subscriber_    = nh_.subscribe("gain_manager_in", 10, &Acquisition::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
   constraint_manager_subscriber_ =
       nh_.subscribe("constraint_manager_in", 10, &Acquisition::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  string_subscriber_       = nh_.subscribe("string_in", 10, &Acquisition::stringCallback, this, ros::TransportHints().tcpNoDelay());
-  set_service_subscriber_  = nh_.subscribe("set_service_in", 10, &Acquisition::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
-  tf_static_subscriber_    = nh_.subscribe("tf_static_in", 100, &Acquisition::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
-  mavros_local_subscriber_ = nh_.subscribe("mavros_local_in", 10, &Acquisition::mavrosLocalCallback, this, ros::TransportHints().tcpNoDelay());
-  automatic_start_         = nh_.subscribe("automatic_start_in", 10, &Acquisition::automaticStartCallback_, this, ros::TransportHints().tcpNoDelay());
+  string_subscriber_          = nh_.subscribe("string_in", 10, &Acquisition::stringCallback, this, ros::TransportHints().tcpNoDelay());
+  set_service_subscriber_     = nh_.subscribe("set_service_in", 10, &Acquisition::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
+  tf_static_subscriber_       = nh_.subscribe("tf_static_in", 100, &Acquisition::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
+  hw_api_odometry_subscriber_ = nh_.subscribe("odometry_in", 10, &Acquisition::hwApiOdometryCallback, this, ros::TransportHints().tcpNoDelay());
+  automatic_start_subscriber_ = nh_.subscribe("automatic_start_in", 10, &Acquisition::automaticStartCallback_, this, ros::TransportHints().tcpNoDelay());
+  mag_subscriber_             = nh_.subscribe("mag_in", 10, &Acquisition::magCallback_, this, ros::TransportHints().tcpNoDelay());
+
 
   // | ----------------------- Publishers ---------------------- |
 
@@ -389,7 +400,7 @@ Acquisition::Acquisition() {
   split(results, _sensors_, boost::is_any_of(", "), boost::token_compress_on);
 
   if (_pixgarm_) {
-    generic_topic_input_vec_.push_back("mavros/distance_sensor/garmin Garmin_pix 80+");
+    generic_topic_input_vec_.push_back("TODO/distance_sensor/garmin Garmin_pix 80+");
   }
 
   for (unsigned long i = 0; i < results.size(); i++) {
@@ -447,7 +458,7 @@ void Acquisition::statusTimer([[maybe_unused]] const ros::TimerEvent& event) {
     sec1_counter_ = 0;
 
     {
-      mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
+      mrs_lib::Routine profiler_routine = profiler_.createRoutine("hwApDiagHandler");
       hwApiDiagHandler();
     }
     {
@@ -713,30 +724,30 @@ void Acquisition::controlManagerHandler() {
 
 //}
 
-/* mavrosStateHandler() //{ */
+/* hwApiDiagHandler() //{ */
 
 void Acquisition::hwApiDiagHandler() {
 
-  std::tuple<double, int16_t> local_rate_color   = mavros_local_ts_.GetHz();
-  std::tuple<double, int16_t> global_rate_color  = mavros_global_ts_.GetHz();
+  std::tuple<double, int16_t> odometry_rate_color   = hw_api_odometry_ts_.GetHz();
+  std::tuple<double, int16_t> gnss_rate_color  = hw_api_gnss_ts_.GetHz();
   std::tuple<double, int16_t> state_rate_color   = hw_api_state_ts_.GetHz();
-  std::tuple<double, int16_t> cmd_rate_color     = mavros_cmd_ts_.GetHz();
-  std::tuple<double, int16_t> battery_rate_color = mavros_battery_ts_.GetHz();
+  std::tuple<double, int16_t> cmd_rate_color     = hw_api_cmd_ts_.GetHz();
+  std::tuple<double, int16_t> battery_rate_color = hw_api_battery_ts_.GetHz();
 
 
-  bool mavros_gps = false;
-  if (std::get<0>(global_rate_color) > 0.0) {
-    mavros_gps = true;
+  bool gnss = false;
+  if (std::get<0>(gnss_rate_color) > 0.0) {
+    gnss = true;
   }
 
   {
     std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.mavros_hz         = std::get<0>(local_rate_color);
-    uav_status_.mavros_color      = std::get<1>(local_rate_color);
-    uav_status_.mavros_gps_ok     = mavros_gps;
-    uav_status_.mavros_battery_hz = std::get<0>(battery_rate_color);
-    uav_status_.mavros_state_hz   = std::get<0>(state_rate_color);
-    uav_status_.mavros_cmd_hz     = std::get<0>(state_rate_color);
+    uav_status_.hw_api_hz         = std::get<0>(odometry_rate_color);
+    uav_status_.hw_api_color      = std::get<1>(odometry_rate_color);
+    uav_status_.hw_api_gnss_ok     = gnss;
+    uav_status_.hw_api_battery_hz = std::get<0>(battery_rate_color);
+    uav_status_.hw_api_state_hz   = std::get<0>(state_rate_color);
+    uav_status_.hw_api_cmd_hz     = std::get<0>(state_rate_color);
   }
 }
 //}
@@ -902,11 +913,11 @@ void Acquisition::prefillUavStatus() {
   uav_status_.cpu_temperature = 0.0;
   uav_status_.free_ram        = 0.0;
   uav_status_.free_hdd        = 0.0;
-  uav_status_.mavros_hz       = 0.0;
-  uav_status_.mavros_armed    = false;
-  uav_status_.mavros_mode     = "N/A";
-  uav_status_.mavros_gps_ok   = false;
-  uav_status_.mavros_gps_qual = 0.0;
+  uav_status_.hw_api_hz       = 0.0;
+  uav_status_.hw_api_armed    = false;
+  uav_status_.hw_api_mode     = "N/A";
+  uav_status_.hw_api_gnss_ok   = false;
+  uav_status_.hw_api_gnss_qual = 0.0;
   uav_status_.battery_volt    = 0.0;
   uav_status_.battery_curr    = 0.0;
   uav_status_.thrust          = 0.0;
@@ -1295,8 +1306,8 @@ void Acquisition::hwApiStatusCallback(const mrs_msgs::HwApiStatusConstPtr& msg) 
 
   {
     std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.mavros_armed = msg->armed;
-    uav_status_.mavros_mode  = msg->mode;
+    uav_status_.hw_api_armed = msg->armed;
+    uav_status_.hw_api_mode  = msg->mode;
   }
 }
 
@@ -1310,7 +1321,7 @@ void Acquisition::batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg) 
     return;
   }
 
-  mavros_battery_ts_.Count();
+  hw_api_battery_ts_.Count();
 
   if (!got_bat_) {
     // first time we got the battery message, set the last_bat time to now.
@@ -1368,76 +1379,34 @@ void Acquisition::callbackMassEstimate(const std_msgs::Float64ConstPtr& msg) {
 
 //}
 
-/* mavrosGlobalCallback() //{ */
+/* hwApiGnssCallback() //{ */
 
-void Acquisition::mavrosGlobalCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
+void Acquisition::hwApiGnssCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
 
   if (!initialized_) {
     return;
   }
 
-  mavros_global_ts_.Count();
+  hw_api_gnss_ts_.Count();
 
-  double gps_qual = (msg->position_covariance[0] + msg->position_covariance[4] + msg->position_covariance[8]) / 3;
+  double gnss_qual = (msg->position_covariance[0] + msg->position_covariance[4] + msg->position_covariance[8]) / 3;
 
   {
     std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.mavros_gps_qual = gps_qual;
+    uav_status_.hw_api_gnss_qual = gnss_qual;
   }
 }
 
 //}
 
-/* mavrosLocalCallback() //{ */
+/* hwApiOdometryCallback() //{ */
 
-void Acquisition::mavrosLocalCallback(const geometry_msgs::PoseStampedConstPtr& msg) {
+void Acquisition::hwApiOdometryCallback(const nav_msgs::OdometryConstPtr& msg) {
 
   if (!initialized_) {
     return;
   }
-  mavros_local_ts_.Count();
-
-  /* mavros_local_ = *msg; */
-  /* double tilt, roll, pitch; */
-
-  /* geometry_msgs::Vector3 z_vec = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getVectorZ(); */
-  /* roll                         = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getRoll() * 57.2958; */
-  /* pitch                        = mrs_lib::AttitudeConverter(mavros_local_.pose.orientation).getPitch() * 57.2958; */
-
-  /* try { */
-  /*   tilt = acos(z_vec.z) * 57.2958; */
-  /* } */
-  /* catch (int e) { */
-  /*   tilt = -666; */
-  /* } */
-
-  /* std::stringstream stream; */
-  /* stream << std::fixed << std::setprecision(2) << "tilt: " << tilt << " deg,\n roll: " << roll << ", pitch: " << pitch; */
-
-  /* std::string display_msg = stream.str(); */
-  /* std::string pub_name    = "pixhawk"; */
-
-  /* if (tilt < 10) { */
-  /*   display_msg = "-g " + display_msg; */
-  /* } else { */
-  /*   display_msg = "-r " + display_msg; */
-  /* } */
-
-  /* bool contains = false; */
-
-  /* for (unsigned long i = 0; i < string_info_vec_.size(); i++) { */
-  /*   if (string_info_vec_[i].publisher_name == pub_name) { */
-  /*     contains                           = true; */
-  /*     string_info_vec_[i].display_string = display_msg; */
-  /*     string_info_vec_[i].last_time      = ros::Time::now(); */
-  /*     break; */
-  /*   } */
-  /* } */
-
-  /* if (!contains) { */
-  /*   string_info tmp(pub_name, display_msg); */
-  /*   string_info_vec_.push_back(tmp); */
-  /* } */
+  hw_api_odometry_ts_.Count();
 }
 
 //}
@@ -1546,6 +1515,26 @@ void Acquisition::automaticStartCallback_(const std_msgs::BoolConstPtr& msg) {
   {
     std::scoped_lock lock(mutex_status_msg_);
     uav_status_.automatic_start_can_takeoff = msg->data;
+  }
+}
+
+//}
+
+/* magCallback_() //{ */
+
+void Acquisition::magCallback_(const sensor_msgs::MagneticFieldConstPtr& msg) {
+
+  if (!initialized_) {
+    return;
+  }
+  hw_api_mag_ts_.Count();
+  {
+    std::scoped_lock            lock(mutex_status_msg_);
+    std::tuple<double, int16_t> rate_color = hw_api_mag_ts_.GetHz();
+    uav_status_.mag_norm                   = 10000 * (sqrt(pow(msg->magnetic_field.x, 2) + pow(msg->magnetic_field.y, 2) + pow(msg->magnetic_field.z, 2)));
+    uav_status_.mag_norm_hz                = std::get<0>(rate_color);
+    /* ROS_INFO_STREAM("[%s]: Absolute: "  << 10000*(sqrt(pow(msg->magnetic_field.x, 2) + pow(msg->magnetic_field.y, 2) + pow(msg->magnetic_field.z, 2))) << "
+     * X: " <<  10000*(msg->magnetic_field.x) << " Y: " <<  10000*(msg->magnetic_field.y) << " Z: " <<  10000*(msg->magnetic_field.z)); */
   }
 }
 

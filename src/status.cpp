@@ -86,7 +86,7 @@ private:
 
   void uavStateHandler(WINDOW* win);
   void controlManagerHandler(WINDOW* win);
-  void mavrosStateHandler(WINDOW* win);
+  void hwApiStateHander(WINDOW* win);
   void genericTopicHandler(WINDOW* win);
   void nodeStatsHandler(WINDOW* win);
   void generalInfoHandeler(WINDOW* win);
@@ -128,7 +128,7 @@ private:
   // Custom windows
   WINDOW* uav_state_window_;
   WINDOW* control_manager_window_;
-  WINDOW* mavros_state_window_;
+  WINDOW* hw_api_state_window_;
 
 
   /* vector<string_info> string_info_vec_; */
@@ -419,7 +419,7 @@ void Status::setupWindows() {
     uav_state_window_       = newwin(6, 9, 5, 1);
     top_bar_window_         = newwin(1, 140, 0, 1);
     general_info_window_    = newwin(4, 9, 1, 10);
-    mavros_state_window_    = newwin(6, 9, 5, 10);
+    hw_api_state_window_    = newwin(6, 9, 5, 10);
     debug_window_           = newwin(lines_ - 15, cols_ - 1, 13, 1);
     generic_topic_window_   = newwin(10, 9, 1, 19);
     string_window_          = newwin(10, 15, 1, 28);
@@ -428,7 +428,7 @@ void Status::setupWindows() {
   } else {
     uav_state_window_       = newwin(7, 26, 5, 1);
     control_manager_window_ = newwin(4, 26, 1, 1);
-    mavros_state_window_    = newwin(7, 25, 5, 27);
+    hw_api_state_window_    = newwin(7, 25, 5, 27);
     general_info_window_    = newwin(4, 25, 1, 27);
     top_bar_window_         = newwin(1, 140, 0, 1);
     bottom_window_          = newwin(1, 120, 12, 1);
@@ -680,8 +680,8 @@ void Status::statusTimerSlow([[maybe_unused]] const ros::TimerEvent& event) {
   }
 
   {
-    mrs_lib::Routine profiler_routine = profiler_.createRoutine("mavrosStateHandler");
-    mavrosStateHandler(mavros_state_window_);
+    mrs_lib::Routine profiler_routine = profiler_.createRoutine("hwApiStateHander");
+    hwApiStateHander(hw_api_state_window_);
   }
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
@@ -2017,7 +2017,7 @@ void Status::nodeStatsHandler(WINDOW* win) {
     }
 
     wattron(win, COLOR_PAIR(GREEN));
-    printLimitedString(win, 0, 1, "ROS Node Shitlist", 40);
+    printLimitedString(win, 0, 1, "ROS Node CPU usage", 40);
     wattroff(win, COLOR_PAIR(GREEN));
 
     printLimitedDouble(win, 0, 37, "%5.1f", cpu_load_total, 9999);
@@ -2404,16 +2404,16 @@ void Status::controlManagerHandler(WINDOW* win) {
 
 //}
 
-/* mavrosStateHandler() //{ */
+/* hwApiStateHander() //{ */
 
-void Status::mavrosStateHandler(WINDOW* win) {
+void Status::hwApiStateHander(WINDOW* win) {
 
   int16_t     color;
-  double      mavros_rate;
+  double      hw_api_rate;
   double      state_rate;
   double      cmd_rate;
   double      battery_rate;
-  bool        mavros_gps_ok;
+  bool        gnss_ok;
   bool        armed;
   std::string mode;
   double      battery_volt;
@@ -2422,25 +2422,29 @@ void Status::mavrosStateHandler(WINDOW* win) {
   double      thrust;
   double      mass_estimate;
   double      mass_set;
-  double      gps_qual;
+  double      gnss_qual;
+  double      mag_norm;
+  double      mag_norm_rate;
 
   {
     std::scoped_lock lock(mutex_status_msg_);
-    color              = uav_status_.mavros_color;
-    mavros_rate        = uav_status_.mavros_hz;
-    state_rate         = uav_status_.mavros_state_hz;
-    cmd_rate           = uav_status_.mavros_cmd_hz;
-    battery_rate       = uav_status_.mavros_battery_hz;
-    mavros_gps_ok      = uav_status_.mavros_gps_ok;
-    armed              = uav_status_.mavros_armed;
-    mode               = uav_status_.mavros_mode;
+    color              = uav_status_.hw_api_color;
+    hw_api_rate        = uav_status_.hw_api_hz;
+    state_rate         = uav_status_.hw_api_state_hz;
+    cmd_rate           = uav_status_.hw_api_cmd_hz;
+    battery_rate       = uav_status_.hw_api_battery_hz;
+    gnss_ok            = uav_status_.hw_api_gnss_ok;
+    armed              = uav_status_.hw_api_armed;
+    mode               = uav_status_.hw_api_mode;
     battery_volt       = uav_status_.battery_volt;
     battery_curr       = uav_status_.battery_curr;
     battery_wh_drained = uav_status_.battery_wh_drained;
     thrust             = uav_status_.thrust;
     mass_estimate      = uav_status_.mass_estimate;
     mass_set           = uav_status_.mass_set;
-    gps_qual           = uav_status_.mavros_gps_qual;
+    gnss_qual           = uav_status_.hw_api_gnss_qual;
+    mag_norm           = uav_status_.mag_norm;
+    mag_norm_rate      = uav_status_.mag_norm_hz;
   }
 
   std::string tmp_string;
@@ -2460,10 +2464,10 @@ void Status::mavrosStateHandler(WINDOW* win) {
   /* mini //{ */
 
   if (mini_) {
-    printLimitedDouble(win, 0, 1, "Mav %3.0f", mavros_rate, 1000);
+    printLimitedDouble(win, 0, 1, "Mav %3.0f", hw_api_rate, 1000);
     wattroff(win, COLOR_PAIR(color));
 
-    if (mavros_rate == 0) {
+    if (hw_api_rate == 0) {
       printNoData(win, 0, 1);
     }
 
@@ -2543,7 +2547,7 @@ void Status::mavrosStateHandler(WINDOW* win) {
       printLimitedDouble(win, 4, 1, "%4.1f kg", mass_estimate, 99.99);
     }
 
-    if (!mavros_gps_ok) {
+    if (!gnss_ok) {
 
       wattron(win, COLOR_PAIR(RED));
       printLimitedString(win, 1, 5, "GPS", 6);
@@ -2557,16 +2561,16 @@ void Status::mavrosStateHandler(WINDOW* win) {
 
       color = RED;
 
-      if (gps_qual < 5.0) {
+      if (gnss_qual < 5.0) {
         color = GREEN;
-      } else if (gps_qual < 10.0) {
+      } else if (gnss_qual < 10.0) {
         color = YELLOW;
       }
 
       wattron(win, COLOR_PAIR(color));
 
-      if (gps_qual < 10.0) {
-        printLimitedDouble(win, 2, 5, "%3.1f", gps_qual, 9.9);
+      if (gnss_qual < 10.0) {
+        printLimitedDouble(win, 2, 5, "%3.1f", gnss_qual, 9.9);
       } else {
         printLimitedString(win, 2, 5, ">10", 3);
       }
@@ -2582,11 +2586,10 @@ void Status::mavrosStateHandler(WINDOW* win) {
   else {
 
 
-    // mavros local is the main source of Mavros hz
-    printLimitedDouble(win, 0, 9, "Mavros %5.1f Hz", mavros_rate, 1000);
+    printLimitedDouble(win, 0, 9, "HW Api %5.1f Hz", hw_api_rate, 1000);
     wattroff(win, COLOR_PAIR(color));
 
-    if (mavros_rate == 0) {
+    if (hw_api_rate == 0) {
 
       printNoData(win, 0, 1);
     }
@@ -2612,7 +2615,7 @@ void Status::mavrosStateHandler(WINDOW* win) {
       }
 
       printLimitedString(win, 1, 1, "State: " + tmp_string, 15);
-      wattron(win, COLOR_PAIR(color));
+      wattron(win, COLOR_PAIR(GREEN));
 
       if (mode != "OFFBOARD") {
         wattron(win, COLOR_PAIR(RED));
@@ -2622,10 +2625,9 @@ void Status::mavrosStateHandler(WINDOW* win) {
       wattron(win, COLOR_PAIR(color));
     }
 
-
     if (battery_rate == 0) {
 
-      printNoData(win, 3, 1, "Batt:  ");
+      printNoData(win, 4, 1, "Batt:  ");
 
     } else {
 
@@ -2638,10 +2640,25 @@ void Status::mavrosStateHandler(WINDOW* win) {
       } else if (battery_volt < 3.7 && color != RED) {
         wattron(win, COLOR_PAIR(YELLOW));
       }
+      printLimitedDouble(win, 4, 1, "%4.2fV ", battery_volt, 10);
+      printLimitedDouble(win, 4, 8, "%5.2fA", battery_curr, 100);
+      printLimitedDouble(win, 4, 15, " %4.1f Wh", battery_wh_drained, 100);
+    }
 
-      printLimitedDouble(win, 3, 1, "Batt:  %4.2f V ", battery_volt, 10);
-      printLimitedDouble(win, 3, 15, "%5.2f A", battery_curr, 100);
-      printLimitedDouble(win, 4, 1, "Drained: %4.1f Wh", battery_wh_drained, 100);
+    if (mag_norm_rate == 0) {
+
+      printNoData(win, 3, 1, "Mag:  ");
+
+    } else {
+
+      wattron(win, COLOR_PAIR(GREEN));
+
+      if (mag_norm > 0.9 || mag_norm < 0.25) {
+        wattron(win, COLOR_PAIR(RED));
+      } else if (mag_norm > 0.65) {
+        wattron(win, COLOR_PAIR(YELLOW));
+      }
+      printLimitedDouble(win, 3, 1, "Mag: %4.2f", mag_norm, 9.99);
     }
 
     if (cmd_rate == 0) {
@@ -2649,6 +2666,8 @@ void Status::mavrosStateHandler(WINDOW* win) {
       printNoData(win, 5, 1, "Thrst: ");
 
     } else {
+
+      wattron(win, COLOR_PAIR(GREEN));
 
       if (thrust > 0.75) {
         wattron(win, COLOR_PAIR(RED));
@@ -2689,7 +2708,7 @@ void Status::mavrosStateHandler(WINDOW* win) {
     }
 
 
-    if (!mavros_gps_ok) {
+    if (!gnss_ok) {
 
       wattron(win, COLOR_PAIR(RED));
       printLimitedString(win, 1, 18, "NO_GPS", 6);
@@ -2703,14 +2722,14 @@ void Status::mavrosStateHandler(WINDOW* win) {
 
       color = RED;
 
-      if (gps_qual < 5.0) {
+      if (gnss_qual < 5.0) {
         color = GREEN;
-      } else if (gps_qual < 10.0) {
+      } else if (gnss_qual < 10.0) {
         color = YELLOW;
       }
 
       wattron(win, COLOR_PAIR(color));
-      printLimitedDouble(win, 2, 17, "Q: %4.1f", gps_qual, 99.9);
+      printLimitedDouble(win, 2, 17, "Q: %4.1f", gnss_qual, 99.9);
       wattroff(win, COLOR_PAIR(color));
     }
   }
@@ -2969,11 +2988,11 @@ void Status::prefillUavStatus() {
   uav_status_.cpu_ghz         = 0.0;
   uav_status_.free_ram        = 0.0;
   uav_status_.free_hdd        = 0.0;
-  uav_status_.mavros_hz       = 0.0;
-  uav_status_.mavros_armed    = false;
-  uav_status_.mavros_mode     = "N/A";
-  uav_status_.mavros_gps_ok   = false;
-  uav_status_.mavros_gps_qual = 0.0;
+  uav_status_.hw_api_hz       = 0.0;
+  uav_status_.hw_api_armed    = false;
+  uav_status_.hw_api_mode     = "N/A";
+  uav_status_.hw_api_gnss_ok   = false;
+  uav_status_.hw_api_gnss_qual = 0.0;
   uav_status_.battery_volt    = 0.0;
   uav_status_.battery_curr    = 0.0;
   uav_status_.thrust          = 0.0;

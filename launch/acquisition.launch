@@ -8,6 +8,7 @@
   <arg name="PIXGARM" default="$(optenv PIXGARM false)"/>
   <arg name="COLORSCHEME" default="$(optenv PROFILES_BOTH COLORSCHEME_LIGHT)"/>
   <arg name="RAINBOW" default="false"/>
+	<arg name="OLD_PX4_FW" default="$(optenv OLD_PX4_FW false)" />
 
   <arg name="debug" default="false"/>
 
@@ -49,11 +50,12 @@
       <remap from="~gain_manager_in" to="gain_manager/diagnostics" />
       <remap from="~constraint_manager_in" to="constraint_manager/diagnostics" />
       <remap from="~tf_static_in" to="/tf_static" />
-      <remap from="~mavros_global_in" to="mavros/global_position/global" />
-      <remap from="~mavros_local_in" to="mavros/local_position/pose" />
+      <remap from="~gnss_in" to="hw_api/gnss" />
+      <remap from="~odometry_in" to="hw_api/odometry" />
       <remap from="~automatic_start_in" to="automatic_start/can_takeoff" />
       <remap from="~throttle_in" to="control_manager/throttle" />
       <remap from="~mass_estimate_in" to="control_manager/mass_estimate" />
+      <remap from="~mag_in" to="hw_api/magnetic_field" />
 
       <remap from="~string_in" to="mrs_uav_status/display_string" />
       <remap from="~set_service_in" to="mrs_uav_status/set_trigger_service" />

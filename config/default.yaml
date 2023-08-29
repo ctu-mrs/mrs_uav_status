@@ -15,7 +15,6 @@ turbo_remote_constraints: "fast"
 want_hz: [
       # "garmin/range Garmin 100",
       # "bluefox/image_raw Bluefox 100",
-      # "mavros/setpoint_raw/attitude Mavros Setpoint 100",
       # "odometry/uav_state uav state 100",
       ]
 
