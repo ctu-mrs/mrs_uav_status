@@ -2812,8 +2812,8 @@ void Status::topLineHandler(WINDOW* win) {
   mvwprintw(win, 0, 10, " %s %s %s ", uav_name.c_str(), uav_type.c_str(), nato_name.c_str());
 
   if (!mini_) {
-    printLimitedDouble(win, 0, 94, "%3.1f", tmp_time, 100);
-    printLimitedDouble(win, 0, 90, "%3.1f", tmp_short_time, 100);
+    /* printLimitedDouble(win, 0, 94, "%3.1f", tmp_time, 100); */
+    /* printLimitedDouble(win, 0, 90, "%3.1f", tmp_short_time, 100); */
 
     if (collision_avoidance_enabled) {
       if (avoiding_collision_) {
