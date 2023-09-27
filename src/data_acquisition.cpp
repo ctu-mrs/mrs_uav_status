@@ -218,7 +218,6 @@ private:
   string _run_type_;
   double _uav_mass_;
   string _sensors_;
-  bool   _pixgarm_;
   string _turbo_remote_constraints_;
 
   // | ------------------ Data storage, inputs ------------------ |
@@ -278,7 +277,6 @@ Acquisition::Acquisition() {
   param_loader.loadParam("run_type", _run_type_);
   param_loader.loadParam("uav_mass", _uav_mass_);
   param_loader.loadParam("sensors", _sensors_);
-  param_loader.loadParam("pixgarm", _pixgarm_);
   param_loader.loadParam("turbo_remote_constraints", _turbo_remote_constraints_);
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
@@ -399,13 +397,10 @@ Acquisition::Acquisition() {
   vector<string> results;
   split(results, _sensors_, boost::is_any_of(", "), boost::token_compress_on);
 
-  if (_pixgarm_) {
-    generic_topic_input_vec_.push_back("TODO/distance_sensor/garmin Garmin_pix 80+");
-  }
 
   for (unsigned long i = 0; i < results.size(); i++) {
-    if (results[i] == "garmin_down" && _pixgarm_ == false) {
-      generic_topic_input_vec_.push_back("garmin/range Garmin_Down 80+");
+    if (results[i] == "garmin_down") {
+    generic_topic_input_vec_.push_back("hw_api/distance_sensor Rangefinder 80+");
 
     } else if (results[i] == "garmin_up") {
       generic_topic_input_vec_.push_back("garmin/range_up Garmin_Up 80+");
