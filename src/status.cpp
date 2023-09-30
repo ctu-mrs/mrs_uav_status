@@ -3,7 +3,7 @@
 /* #include <status_window.h> */
 #include "mrs_msgs/NodeCpuLoad.h"
 #include "mrs_msgs/Reference.h"
-#include "mrs_msgs/TarotGimbalState.h"
+#include <mrs_msgs/GimbalState.h>
 #include "ros/duration.h"
 #include <menu.h>
 #include <input_box.h>
@@ -245,7 +245,7 @@ private:
 
   string old_constraints;
 
-  mrs_msgs::TarotGimbalState gimbal_command;
+  mrs_msgs::GimbalState gimbal_command;
   const uint16_t             gimbal_max = 2000;
   const uint16_t             gimbal_min = 1000;
 
@@ -325,7 +325,7 @@ Status::Status() {
 
   // | ------------------------ Publishers ------------------------ |
 
-  gimbal_command_publisher_ = nh_.advertise<mrs_msgs::TarotGimbalState>("gimbal_command_out", 1);
+  gimbal_command_publisher_ = nh_.advertise<mrs_msgs::GimbalState>("gimbal_command_out", 1);
 
   // | ------------------------ Services ------------------------ |
 
