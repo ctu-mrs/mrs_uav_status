@@ -8,14 +8,16 @@
 #include <menu.h>
 #include <input_box.h>
 #include <commons.h>
+#include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/profiler.h>
 #include <mrs_msgs/Float64Stamped.h>
 
 #include <boost/filesystem.hpp>
 
-
 using namespace std;
 using topic_tools::ShapeShifter;
+
+using radians = mrs_lib::geometry::radians;
 
 //}
 
@@ -246,8 +248,8 @@ private:
   string old_constraints;
 
   mrs_msgs::GimbalState gimbal_command;
-  const uint16_t             gimbal_max = 2000;
-  const uint16_t             gimbal_min = 1000;
+  const uint16_t        gimbal_max = 2000;
+  const uint16_t        gimbal_min = 1000;
 
   std::unique_ptr<mrs_lib::Transformer> transformer_;
 
@@ -2099,7 +2101,7 @@ void Status::uavStateHandler(WINDOW* win) {
   double cerr_x   = std::fabs(state_x - cmd_x);
   double cerr_y   = std::fabs(state_y - cmd_y);
   double cerr_z   = std::fabs(state_z - cmd_z);
-  double cerr_hdg = std::fabs(heading - cmd_hdg);
+  double cerr_hdg = fabs(radians::diff(heading, cmd_hdg));
 
   werase(win);
   wattron(win, A_BOLD);
@@ -2442,7 +2444,7 @@ void Status::hwApiStateHander(WINDOW* win) {
     thrust             = uav_status_.thrust;
     mass_estimate      = uav_status_.mass_estimate;
     mass_set           = uav_status_.mass_set;
-    gnss_qual           = uav_status_.hw_api_gnss_qual;
+    gnss_qual          = uav_status_.hw_api_gnss_qual;
     mag_norm           = uav_status_.mag_norm;
     mag_norm_rate      = uav_status_.mag_norm_hz;
   }
@@ -2984,20 +2986,20 @@ void Status::prefillUavStatus() {
   uav_status_.odom_estimators_hori.clear();
   uav_status_.odom_estimators_vert.clear();
   uav_status_.odom_estimators_hdg.clear();
-  uav_status_.cpu_load        = 0.0;
-  uav_status_.cpu_ghz         = 0.0;
-  uav_status_.free_ram        = 0.0;
-  uav_status_.free_hdd        = 0.0;
-  uav_status_.hw_api_hz       = 0.0;
-  uav_status_.hw_api_armed    = false;
-  uav_status_.hw_api_mode     = "N/A";
+  uav_status_.cpu_load         = 0.0;
+  uav_status_.cpu_ghz          = 0.0;
+  uav_status_.free_ram         = 0.0;
+  uav_status_.free_hdd         = 0.0;
+  uav_status_.hw_api_hz        = 0.0;
+  uav_status_.hw_api_armed     = false;
+  uav_status_.hw_api_mode      = "N/A";
   uav_status_.hw_api_gnss_ok   = false;
   uav_status_.hw_api_gnss_qual = 0.0;
-  uav_status_.battery_volt    = 0.0;
-  uav_status_.battery_curr    = 0.0;
-  uav_status_.thrust          = 0.0;
-  uav_status_.mass_estimate   = 0.0;
-  uav_status_.mass_set        = 0.0;
+  uav_status_.battery_volt     = 0.0;
+  uav_status_.battery_curr     = 0.0;
+  uav_status_.thrust           = 0.0;
+  uav_status_.mass_estimate    = 0.0;
+  uav_status_.mass_set         = 0.0;
   uav_status_.custom_topics.clear();
   uav_status_.custom_string_outputs.clear();
   uav_status_.custom_services.clear();
