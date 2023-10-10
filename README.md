@@ -2,9 +2,6 @@
 
 ![](.fig/thumbnail.jpg)
 
-| Build status | [![Build Status](https://github.com/ctu-mrs/mrs_uav_status/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/mrs_uav_status/actions) |
-|--------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-
 ## Real-time Terminal User Interface for monitoring and control
 
 * Displays useful information about the UAV state and sensors
@@ -16,6 +13,7 @@
 * vim-like key bindings
 
 ### Controlling the UAV through MRS UAV Status
+
 If the MRS UAV Status window is focused, you can use it to command the UAV. This works in simulation and with a real UAV through SSH.
 
  * press the 'R' key to enter the "remote" mode. While in this mode, you can fly the UAV with your keyboard:
@@ -43,6 +41,7 @@ If the MRS UAV Status window is focused, you can use it to command the UAV. This
  ![](.fig/custom_service.png)
 
 ### Display custom messages from your nodes
+
 If you need to monitor some aspect or behaviour of your node, you can display messages from said node in MRS UAV Status.
 Simply publish a [std_msgs/String](http://docs.ros.org/melodic/api/std_msgs/html/msg/String.html) message to the topic ```mrs_uav_status/display_string```, and the message, along with the publisher node name, will show in MRS UAV Status.
 
@@ -63,6 +62,7 @@ Simply publish a [std_msgs/String](http://docs.ros.org/melodic/api/std_msgs/html
       capital letter as the parameter, it will make the displayed message blink
 
 ### Monitoring ROS topic rates
+
 MRS UAV Status can monitor rates of different ROS topics, and warn the user if the topic is published less frequently than required, or not published at all. There are two ways how to add monitored topics:
 
 * Static tf
