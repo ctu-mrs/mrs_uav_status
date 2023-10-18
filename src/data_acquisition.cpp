@@ -1442,9 +1442,9 @@ void Acquisition::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosti
           std::swap(uav_status_.trackers[0], uav_status_.trackers[i]);
         }
       }
-      /* } else { */
-      /*   // active tracker is not in the trackers vector, put it there */
-      /*   uav_status_.trackers.insert(uav_status_.trackers.begin(), msg->active_tracker); */
+    } else {
+      // active tracker is not in the trackers vector, put it there
+      uav_status_.trackers.insert(uav_status_.trackers.begin(), msg->active_tracker);
     }
 
 
@@ -1456,9 +1456,9 @@ void Acquisition::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosti
           std::swap(uav_status_.controllers[0], uav_status_.controllers[i]);
         }
       }
-      /* } else { */
-      /*   // active tracker is not in the controllers vecotor, put it there */
-      /* uav_status_.controllers.insert(uav_status_.controllers.begin(), msg->active_controller); */
+    } else {
+      // active tracker is not in the controllers vecotor, put it there
+      uav_status_.controllers.insert(uav_status_.controllers.begin(), msg->active_controller);
     }
 
     uav_status_.flying_normally   = msg->flying_normally;
