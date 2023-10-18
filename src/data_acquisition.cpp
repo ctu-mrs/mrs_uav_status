@@ -400,7 +400,7 @@ Acquisition::Acquisition() {
 
   for (unsigned long i = 0; i < results.size(); i++) {
     if (results[i] == "garmin_down") {
-    generic_topic_input_vec_.push_back("hw_api/distance_sensor Rangefinder 80+");
+      generic_topic_input_vec_.push_back("hw_api/distance_sensor Rangefinder 80+");
 
     } else if (results[i] == "garmin_up") {
       generic_topic_input_vec_.push_back("garmin/range_up Garmin_Up 80+");
@@ -723,11 +723,11 @@ void Acquisition::controlManagerHandler() {
 
 void Acquisition::hwApiDiagHandler() {
 
-  std::tuple<double, int16_t> odometry_rate_color   = hw_api_odometry_ts_.GetHz();
-  std::tuple<double, int16_t> gnss_rate_color  = hw_api_gnss_ts_.GetHz();
-  std::tuple<double, int16_t> state_rate_color   = hw_api_state_ts_.GetHz();
-  std::tuple<double, int16_t> cmd_rate_color     = hw_api_cmd_ts_.GetHz();
-  std::tuple<double, int16_t> battery_rate_color = hw_api_battery_ts_.GetHz();
+  std::tuple<double, int16_t> odometry_rate_color = hw_api_odometry_ts_.GetHz();
+  std::tuple<double, int16_t> gnss_rate_color     = hw_api_gnss_ts_.GetHz();
+  std::tuple<double, int16_t> state_rate_color    = hw_api_state_ts_.GetHz();
+  std::tuple<double, int16_t> cmd_rate_color      = hw_api_cmd_ts_.GetHz();
+  std::tuple<double, int16_t> battery_rate_color  = hw_api_battery_ts_.GetHz();
 
 
   bool gnss = false;
@@ -739,7 +739,7 @@ void Acquisition::hwApiDiagHandler() {
     std::scoped_lock lock(mutex_status_msg_);
     uav_status_.hw_api_hz         = std::get<0>(odometry_rate_color);
     uav_status_.hw_api_color      = std::get<1>(odometry_rate_color);
-    uav_status_.hw_api_gnss_ok     = gnss;
+    uav_status_.hw_api_gnss_ok    = gnss;
     uav_status_.hw_api_battery_hz = std::get<0>(battery_rate_color);
     uav_status_.hw_api_state_hz   = std::get<0>(state_rate_color);
     uav_status_.hw_api_cmd_hz     = std::get<0>(state_rate_color);
@@ -903,21 +903,21 @@ void Acquisition::prefillUavStatus() {
   uav_status_.odom_estimators_hori.clear();
   uav_status_.odom_estimators_vert.clear();
   uav_status_.odom_estimators_hdg.clear();
-  uav_status_.cpu_load        = 0.0;
-  uav_status_.cpu_ghz         = 0.0;
-  uav_status_.cpu_temperature = 0.0;
-  uav_status_.free_ram        = 0.0;
-  uav_status_.free_hdd        = 0.0;
-  uav_status_.hw_api_hz       = 0.0;
-  uav_status_.hw_api_armed    = false;
-  uav_status_.hw_api_mode     = "N/A";
+  uav_status_.cpu_load         = 0.0;
+  uav_status_.cpu_ghz          = 0.0;
+  uav_status_.cpu_temperature  = 0.0;
+  uav_status_.free_ram         = 0.0;
+  uav_status_.free_hdd         = 0.0;
+  uav_status_.hw_api_hz        = 0.0;
+  uav_status_.hw_api_armed     = false;
+  uav_status_.hw_api_mode      = "N/A";
   uav_status_.hw_api_gnss_ok   = false;
   uav_status_.hw_api_gnss_qual = 0.0;
-  uav_status_.battery_volt    = 0.0;
-  uav_status_.battery_curr    = 0.0;
-  uav_status_.thrust          = 0.0;
-  uav_status_.mass_estimate   = 0.0;
-  uav_status_.mass_set        = 0.0;
+  uav_status_.battery_volt     = 0.0;
+  uav_status_.battery_curr     = 0.0;
+  uav_status_.thrust           = 0.0;
+  uav_status_.mass_estimate    = 0.0;
+  uav_status_.mass_set         = 0.0;
   uav_status_.custom_topics.clear();
   uav_status_.custom_string_outputs.clear();
   uav_status_.custom_services.clear();
