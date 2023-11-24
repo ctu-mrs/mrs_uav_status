@@ -104,6 +104,7 @@ private:
   void batteryCallback(const sensor_msgs::BatteryStateConstPtr& msg);
   void throttleCallback(const std_msgs::Float64ConstPtr& msg);
   void callbackMassEstimate(const std_msgs::Float64ConstPtr& msg);
+  void callbackMassSet(const std_msgs::Float64ConstPtr& msg);
   void controlManagerCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& msg);
   void gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
   void constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
@@ -193,6 +194,7 @@ private:
   ros::Subscriber hw_api_gnss_subscriber_;
   ros::Subscriber hw_api_odometry_subscriber_;
   ros::Subscriber mass_estimate_subscriber_;
+  ros::Subscriber mass_set_subscriber_;
   ros::Subscriber throttle_subscriber_;
   ros::Subscriber battery_subscriber_;
   ros::Subscriber control_manager_subscriber_;
@@ -214,7 +216,6 @@ private:
   string _uav_name_;
   string _uav_type_;
   string _run_type_;
-  double _uav_mass_;
   string _sensors_;
   string _turbo_remote_constraints_;
 
@@ -272,7 +273,6 @@ Acquisition::Acquisition() {
   param_loader.loadParam("uav_name", _uav_name_);
   param_loader.loadParam("uav_type", _uav_type_);
   param_loader.loadParam("run_type", _run_type_);
-  param_loader.loadParam("uav_mass", _uav_mass_);
   param_loader.loadParam("sensors", _sensors_);
   param_loader.loadParam("turbo_remote_constraints", _turbo_remote_constraints_);
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
@@ -294,7 +294,6 @@ Acquisition::Acquisition() {
     std::scoped_lock lock(mutex_status_msg_);
     uav_status_.uav_name = _uav_name_;
     uav_status_.uav_type = _uav_type_;
-    uav_status_.uav_mass = _uav_mass_;
   }
 
   // | ------------------- want hz handling ------------------- |
@@ -330,6 +329,7 @@ Acquisition::Acquisition() {
   hw_api_status_subscriber_   = nh_.subscribe("hw_api_status_in", 10, &Acquisition::hwApiStatusCallback, this, ros::TransportHints().tcpNoDelay());
   throttle_subscriber_        = nh_.subscribe("throttle_in", 10, &Acquisition::throttleCallback, this, ros::TransportHints().tcpNoDelay());
   mass_estimate_subscriber_   = nh_.subscribe("mass_estimate_in", 10, &Acquisition::callbackMassEstimate, this, ros::TransportHints().tcpNoDelay());
+  mass_set_subscriber_        = nh_.subscribe("mass_set_in", 10, &Acquisition::callbackMassSet, this, ros::TransportHints().tcpNoDelay());
   hw_api_gnss_subscriber_     = nh_.subscribe("gnss_in", 10, &Acquisition::hwApiGnssCallback, this, ros::TransportHints().tcpNoDelay());
   battery_subscriber_         = nh_.subscribe("battery_in", 10, &Acquisition::batteryCallback, this, ros::TransportHints().tcpNoDelay());
   control_manager_subscriber_ = nh_.subscribe("control_manager_in", 10, &Acquisition::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
@@ -881,6 +881,7 @@ void Acquisition::prefillUavStatus() {
   uav_status_.uav_name                = "N/A";
   uav_status_.uav_type                = "N/A";
   uav_status_.uav_mass                = 0.0;
+  uav_status_.mass_set                = 0.0;
   uav_status_.control_manager_diag_hz = 0.0;
   uav_status_.controllers.clear();
   uav_status_.gains.clear();
@@ -1341,7 +1342,22 @@ void Acquisition::callbackMassEstimate(const std_msgs::Float64ConstPtr& msg) {
   {
     std::scoped_lock lock(mutex_status_msg_);
     uav_status_.mass_estimate = msg->data;
-    uav_status_.mass_set      = _uav_mass_;
+  }
+}
+
+//}
+
+/* callbackMassSet() //{ */
+
+void Acquisition::callbackMassSet(const std_msgs::Float64ConstPtr& msg) {
+
+  if (!initialized_) {
+    return;
+  }
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.mass_set = msg->data;
   }
 }
 
