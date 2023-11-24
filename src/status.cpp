@@ -3334,13 +3334,12 @@ void Status::printHelp() {
     printLimitedString(debug_window_, 7, 0, "      'w','s','a','d' to control pitch and roll ('h','j','k','l' works too)", 120);
     printLimitedString(debug_window_, 8, 0, "      'q','e'         to control heading", 120);
     printLimitedString(debug_window_, 9, 0, "      'r','f'         to control altitude", 120);
-    printLimitedString(debug_window_, 11, 0, "You can also use topics provided by mrs_status to display info from your node, and to control it:", 120);
-    printLimitedString(debug_window_, 13, 0, "   topic mrs_status/display_string (std_msgs::String)", 120);
-    printLimitedString(debug_window_, 14, 0, "      Publish any string to this topic and it will show up in mrs_status", 120);
-    printLimitedString(debug_window_, 16, 0, "   topic mrs_status/set_trigger_service (std_msgs::String)", 120);
-    printLimitedString(debug_window_, 17, 0, "      If your node has a std_srvs:Trigger service, you can add it to the mrs_status services menu", 120);
-    printLimitedString(debug_window_, 18, 0, "      Publish a String in this format: 'node_name/service_name display_name' and it will show in the menu", 120);
-    printLimitedString(debug_window_, 20, 0, "Press 'h' to hide help", 120);
+    printLimitedString(debug_window_, 10, 0, "      'G'             to switch controlling in the FCU frame (local) or the world frame (global)", 120);
+    printLimitedString(debug_window_, 12, 0, "You can also display any info from your node in the mrs_status:", 120);
+    printLimitedString(debug_window_, 14, 0, "   topic: mrs_status/display_string (std_msgs::String)", 120);
+    printLimitedString(debug_window_, 15, 0, "   - Publish any string to this topic and it will show up in mrs_status", 120);
+    printLimitedString(debug_window_, 17, 0, "Press 'D' to display info from other panes of this tmux session, up to 2 panes can be viewed", 120);
+    printLimitedString(debug_window_, 19, 0, "Press 'h' to hide help", 120);
 
   } else {
     printLimitedString(debug_window_, 1, 0, "Press 'h' key for help", 120);
