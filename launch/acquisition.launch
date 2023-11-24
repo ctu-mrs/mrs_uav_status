@@ -56,9 +56,7 @@
       <remap from="~throttle_in" to="control_manager/throttle" />
       <remap from="~mass_estimate_in" to="control_manager/mass_estimate" />
       <remap from="~mag_in" to="hw_api/magnetic_field" />
-
       <remap from="~string_in" to="mrs_uav_status/display_string" />
-      <remap from="~set_service_in" to="mrs_uav_status/set_trigger_service" />
 
         <!-- Publishers -->
       <remap from="~uav_status_out" to="mrs_uav_status/uav_status" />

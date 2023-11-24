@@ -108,7 +108,6 @@ private:
   void gainManagerCallback(const mrs_msgs::GainManagerDiagnosticsConstPtr& msg);
   void constraintManagerCallback(const mrs_msgs::ConstraintManagerDiagnosticsConstPtr& msg);
   void stringCallback(const ros::MessageEvent<std_msgs::String const>& event);
-  void setServiceCallback(const std_msgs::String& msg);
   void tfStaticCallback(const tf2_msgs::TFMessage& msg);
   void hwApiGnssCallback(const sensor_msgs::NavSatFixConstPtr& msg);
   void hwApiOdometryCallback(const nav_msgs::OdometryConstPtr& msg);
@@ -338,7 +337,6 @@ Acquisition::Acquisition() {
   constraint_manager_subscriber_ =
       nh_.subscribe("constraint_manager_in", 10, &Acquisition::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
   string_subscriber_          = nh_.subscribe("string_in", 10, &Acquisition::stringCallback, this, ros::TransportHints().tcpNoDelay());
-  set_service_subscriber_     = nh_.subscribe("set_service_in", 10, &Acquisition::setServiceCallback, this, ros::TransportHints().tcpNoDelay());
   tf_static_subscriber_       = nh_.subscribe("tf_static_in", 100, &Acquisition::tfStaticCallback, this, ros::TransportHints().tcpNoDelay());
   hw_api_odometry_subscriber_ = nh_.subscribe("odometry_in", 10, &Acquisition::hwApiOdometryCallback, this, ros::TransportHints().tcpNoDelay());
   automatic_start_subscriber_ = nh_.subscribe("automatic_start_in", 10, &Acquisition::automaticStartCallback_, this, ros::TransportHints().tcpNoDelay());
@@ -914,7 +912,6 @@ void Acquisition::prefillUavStatus() {
   uav_status_.mass_set         = 0.0;
   uav_status_.custom_topics.clear();
   uav_status_.custom_string_outputs.clear();
-  uav_status_.custom_services.clear();
   uav_status_.flying_normally   = false;
   uav_status_.null_tracker      = true;
   uav_status_.have_goal         = false;
@@ -1533,24 +1530,6 @@ void Acquisition::constraintManagerCallback(const mrs_msgs::ConstraintManagerDia
   }
 }
 
-//}
-
-/* setServiceCallback() //{ */
-
-void Acquisition::setServiceCallback(const std_msgs::String& msg) {
-
-  if (!initialized_) {
-    return;
-  }
-
-  {
-    std::scoped_lock lock(mutex_status_msg_);
-
-    if (std::find(uav_status_.custom_services.begin(), uav_status_.custom_services.end(), msg.data) == uav_status_.custom_services.end()) {
-      uav_status_.custom_services.push_back(msg.data);
-    }
-  }
-}
 //}
 
 /* tfStaticCallback() //{ */

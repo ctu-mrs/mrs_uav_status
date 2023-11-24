@@ -2846,7 +2846,6 @@ void Status::prefillUavStatus() {
   uav_status_.mass_set         = 0.0;
   uav_status_.custom_topics.clear();
   uav_status_.custom_string_outputs.clear();
-  uav_status_.custom_services.clear();
   uav_status_.flying_normally   = false;
   uav_status_.null_tracker      = true;
   uav_status_.have_goal         = false;
