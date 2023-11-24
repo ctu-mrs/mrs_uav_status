@@ -38,7 +38,9 @@ If the MRS UAV Status window is focused, you can use it to command the UAV. This
    * If the UAV is flying, you can call the 'land' or 'land_home' service
    * If the UAV is on the ground, you can call the 'takeoff' service
    * You can change the controller, tracker, estimator, controller gains and tracker constraints
-   * 
+
+ ![](.fig/menu.png)
+
 ### Display custom messages from your nodes
 
 If you need to monitor some aspect or behaviour of your node, you can display messages from said node in MRS UAV Status.
