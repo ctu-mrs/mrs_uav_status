@@ -213,7 +213,6 @@ private:
   // | -------------------- UAV configuration ------------------- |
 
   string _uav_name_;
-  string _nato_name_;
   string _uav_type_;
   string _run_type_;
   double _uav_mass_;
@@ -272,7 +271,6 @@ Acquisition::Acquisition() {
   string tmp_uav_mass;
 
   param_loader.loadParam("uav_name", _uav_name_);
-  param_loader.loadParam("nato_name", _nato_name_);
   param_loader.loadParam("uav_type", _uav_type_);
   param_loader.loadParam("run_type", _run_type_);
   param_loader.loadParam("uav_mass", _uav_mass_);
@@ -295,10 +293,9 @@ Acquisition::Acquisition() {
 
   {
     std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.uav_name  = _uav_name_;
-    uav_status_.nato_name = _nato_name_;
-    uav_status_.uav_type  = _uav_type_;
-    uav_status_.uav_mass  = _uav_mass_;
+    uav_status_.uav_name = _uav_name_;
+    uav_status_.uav_type = _uav_type_;
+    uav_status_.uav_mass = _uav_mass_;
   }
 
   // | ------------------- want hz handling ------------------- |
@@ -884,7 +881,6 @@ void Acquisition::prefillUavStatus() {
 
   std::scoped_lock lock(mutex_status_msg_);
   uav_status_.uav_name                = "N/A";
-  uav_status_.nato_name               = "N/A";
   uav_status_.uav_type                = "N/A";
   uav_status_.uav_mass                = 0.0;
   uav_status_.control_manager_diag_hz = 0.0;
@@ -892,7 +888,6 @@ void Acquisition::prefillUavStatus() {
   uav_status_.gains.clear();
   uav_status_.trackers.clear();
   uav_status_.constraints.clear();
-  uav_status_.fly_state  = "N/A";
   uav_status_.secs_flown = 0;
   uav_status_.odom_hz    = 0.0;
   uav_status_.odom_x     = 0.0;
@@ -900,9 +895,8 @@ void Acquisition::prefillUavStatus() {
   uav_status_.odom_z     = 0.0;
   uav_status_.odom_hdg   = 0.0;
   uav_status_.odom_frame = "N/A";
-  uav_status_.odom_estimators_hori.clear();
-  uav_status_.odom_estimators_vert.clear();
-  uav_status_.odom_estimators_hdg.clear();
+  uav_status_.odom_estimators.clear();
+  uav_status_.max_flight_z     = 0.0;
   uav_status_.cpu_load         = 0.0;
   uav_status_.cpu_ghz          = 0.0;
   uav_status_.cpu_temperature  = 0.0;
@@ -1238,31 +1232,13 @@ void Acquisition::estimationDiagCallback(const mrs_msgs::EstimationDiagnosticsCo
 
   {
     std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.max_flight_z    = msg->max_flight_z;
+    uav_status_.odom_estimators = msg->switchable_state_estimators;
 
-    uav_status_.odom_estimators_hori = msg->switchable_state_estimators;
-
-    for (size_t i = 0; i < uav_status_.odom_estimators_hori.size(); i++) {
-      if ((uav_status_.odom_estimators_hori[i] == msg->current_state_estimator) && i != 0) {
+    for (size_t i = 0; i < uav_status_.odom_estimators.size(); i++) {
+      if ((uav_status_.odom_estimators[i] == msg->current_state_estimator) && i != 0) {
         // put the active estimator as first in the vector
-        std::swap(uav_status_.odom_estimators_hori[0], uav_status_.odom_estimators_hori[i]);
-      }
-    }
-
-    uav_status_.odom_estimators_vert = msg->switchable_state_estimators;
-
-    for (size_t i = 0; i < uav_status_.odom_estimators_vert.size(); i++) {
-      if ((uav_status_.odom_estimators_vert[i] == msg->current_state_estimator) && i != 0) {
-        // put the active estimator as first in the vector
-        std::swap(uav_status_.odom_estimators_vert[0], uav_status_.odom_estimators_vert[i]);
-      }
-    }
-
-    uav_status_.odom_estimators_hdg = msg->switchable_state_estimators;
-
-    for (size_t i = 0; i < uav_status_.odom_estimators_hdg.size(); i++) {
-      if ((uav_status_.odom_estimators_hdg[i] == msg->current_state_estimator) && i != 0) {
-        // put the active estimator as first in the vector
-        std::swap(uav_status_.odom_estimators_hdg[0], uav_status_.odom_estimators_hdg[i]);
+        std::swap(uav_status_.odom_estimators[0], uav_status_.odom_estimators[i]);
       }
     }
   }

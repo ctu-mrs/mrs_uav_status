@@ -201,15 +201,11 @@ private:
   mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_gains_;
   mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_controller_;
   mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_tracker_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_odometry_source_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_lat_estimator_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_alt_estimator_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_hdg_estimator_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_estimator_;
   mrs_lib::ServiceClientHandler<std_srvs::Trigger>                service_hover_;
 
   // | -------------------- UAV configuration ------------------- |
 
-  string _nato_name_;
   string _uav_type_;
   /* string _run_type_; */
   /* double _uav_mass_; */
@@ -241,9 +237,6 @@ private:
   vector<double>   goto_double_vec_;
   vector<string>   goto_menu_text_;
   vector<InputBox> goto_menu_inputs_;
-
-  /* vector<string> tf_static_list_compare_; */
-  /* vector<string> tf_static_list_add_; */
 
   string old_constraints;
 
@@ -337,10 +330,7 @@ Status::Status() {
   service_set_gains_            = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_gains_out");
   service_set_controller_       = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_controller_out");
   service_set_tracker_          = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_tracker_out");
-  service_set_odometry_source_  = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_source_out");
-  service_set_lat_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_lat_estimator_out");
-  service_set_alt_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_alt_estimator_out");
-  service_set_hdg_estimator_    = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_odometry_hdg_estimator_out");
+  service_set_estimator_        = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_estimator_out");
   service_hover_                = mrs_lib::ServiceClientHandler<std_srvs::Trigger>(nh_, "hover_out");
   // mrs_lib profiler
   profiler_ = mrs_lib::Profiler(nh_, "Status", _profiler_enabled_);
@@ -887,88 +877,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             mrs_msgs::String string_service;
             string_service.request.value = odometry_lat_sources_text_[line];
-            service_set_odometry_source_.call(string_service, _service_num_calls_, _service_delay_);
-            printServiceResult(string_service.response.success, string_service.response.message);
-
-            submenu_vec_.clear();
-            return true;
-          }
-        }
-        break;
-
-      case 6:
-        // Lat estimator
-        ret = submenu_vec_[0].iterate(odometry_lat_sources_text_, key_in, true);
-
-        if (ret.has_value()) {
-
-          int line = get<0>(ret.value());
-          int key  = get<1>(ret.value());
-
-          if (line == 666 && key == 666) {
-
-            submenu_vec_.clear();
-            return false;
-
-          } else if (key == KEY_ENT) {
-
-            mrs_msgs::String string_service;
-            string_service.request.value = odometry_lat_sources_text_[line];
-            service_set_lat_estimator_.call(string_service, _service_num_calls_, _service_delay_);
-            printServiceResult(string_service.response.success, string_service.response.message);
-
-            submenu_vec_.clear();
-            return true;
-          }
-        }
-        break;
-
-      case 7:
-        // Alt estimator
-        ret = submenu_vec_[0].iterate(odometry_alt_sources_text_, key_in, true);
-
-        if (ret.has_value()) {
-
-          int line = get<0>(ret.value());
-          int key  = get<1>(ret.value());
-
-          if (line == 666 && key == 666) {
-
-            submenu_vec_.clear();
-            return false;
-
-          } else if (key == KEY_ENT) {
-
-            mrs_msgs::String string_service;
-            string_service.request.value = odometry_alt_sources_text_[line];
-            service_set_alt_estimator_.call(string_service, _service_num_calls_, _service_delay_);
-            printServiceResult(string_service.response.success, string_service.response.message);
-
-            submenu_vec_.clear();
-            return true;
-          }
-        }
-        break;
-
-      case 8:
-        // Hdg estimator
-        ret = submenu_vec_[0].iterate(odometry_hdg_sources_text_, key_in, true);
-
-        if (ret.has_value()) {
-
-          int line = get<0>(ret.value());
-          int key  = get<1>(ret.value());
-
-          if (line == 666 && key == 666) {
-
-            submenu_vec_.clear();
-            return false;
-
-          } else if (key == KEY_ENT) {
-
-            mrs_msgs::String string_service;
-            string_service.request.value = odometry_hdg_sources_text_[line];
-            service_set_hdg_estimator_.call(string_service, _service_num_calls_, _service_delay_);
+            service_set_estimator_.call(string_service, _service_num_calls_, _service_delay_);
             printServiceResult(string_service.response.success, string_service.response.message);
 
             submenu_vec_.clear();
@@ -1019,7 +928,7 @@ bool Status::mainMenuHandler(int key_in) {
           Menu menu(x, 31 + cols, confirm_text, 0);
           submenu_vec_.push_back(menu);
 
-        } else if (line == main_menu_text_.size() - 8) {
+        } else if (line == main_menu_text_.size() - 5) {
           // SET CONSTRAINTS
 
           {
@@ -1041,7 +950,7 @@ bool Status::mainMenuHandler(int key_in) {
             submenu_vec_.push_back(menu);
           }
 
-        } else if (line == main_menu_text_.size() - 7) {
+        } else if (line == main_menu_text_.size() - 4) {
           // SET GAINS
 
           {
@@ -1063,7 +972,7 @@ bool Status::mainMenuHandler(int key_in) {
             submenu_vec_.push_back(menu);
           }
 
-        } else if (line == main_menu_text_.size() - 6) {
+        } else if (line == main_menu_text_.size() - 3) {
           // SET CONTROLLER
 
           {
@@ -1085,7 +994,7 @@ bool Status::mainMenuHandler(int key_in) {
             submenu_vec_.push_back(menu);
           }
 
-        } else if (line == main_menu_text_.size() - 5) {
+        } else if (line == main_menu_text_.size() - 2) {
           // SET TRACKER
 
           {
@@ -1107,12 +1016,12 @@ bool Status::mainMenuHandler(int key_in) {
             submenu_vec_.push_back(menu);
           }
 
-        } else if (line == main_menu_text_.size() - 4) {
+        } else if (line == main_menu_text_.size() - 1) {
           // SET ODOMETRY SOURCE
 
           {
             std::scoped_lock lock(mutex_status_msg_);
-            odometry_lat_sources_text_ = uav_status_.odom_estimators_hori;
+            odometry_lat_sources_text_ = uav_status_.odom_estimators;
           }
 
           if (!odometry_lat_sources_text_.empty()) {
@@ -1126,70 +1035,6 @@ bool Status::mainMenuHandler(int key_in) {
             getmaxyx(menu_vec_[0].getWin(), rows, cols);
 
             Menu menu(x, 31 + cols, odometry_lat_sources_text_, 5);
-            submenu_vec_.push_back(menu);
-          }
-
-        } else if (line == main_menu_text_.size() - 3) {
-          // SET LAT ESTIMATOR
-
-          {
-            std::scoped_lock lock(mutex_status_msg_);
-            odometry_lat_sources_text_ = uav_status_.odom_estimators_hori;
-          }
-
-          if (!odometry_lat_sources_text_.empty()) {
-
-            int x;
-            int y;
-            int rows;
-            int cols;
-
-            getyx(menu_vec_[0].getWin(), x, y);
-            getmaxyx(menu_vec_[0].getWin(), rows, cols);
-
-            Menu menu(x, 31 + cols, odometry_lat_sources_text_, 6);
-            submenu_vec_.push_back(menu);
-          }
-
-        } else if (line == main_menu_text_.size() - 2) {
-          // SET ALT ESTIMATOR
-
-          {
-            std::scoped_lock lock(mutex_status_msg_);
-            odometry_alt_sources_text_ = uav_status_.odom_estimators_vert;
-          }
-
-          if (!odometry_alt_sources_text_.empty()) {
-            int x;
-            int y;
-            int rows;
-            int cols;
-
-            getyx(menu_vec_[0].getWin(), x, y);
-            getmaxyx(menu_vec_[0].getWin(), rows, cols);
-
-            Menu menu(x, 31 + cols, odometry_alt_sources_text_, 7);
-            submenu_vec_.push_back(menu);
-          }
-
-        } else if (line == main_menu_text_.size() - 1) {
-          // SET HDG ESTIMATOR
-
-          {
-            std::scoped_lock lock(mutex_status_msg_);
-            odometry_hdg_sources_text_ = uav_status_.odom_estimators_hdg;
-          }
-
-          if (!odometry_hdg_sources_text_.empty()) {
-            int x;
-            int y;
-            int rows;
-            int cols;
-
-            getyx(menu_vec_[0].getWin(), x, y);
-            getmaxyx(menu_vec_[0].getWin(), rows, cols);
-
-            Menu menu(x, 31 + cols, odometry_hdg_sources_text_, 8);
             submenu_vec_.push_back(menu);
           }
 
@@ -2070,9 +1915,8 @@ void Status::uavStateHandler(WINDOW* win) {
   double cmd_hdg;
 
   std::string odom_frame;
-  std::string curr_estimator_hori;
-  std::string curr_estimator_vert;
-  std::string curr_estimator_hdg;
+  std::string curr_estimator;
+  double      max_flight_z;
 
   bool null_tracker;
 
@@ -2091,9 +1935,9 @@ void Status::uavStateHandler(WINDOW* win) {
     cmd_z   = uav_status_.cmd_z;
     cmd_hdg = uav_status_.cmd_hdg;
 
-    uav_status_.odom_estimators_hori.empty() ? curr_estimator_hori = "NONE" : curr_estimator_hori = uav_status_.odom_estimators_hori[0];
-    uav_status_.odom_estimators_vert.empty() ? curr_estimator_vert = "NONE" : curr_estimator_vert = uav_status_.odom_estimators_vert[0];
-    uav_status_.odom_estimators_hdg.empty() ? curr_estimator_hdg = "NONE" : curr_estimator_hdg = uav_status_.odom_estimators_hdg[0];
+    uav_status_.odom_estimators.empty() ? curr_estimator = "NONE" : curr_estimator = uav_status_.odom_estimators[0];
+
+    max_flight_z = uav_status_.max_flight_z;
 
     null_tracker = uav_status_.null_tracker;
   }
@@ -2131,9 +1975,7 @@ void Status::uavStateHandler(WINDOW* win) {
       printLimitedDouble(win, 3, 1, "%4.0f", state_z, 1000);
       printLimitedDouble(win, 4, 1, "%4.1f", heading, 1000);
 
-      printLimitedString(win, 1, 6, curr_estimator_hori, 2);
-      printLimitedString(win, 3, 6, curr_estimator_vert, 2);
-      printLimitedString(win, 4, 6, curr_estimator_hdg, 2);
+      printLimitedString(win, 1, 6, curr_estimator, 2);
     }
   }
 
@@ -2201,11 +2043,24 @@ void Status::uavStateHandler(WINDOW* win) {
       }
 
       int pos = odom_frame.find("/") + 1;
-      printLimitedString(win, 1, 11, odom_frame.substr(pos, odom_frame.length()), 15);
+      printLimitedString(win, 1, 11, odom_frame.substr(pos, odom_frame.length()), 14);
+      printLimitedString(win, 4, 11, curr_estimator, 14);
 
-      printLimitedString(win, 2, 11, "Hori: " + curr_estimator_hori, 15);
-      printLimitedString(win, 3, 11, "Vert: " + curr_estimator_vert, 15);
-      printLimitedString(win, 4, 11, "Head: " + curr_estimator_hdg, 15);
+      double dist_to_max_z = max_flight_z - state_z;
+      if (dist_to_max_z < 0.0) {
+        wattron(win, COLOR_PAIR(RED));
+        wattron(win, A_BLINK);
+      } else if (dist_to_max_z < 0.3) {
+        wattron(win, COLOR_PAIR(RED));
+      } else if (dist_to_max_z < 1.0) {
+        wattron(win, COLOR_PAIR(YELLOW));
+      } else {
+        wattron(win, COLOR_PAIR(GREEN));
+      }
+
+      printLimitedDouble(win, 3, 11, "Max: %5.1f", max_flight_z, 1000);
+      wattron(win, COLOR_PAIR(color));
+      wattroff(win, A_BLINK);
     }
   }
 
@@ -2333,13 +2188,10 @@ void Status::controlManagerHandler(WINDOW* win) {
     } else {
       if (curr_controller != "Se3Controller" && curr_controller != "MpcController") {
         wattron(win, COLOR_PAIR(RED));
-        printLimitedString(win, 1, 1, curr_controller, 29);
-      } else {
-        mvwprintw(win, 1, 1, curr_controller.c_str());
-        wattron(win, COLOR_PAIR(NORMAL));
-        mvwprintw(win, 1, 1 + curr_controller.length(), "%s", "/");
       }
-
+      printLimitedString(win, 1, 1, curr_controller, 13);
+      wattron(win, COLOR_PAIR(NORMAL));
+      printLimitedString(win, 1, 1 + std::min(int(curr_controller.length()), 13), "/" + curr_gains, 10);
       wattron(win, COLOR_PAIR(color));
 
       if (null_tracker) {
@@ -2352,15 +2204,12 @@ void Status::controlManagerHandler(WINDOW* win) {
         } else {
           wattron(win, COLOR_PAIR(RED));
         }
-
-        printLimitedString(win, 2, 1, curr_tracker, 29);
-
-      } else {
-        mvwprintw(win, 2, 1, curr_tracker.c_str());
-        wattron(win, COLOR_PAIR(NORMAL));
-        mvwprintw(win, 2, 1 + curr_tracker.length(), "%s", "/");
-        wattron(win, COLOR_PAIR(color));
       }
+
+      printLimitedString(win, 2, 1, curr_tracker, 13);
+      wattron(win, COLOR_PAIR(NORMAL));
+      printLimitedString(win, 2, 1 + std::min(int(curr_tracker.length()), 13), "/" + curr_constraints, 8);
+      wattron(win, COLOR_PAIR(color));
     }
 
     if (!callbacks_enabled) {
@@ -2374,7 +2223,7 @@ void Status::controlManagerHandler(WINDOW* win) {
     if (has_goal) {
 
       wattron(win, COLOR_PAIR(GREEN));
-      mvwprintw(win, 2, 21, "FLY");
+      mvwprintw(win, 2, 22, "FLY");
       wattroff(win, COLOR_PAIR(GREEN));
 
     } else {
@@ -2384,17 +2233,17 @@ void Status::controlManagerHandler(WINDOW* win) {
       wattroff(win, COLOR_PAIR(YELLOW));
     }
 
-    if (rate == 0) {
-      printNoData(win, 1, 2 + curr_controller.length());
-    } else {
-      printLimitedString(win, 1, 2 + curr_controller.length(), curr_gains, 10);
-    }
+    /* if (rate == 0) { */
+    /*   printNoData(win, 1, 2 + curr_controller.length()); */
+    /* } else { */
+    /*   printLimitedString(win, 1, 2 + curr_controller.length(), curr_gains, 10); */
+    /* } */
 
-    if (rate == 0) {
-      printNoData(win, 2, 2 + curr_tracker.length());
-    } else {
-      printLimitedString(win, 2, 2 + curr_tracker.length(), curr_constraints, 10);
-    }
+    /* if (rate == 0) { */
+    /*   printNoData(win, 2, 2 + curr_tracker.length()); */
+    /* } else { */
+    /*   printLimitedString(win, 2, 2 + curr_tracker.length(), curr_constraints, 10); */
+    /* } */
   }
 
   //}
@@ -2765,7 +2614,6 @@ void Status::topLineHandler(WINDOW* win) {
 
   std::string uav_name;
   std::string uav_type;
-  std::string nato_name;
 
   bool collision_avoidance_enabled;
 
@@ -2775,7 +2623,6 @@ void Status::topLineHandler(WINDOW* win) {
     std::scoped_lock lock(mutex_status_msg_);
     uav_name                     = uav_status_.uav_name;
     uav_type                     = uav_status_.uav_type;
-    nato_name                    = uav_status_.nato_name;
     collision_avoidance_enabled  = uav_status_.collision_avoidance_enabled;
     avoiding_collision_          = uav_status_.avoiding_collision;
     automatic_start_can_takeoff_ = uav_status_.automatic_start_can_takeoff;
@@ -2810,7 +2657,7 @@ void Status::topLineHandler(WINDOW* win) {
     tmp_time = 99.9;
   }
 
-  mvwprintw(win, 0, 10, " %s %s %s ", uav_name.c_str(), uav_type.c_str(), nato_name.c_str());
+  mvwprintw(win, 0, 10, " %s %s ", uav_name.c_str(), uav_type.c_str());
 
   if (!mini_) {
     /* printLimitedDouble(win, 0, 94, "%3.1f", tmp_time, 100); */
@@ -2967,7 +2814,6 @@ void Status::prefillUavStatus() {
 
   std::scoped_lock lock(mutex_status_msg_);
   uav_status_.uav_name                = "N/A";
-  uav_status_.nato_name               = "N/A";
   uav_status_.uav_type                = "N/A";
   uav_status_.uav_mass                = 0.0;
   uav_status_.control_manager_diag_hz = 0.0;
@@ -2975,7 +2821,6 @@ void Status::prefillUavStatus() {
   uav_status_.gains.clear();
   uav_status_.trackers.clear();
   uav_status_.constraints.clear();
-  uav_status_.fly_state  = "N/A";
   uav_status_.secs_flown = 0;
   uav_status_.odom_hz    = 0.0;
   uav_status_.odom_x     = 0.0;
@@ -2983,9 +2828,8 @@ void Status::prefillUavStatus() {
   uav_status_.odom_z     = 0.0;
   uav_status_.odom_hdg   = 0.0;
   uav_status_.odom_frame = "N/A";
-  uav_status_.odom_estimators_hori.clear();
-  uav_status_.odom_estimators_vert.clear();
-  uav_status_.odom_estimators_hdg.clear();
+  uav_status_.odom_estimators.clear();
+  uav_status_.max_flight_z     = 0.0;
   uav_status_.cpu_load         = 0.0;
   uav_status_.cpu_ghz          = 0.0;
   uav_status_.free_ram         = 0.0;
@@ -3077,10 +2921,7 @@ void Status::setupMainMenu() {
   main_menu_text_.push_back("Set Gains");
   main_menu_text_.push_back("Set Controller");
   main_menu_text_.push_back("Set Tracker");
-  main_menu_text_.push_back("Set Odom Source");
-  main_menu_text_.push_back("Set Lat Estimator");
-  main_menu_text_.push_back("Set Alt Estimator");
-  main_menu_text_.push_back("Set Hdg Estimator");
+  main_menu_text_.push_back("Set Estimator");
 
   Menu menu(1, 32, main_menu_text_);
   menu_vec_.push_back(menu);
