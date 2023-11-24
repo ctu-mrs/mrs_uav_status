@@ -43,8 +43,6 @@ public:
   std::string _display_config_filename_;
 
   bool _rainbow_;
-  bool _debug_tilt_;
-  bool _remote_mode_is_trajectory_;
 
   bool _light_ = false;
 
@@ -289,9 +287,6 @@ Status::Status() {
 
   param_loader.loadParam("colorscheme", _colorscheme_);
   param_loader.loadParam("rainbow", _rainbow_, false);
-
-  param_loader.loadParam("debug_tilt", _debug_tilt_);
-  param_loader.loadParam("remote_mode_is_trajectory", _remote_mode_is_trajectory_);
 
   param_loader.loadParam("turbo_remote_constraints", _turbo_remote_constraints_);
 

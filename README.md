@@ -15,6 +15,12 @@
 * Runs on the UAV within its TMUX session
 * Works through SSH on a flying UAV, or in a split-mode through nimbro-network (data is being collected on the UAV, transfered over nimbro, and the terminal interface runs on your remote computer)
 * vim-like key bindings
+ 
+### Why is my mrs_uav_status blue?
+* By default, mrs_uav_status runs in color-blind mode, where green color is replaced with blue. This helps with visibility if you have red-green color blindness.
+* You can disable the color-blind mode in the config file of mrs_uav_status
+
+ ![](.fig/colorblind.png)
 
 ### Controlling the UAV through MRS UAV Status
 
