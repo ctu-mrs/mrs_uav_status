@@ -10,6 +10,7 @@
 #include <fstream>
 #include <string>
 #include <thread>
+#include <chrono>
 #include <boost/filesystem.hpp>
 
 #include <ros/master.h>
@@ -814,8 +815,7 @@ void Acquisition::generalInfoThread() {
         getDiskSpace();
       }
     }
-
-    sleep(int(general_info_window_rate_ / 10.0));
+    std::this_thread::sleep_for(std::chrono::milliseconds(int(general_info_window_rate_*10)));
   }
 }
 
@@ -1461,11 +1461,11 @@ void Acquisition::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosti
       uav_status_.controllers.insert(uav_status_.controllers.begin(), msg->active_controller);
     }
 
-    uav_status_.flying_normally   = msg->flying_normally;
-    uav_status_.have_goal         = msg->tracker_status.have_goal;
-    uav_status_.rc_mode         = msg->rc_mode;
-    uav_status_.tracking_trajectory         = msg->tracker_status.tracking_trajectory;
-    uav_status_.callbacks_enabled = msg->tracker_status.callbacks_enabled;
+    uav_status_.flying_normally     = msg->flying_normally;
+    uav_status_.have_goal           = msg->tracker_status.have_goal;
+    uav_status_.rc_mode             = msg->rc_mode;
+    uav_status_.tracking_trajectory = msg->tracker_status.tracking_trajectory;
+    uav_status_.callbacks_enabled   = msg->tracker_status.callbacks_enabled;
 
     if (msg->active_tracker == "NullTracker") {
       uav_status_.null_tracker = true;
