@@ -895,28 +895,34 @@ void Acquisition::prefillUavStatus() {
   uav_status_.odom_hdg   = 0.0;
   uav_status_.odom_frame = "N/A";
   uav_status_.odom_estimators.clear();
-  uav_status_.max_flight_z     = 0.0;
-  uav_status_.cpu_load         = 0.0;
-  uav_status_.cpu_ghz          = 0.0;
-  uav_status_.cpu_temperature  = 0.0;
-  uav_status_.free_ram         = 0.0;
-  uav_status_.free_hdd         = 0.0;
-  uav_status_.hw_api_hz        = 0.0;
-  uav_status_.hw_api_armed     = false;
-  uav_status_.hw_api_mode      = "N/A";
-  uav_status_.hw_api_gnss_ok   = false;
-  uav_status_.hw_api_gnss_qual = 0.0;
-  uav_status_.battery_volt     = 0.0;
-  uav_status_.battery_curr     = 0.0;
-  uav_status_.thrust           = 0.0;
-  uav_status_.mass_estimate    = 0.0;
-  uav_status_.mass_set         = 0.0;
+  uav_status_.horizontal_estimator = "N/A";
+  uav_status_.vertical_estimator   = "N/A";
+  uav_status_.heading_estimator    = "N/A";
+  uav_status_.agl_estimator        = "N/A";
+  uav_status_.max_flight_z         = 0.0;
+  uav_status_.cpu_load             = 0.0;
+  uav_status_.cpu_ghz              = 0.0;
+  uav_status_.cpu_temperature      = 0.0;
+  uav_status_.free_ram             = 0.0;
+  uav_status_.free_hdd             = 0.0;
+  uav_status_.hw_api_hz            = 0.0;
+  uav_status_.hw_api_armed         = false;
+  uav_status_.hw_api_mode          = "N/A";
+  uav_status_.hw_api_gnss_ok       = false;
+  uav_status_.hw_api_gnss_qual     = 0.0;
+  uav_status_.battery_volt         = 0.0;
+  uav_status_.battery_curr         = 0.0;
+  uav_status_.thrust               = 0.0;
+  uav_status_.mass_estimate        = 0.0;
+  uav_status_.mass_set             = 0.0;
   uav_status_.custom_topics.clear();
   uav_status_.custom_string_outputs.clear();
-  uav_status_.flying_normally   = false;
-  uav_status_.null_tracker      = true;
-  uav_status_.have_goal         = false;
-  uav_status_.callbacks_enabled = false;
+  uav_status_.flying_normally     = false;
+  uav_status_.null_tracker        = true;
+  uav_status_.have_goal           = false;
+  uav_status_.rc_mode             = false;
+  uav_status_.tracking_trajectory = false;
+  uav_status_.callbacks_enabled   = false;
 }
 
 //}
@@ -1239,6 +1245,11 @@ void Acquisition::estimationDiagCallback(const mrs_msgs::EstimationDiagnosticsCo
         std::swap(uav_status_.odom_estimators[0], uav_status_.odom_estimators[i]);
       }
     }
+
+    uav_status_.horizontal_estimator = msg->estimator_horizontal;
+    uav_status_.vertical_estimator   = msg->estimator_vertical;
+    uav_status_.heading_estimator    = msg->estimator_heading;
+    uav_status_.agl_estimator        = msg->estimator_agl_height;
   }
 }
 
@@ -1452,6 +1463,8 @@ void Acquisition::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosti
 
     uav_status_.flying_normally   = msg->flying_normally;
     uav_status_.have_goal         = msg->tracker_status.have_goal;
+    uav_status_.rc_mode         = msg->rc_mode;
+    uav_status_.tracking_trajectory         = msg->tracker_status.tracking_trajectory;
     uav_status_.callbacks_enabled = msg->tracker_status.callbacks_enabled;
 
     if (msg->active_tracker == "NullTracker") {

@@ -96,6 +96,9 @@ private:
   double general_info_window_rate_  = 1;
   double generic_topic_window_rate_ = 1;
 
+  bool increment_counter_         = false;
+  int  estimator_display_counter_ = 0;
+
   int    _service_num_calls_ = 20;
   double _service_delay_     = 0.1;
 
@@ -507,6 +510,10 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
     }
   }
 
+  if (estimator_display_counter_ == 3) {
+    estimator_display_counter_ = 0;
+  }
+
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
     uavStateHandler(uav_state_window_);
@@ -665,6 +672,9 @@ void Status::statusTimerSlow([[maybe_unused]] const ros::TimerEvent& event) {
   if (!initialized_) {
     return;
   }
+
+  increment_counter_ = !increment_counter_;
+  estimator_display_counter_ += int(increment_counter_);
 
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("hwApiStateHander");
@@ -1910,7 +1920,11 @@ void Status::uavStateHandler(WINDOW* win) {
   double cmd_hdg;
 
   std::string odom_frame;
-  std::string curr_estimator;
+  std::string main_estimator;
+  std::string horizontal_estimator;
+  std::string vertical_estimator;
+  std::string heading_estimator;
+  std::string agl_estimator;
   double      max_flight_z;
 
   bool null_tracker;
@@ -1930,7 +1944,12 @@ void Status::uavStateHandler(WINDOW* win) {
     cmd_z   = uav_status_.cmd_z;
     cmd_hdg = uav_status_.cmd_hdg;
 
-    uav_status_.odom_estimators.empty() ? curr_estimator = "NONE" : curr_estimator = uav_status_.odom_estimators[0];
+    uav_status_.odom_estimators.empty() ? main_estimator = "NONE" : main_estimator = uav_status_.odom_estimators[0];
+
+    horizontal_estimator = uav_status_.horizontal_estimator;
+    vertical_estimator   = uav_status_.vertical_estimator;
+    heading_estimator    = uav_status_.heading_estimator;
+    agl_estimator        = uav_status_.agl_estimator;
 
     max_flight_z = uav_status_.max_flight_z;
 
@@ -1970,7 +1989,7 @@ void Status::uavStateHandler(WINDOW* win) {
       printLimitedDouble(win, 3, 1, "%4.0f", state_z, 1000);
       printLimitedDouble(win, 4, 1, "%4.1f", heading, 1000);
 
-      printLimitedString(win, 1, 6, curr_estimator, 2);
+      printLimitedString(win, 1, 6, main_estimator, 2);
     }
   }
 
@@ -2037,9 +2056,29 @@ void Status::uavStateHandler(WINDOW* win) {
         wattron(win, COLOR_PAIR(color));
       }
 
-      int pos = odom_frame.find("/") + 1;
-      printLimitedString(win, 1, 11, odom_frame.substr(pos, odom_frame.length()), 14);
-      printLimitedString(win, 4, 11, curr_estimator, 14);
+      /* horizontal_estimator = uav_status_.horizontal_estimator; */
+      /* vertical_estimator = uav_status_.vertical_estimator; */
+      /* heading_estimator = uav_status_.heading_estimator; */
+      /* agl_estimator = uav_status_.agl_estimator; */
+      printLimitedString(win, 1, 11, main_estimator, 14);
+
+      switch (estimator_display_counter_) {
+        case 0: {
+          printLimitedString(win, 2, 11, "hor: " + horizontal_estimator, 14);
+          break;
+        }
+        case 1: {
+          printLimitedString(win, 2, 11, "ver: " + vertical_estimator, 14);
+          break;
+        }
+        case 2: {
+          printLimitedString(win, 2, 11, "hdg: " + heading_estimator, 14);
+          break;
+        }
+      }
+
+
+      printLimitedString(win, 4, 11, "ag: " + agl_estimator, 14);
 
       double dist_to_max_z = max_flight_z - state_z;
       if (dist_to_max_z < 0.0) {
@@ -2082,7 +2121,9 @@ void Status::controlManagerHandler(WINDOW* win) {
   string  curr_gains;
   string  curr_constraints;
   bool    callbacks_enabled;
-  bool    has_goal;
+  bool    rc_mode;
+  bool    have_goal;
+  bool    tracking_trajectory;
 
   {
     std::scoped_lock lock(mutex_status_msg_);
@@ -2094,9 +2135,11 @@ void Status::controlManagerHandler(WINDOW* win) {
     uav_status_.gains.empty() ? curr_gains = "NONE" : curr_gains = uav_status_.gains[0];
     uav_status_.constraints.empty() ? curr_constraints = "NONE" : curr_constraints = uav_status_.constraints[0];
 
-    callbacks_enabled = uav_status_.callbacks_enabled;
-    has_goal          = uav_status_.have_goal;
-    null_tracker      = uav_status_.null_tracker;
+    callbacks_enabled   = uav_status_.callbacks_enabled;
+    rc_mode             = uav_status_.rc_mode;
+    have_goal           = uav_status_.have_goal;
+    tracking_trajectory = uav_status_.tracking_trajectory;
+    null_tracker        = uav_status_.null_tracker;
   }
 
   werase(win);
@@ -2207,38 +2250,34 @@ void Status::controlManagerHandler(WINDOW* win) {
       wattron(win, COLOR_PAIR(color));
     }
 
-    if (!callbacks_enabled) {
+    if (rc_mode) {
+      wattron(win, A_BLINK);
+      wattron(win, COLOR_PAIR(RED));
+      mvwprintw(win, 1, 18, "RC_MODE");
+      wattroff(win, COLOR_PAIR(RED));
+      wattroff(win, A_BLINK);
 
+    } else if (!callbacks_enabled) {
       wattron(win, COLOR_PAIR(RED));
       mvwprintw(win, 1, 20, "NO_CB");
       wattroff(win, COLOR_PAIR(RED));
     }
 
-
-    if (has_goal) {
-
+    if (tracking_trajectory) {
       wattron(win, COLOR_PAIR(GREEN));
-      mvwprintw(win, 2, 22, "FLY");
+      mvwprintw(win, 2, 21, "TRAJ");
+      wattroff(win, COLOR_PAIR(GREEN));
+
+    } else if (have_goal) {
+      wattron(win, COLOR_PAIR(GREEN));
+      mvwprintw(win, 2, 21, "GOTO");
       wattroff(win, COLOR_PAIR(GREEN));
 
     } else {
-
       wattron(win, COLOR_PAIR(YELLOW));
       mvwprintw(win, 2, 21, "IDLE");
       wattroff(win, COLOR_PAIR(YELLOW));
     }
-
-    /* if (rate == 0) { */
-    /*   printNoData(win, 1, 2 + curr_controller.length()); */
-    /* } else { */
-    /*   printLimitedString(win, 1, 2 + curr_controller.length(), curr_gains, 10); */
-    /* } */
-
-    /* if (rate == 0) { */
-    /*   printNoData(win, 2, 2 + curr_tracker.length()); */
-    /* } else { */
-    /*   printLimitedString(win, 2, 2 + curr_tracker.length(), curr_constraints, 10); */
-    /* } */
   }
 
   //}
@@ -2841,10 +2880,12 @@ void Status::prefillUavStatus() {
   uav_status_.mass_set         = 0.0;
   uav_status_.custom_topics.clear();
   uav_status_.custom_string_outputs.clear();
-  uav_status_.flying_normally   = false;
-  uav_status_.null_tracker      = true;
-  uav_status_.have_goal         = false;
-  uav_status_.callbacks_enabled = false;
+  uav_status_.flying_normally     = false;
+  uav_status_.null_tracker        = true;
+  uav_status_.have_goal           = false;
+  uav_status_.rc_mode             = false;
+  uav_status_.tracking_trajectory = false;
+  uav_status_.callbacks_enabled   = false;
 }
 
 //}
