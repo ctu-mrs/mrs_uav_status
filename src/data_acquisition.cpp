@@ -1463,7 +1463,7 @@ void Acquisition::controlManagerCallback(const mrs_msgs::ControlManagerDiagnosti
 
     uav_status_.flying_normally     = msg->flying_normally;
     uav_status_.have_goal           = msg->tracker_status.have_goal;
-    uav_status_.rc_mode             = msg->rc_mode;
+    uav_status_.rc_mode             = msg->joystick_active;
     uav_status_.tracking_trajectory = msg->tracker_status.tracking_trajectory;
     uav_status_.callbacks_enabled   = msg->tracker_status.callbacks_enabled;
 
