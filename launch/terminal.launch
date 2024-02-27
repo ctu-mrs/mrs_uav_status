@@ -17,8 +17,6 @@
 
   <arg name="config_file" default=""/>
 
-  <arg if="$(eval arg('RUN_TYPE') == 'realworld')" name="UAV_MASS" default="$(env UAV_MASS)" />
-
   <group ns="$(arg UAV_NAME)">
 
     <node name="mrs_uav_status" pkg="mrs_uav_status" type="mrs_uav_status" output="screen" respawn="false" launch-prefix="$(arg launch_prefix)">
@@ -27,7 +25,6 @@
       <param name="pwd" value="$(arg PWD)" />
       <param name="nato_name" value="$(arg NATO_NAME)" />
       <param name="uav_type" value="$(arg UAV_TYPE)" />
-      <param if="$(eval arg('RUN_TYPE') == 'realworld')" name="uav_mass" value="$(arg UAV_MASS)" />
       <param name="run_type" value="$(arg RUN_TYPE)" />
       <param name="sensors" value="$(arg SENSORS)" />
       <param name="pixgarm" type="bool" value="$(arg PIXGARM)" />

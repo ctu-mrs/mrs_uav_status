@@ -269,8 +269,6 @@ Acquisition::Acquisition() {
 
   mrs_lib::ParamLoader param_loader(nh_, "Acquisition");
 
-  string tmp_uav_mass;
-
   param_loader.loadParam("uav_name", _uav_name_);
   param_loader.loadParam("uav_type", _uav_type_);
   param_loader.loadParam("run_type", _run_type_);
