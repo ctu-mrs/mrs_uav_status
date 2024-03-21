@@ -48,7 +48,7 @@
       <remap from="~automatic_start_in" to="automatic_start/can_takeoff" />
       <remap from="~throttle_in" to="control_manager/throttle" />
       <remap from="~mass_estimate_in" to="control_manager/mass_estimate" />
-      <remap from="~mass_set_in" to="TODO_PROVIDE_MASS_SET_TOPIC" />
+      <remap from="~mass_set_in" to="control_manager/mass_nominal" />
       <remap from="~mag_in" to="hw_api/magnetic_field" />
       <remap from="~string_in" to="mrs_uav_status/display_string" />
 

@@ -17,6 +17,7 @@ want_hz: [
       ]
 
 tf_static_list: [
+      "bluefox_down bluefox_down/camera_info BFox Down 20",
       "bluefox_front bluefox_front/camera_info BFox Front 20",
       "bluefox_optflow bluefox_optflow/camera_info BFox Optflow 50",
       "bluefox_optflow_optical bluefox_optflow/camera_info BFox Optflow 50",
