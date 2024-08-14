@@ -52,6 +52,7 @@
       <remap from="~constraint_manager_in" to="constraint_manager/diagnostics" />
       <remap from="~tf_static_in" to="/tf_static" />
       <remap from="~gnss_in" to="hw_api/gnss" />
+      <remap from="~gnss_status_in" to="hw_api/gnss_status" />
       <remap from="~odometry_in" to="hw_api/odometry" />
       <remap from="~automatic_start_in" to="automatic_start/can_takeoff" />
       <remap from="~throttle_in" to="control_manager/throttle" />
