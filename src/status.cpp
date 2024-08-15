@@ -1717,6 +1717,81 @@ void Status::stringHandler(WINDOW* win) {
     string_vector = uav_status_.custom_string_outputs;
   }
 
+
+  // TODO - this section should probably not be here, but somewhere more sensible...
+  uint8_t gnss_fix_type;
+  uint8_t gnss_num_sats;
+  double  gnss_pos_acc;
+  double  gnss_status_rate;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    gnss_fix_type    = uav_status_.hw_api_gnss_fix_type;
+    gnss_num_sats    = uav_status_.hw_api_gnss_num_sats;
+    gnss_pos_acc     = uav_status_.hw_api_gnss_pos_acc;
+    gnss_status_rate = uav_status_.hw_api_gnss_status_hz;
+  }
+
+  if (gnss_status_rate > 0.0) {
+    std::string fix_string;
+
+    if (gnss_fix_type < 1 || gnss_fix_type >= 8) {
+      fix_string += "-r ";
+    }
+    fix_string += "Fix Type: ";
+
+    switch (gnss_fix_type) {
+      case 0: {
+        fix_string += "NO GPS";
+        break;
+      }
+      case 1: {
+        fix_string += "NO FIX";
+        break;
+      }
+      case 2: {
+        fix_string += "2D FIX";
+        break;
+      }
+      case 3: {
+        fix_string += "3D FIX";
+        break;
+      }
+      case 4: {
+        fix_string += "3D SBAS FIX";
+        break;
+      }
+      case 5: {
+        fix_string += "RTK FLOAT";
+        break;
+      }
+      case 6: {
+        fix_string += "RTK FIX (INT)";
+        break;
+      }
+      case 7: {
+        fix_string += "STATIC - BASESTATION";
+        break;
+      }
+      case 8: {
+        fix_string += "PPP 3D FIX";
+        break;
+      }
+      default: {
+        fix_string += "UNKNOWN";
+        break;
+      }
+    }
+
+    std::stringstream stream;
+    stream << std::fixed << std::setprecision(2) << gnss_pos_acc;
+    std::string acc_string = "Num sats: " + to_string(gnss_num_sats) + " Acc: " + stream.str() + " m";
+
+    string_vector.push_back(fix_string);
+    string_vector.push_back(acc_string);
+  }
+  // TODO - end of section
+
   if (string_vector.empty()) {
     werase(win);
     wnoutrefresh(win);
@@ -1731,6 +1806,7 @@ void Status::stringHandler(WINDOW* win) {
   if (_light_) {
     wattron(win, A_STANDOUT);
   }
+
 
   for (unsigned long i = 0; i < string_vector.size(); i++) {
 
@@ -2863,21 +2939,25 @@ void Status::prefillUavStatus() {
   uav_status_.odom_hdg   = 0.0;
   uav_status_.odom_frame = "N/A";
   uav_status_.odom_estimators.clear();
-  uav_status_.max_flight_z     = 0.0;
-  uav_status_.cpu_load         = 0.0;
-  uav_status_.cpu_ghz          = 0.0;
-  uav_status_.free_ram         = 0.0;
-  uav_status_.free_hdd         = 0.0;
-  uav_status_.hw_api_hz        = 0.0;
-  uav_status_.hw_api_armed     = false;
-  uav_status_.hw_api_mode      = "N/A";
-  uav_status_.hw_api_gnss_ok   = false;
-  uav_status_.hw_api_gnss_qual = 0.0;
-  uav_status_.battery_volt     = 0.0;
-  uav_status_.battery_curr     = 0.0;
-  uav_status_.thrust           = 0.0;
-  uav_status_.mass_estimate    = 0.0;
-  uav_status_.mass_set         = 0.0;
+  uav_status_.max_flight_z          = 0.0;
+  uav_status_.cpu_load              = 0.0;
+  uav_status_.cpu_ghz               = 0.0;
+  uav_status_.free_ram              = 0.0;
+  uav_status_.free_hdd              = 0.0;
+  uav_status_.hw_api_hz             = 0.0;
+  uav_status_.hw_api_armed          = false;
+  uav_status_.hw_api_mode           = "N/A";
+  uav_status_.hw_api_gnss_ok        = false;
+  uav_status_.hw_api_gnss_qual      = 0.0;
+  uav_status_.hw_api_gnss_fix_type  = 0.0;
+  uav_status_.hw_api_gnss_num_sats  = 0.0;
+  uav_status_.hw_api_gnss_pos_acc   = 0.0;
+  uav_status_.hw_api_gnss_status_hz = 0.0;
+  uav_status_.battery_volt          = 0.0;
+  uav_status_.battery_curr          = 0.0;
+  uav_status_.thrust                = 0.0;
+  uav_status_.mass_estimate         = 0.0;
+  uav_status_.mass_set              = 0.0;
   uav_status_.custom_topics.clear();
   uav_status_.custom_string_outputs.clear();
   uav_status_.flying_normally     = false;

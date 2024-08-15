@@ -47,6 +47,7 @@
 #include <sensor_msgs/MagneticField.h>
 
 #include <mrs_msgs/HwApiStatus.h>
+#include <mrs_msgs/GpsInfo.h>
 
 #include <nav_msgs/Odometry.h>
 
@@ -112,6 +113,7 @@ private:
   void stringCallback(const ros::MessageEvent<std_msgs::String const>& event);
   void tfStaticCallback(const tf2_msgs::TFMessage& msg);
   void hwApiGnssCallback(const sensor_msgs::NavSatFixConstPtr& msg);
+  void hwApiGnssStatusCallback(const mrs_msgs::GpsInfoConstPtr& msg);
   void hwApiOdometryCallback(const nav_msgs::OdometryConstPtr& msg);
   void automaticStartCallback_(const std_msgs::BoolConstPtr& msg);
   void magCallback_(const sensor_msgs::MagneticFieldConstPtr& msg);
@@ -131,19 +133,21 @@ private:
 
   int BUFFER_LEN_SECS = 2;
 
-  double uav_state_expected_rate_       = 100.0;
-  double control_manager_expected_rate_ = 10.0;
-  double hw_api_odometry_expected_rate_ = 100.0;
-  double hw_api_gnss_expected_rate_     = 100.0;
-  double hw_api_state_expected_rate_    = 100.0;
-  double hw_api_cmd_expected_rate_      = 100.0;
-  double hw_api_battery_expected_rate_  = 0.5;
-  double hw_api_mag_expected_rate_      = 10;
+  double uav_state_expected_rate_          = 100.0;
+  double control_manager_expected_rate_    = 10.0;
+  double hw_api_odometry_expected_rate_    = 100.0;
+  double hw_api_gnss_expected_rate_        = 100.0;
+  double hw_api_gnss_status_expected_rate_ = 1.0;
+  double hw_api_state_expected_rate_       = 100.0;
+  double hw_api_cmd_expected_rate_         = 100.0;
+  double hw_api_battery_expected_rate_     = 0.5;
+  double hw_api_mag_expected_rate_         = 10;
 
   TopicInfo uav_state_ts_{10, BUFFER_LEN_SECS, uav_state_expected_rate_};
   TopicInfo control_manager_ts_{1, BUFFER_LEN_SECS, control_manager_expected_rate_};
   TopicInfo hw_api_odometry_ts_{1, BUFFER_LEN_SECS, hw_api_odometry_expected_rate_};
   TopicInfo hw_api_gnss_ts_{1, BUFFER_LEN_SECS, hw_api_gnss_expected_rate_};
+  TopicInfo hw_api_gnss_status_ts_{1, BUFFER_LEN_SECS, hw_api_gnss_status_expected_rate_};
   TopicInfo hw_api_state_ts_{1, BUFFER_LEN_SECS, hw_api_state_expected_rate_};
   TopicInfo hw_api_cmd_ts_{1, BUFFER_LEN_SECS, hw_api_cmd_expected_rate_};
   TopicInfo hw_api_battery_ts_{1, BUFFER_LEN_SECS, hw_api_battery_expected_rate_};
@@ -193,6 +197,7 @@ private:
   ros::Subscriber mpc_diag_subscriber_;
   ros::Subscriber hw_api_status_subscriber_;
   ros::Subscriber hw_api_gnss_subscriber_;
+  ros::Subscriber hw_api_gnss_status_subscriber_;
   ros::Subscriber hw_api_odometry_subscriber_;
   ros::Subscriber mass_estimate_subscriber_;
   ros::Subscriber mass_set_subscriber_;
@@ -321,18 +326,19 @@ Acquisition::Acquisition() {
 
   // | ----------------------- Subscribers ---------------------- |
 
-  uav_state_subscriber_       = nh_.subscribe("uav_state_in", 10, &Acquisition::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
-  cmd_position_subscriber_    = nh_.subscribe("cmd_tracker_in", 10, &Acquisition::trackerCommandCallback, this, ros::TransportHints().tcpNoDelay());
-  estimation_diag_subscriber_ = nh_.subscribe("estimation_diag_in", 10, &Acquisition::estimationDiagCallback, this, ros::TransportHints().tcpNoDelay());
-  mpc_diag_subscriber_        = nh_.subscribe("mpc_diag_in", 10, &Acquisition::mpcDiagCallback, this, ros::TransportHints().tcpNoDelay());
-  hw_api_status_subscriber_   = nh_.subscribe("hw_api_status_in", 10, &Acquisition::hwApiStatusCallback, this, ros::TransportHints().tcpNoDelay());
-  throttle_subscriber_        = nh_.subscribe("throttle_in", 10, &Acquisition::throttleCallback, this, ros::TransportHints().tcpNoDelay());
-  mass_estimate_subscriber_   = nh_.subscribe("mass_estimate_in", 10, &Acquisition::callbackMassEstimate, this, ros::TransportHints().tcpNoDelay());
-  mass_set_subscriber_        = nh_.subscribe("mass_set_in", 10, &Acquisition::callbackMassSet, this, ros::TransportHints().tcpNoDelay());
-  hw_api_gnss_subscriber_     = nh_.subscribe("gnss_in", 10, &Acquisition::hwApiGnssCallback, this, ros::TransportHints().tcpNoDelay());
-  battery_subscriber_         = nh_.subscribe("battery_in", 10, &Acquisition::batteryCallback, this, ros::TransportHints().tcpNoDelay());
-  control_manager_subscriber_ = nh_.subscribe("control_manager_in", 10, &Acquisition::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
-  gain_manager_subscriber_    = nh_.subscribe("gain_manager_in", 10, &Acquisition::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  uav_state_subscriber_          = nh_.subscribe("uav_state_in", 10, &Acquisition::uavStateCallback, this, ros::TransportHints().tcpNoDelay());
+  cmd_position_subscriber_       = nh_.subscribe("cmd_tracker_in", 10, &Acquisition::trackerCommandCallback, this, ros::TransportHints().tcpNoDelay());
+  estimation_diag_subscriber_    = nh_.subscribe("estimation_diag_in", 10, &Acquisition::estimationDiagCallback, this, ros::TransportHints().tcpNoDelay());
+  mpc_diag_subscriber_           = nh_.subscribe("mpc_diag_in", 10, &Acquisition::mpcDiagCallback, this, ros::TransportHints().tcpNoDelay());
+  hw_api_status_subscriber_      = nh_.subscribe("hw_api_status_in", 10, &Acquisition::hwApiStatusCallback, this, ros::TransportHints().tcpNoDelay());
+  throttle_subscriber_           = nh_.subscribe("throttle_in", 10, &Acquisition::throttleCallback, this, ros::TransportHints().tcpNoDelay());
+  mass_estimate_subscriber_      = nh_.subscribe("mass_estimate_in", 10, &Acquisition::callbackMassEstimate, this, ros::TransportHints().tcpNoDelay());
+  mass_set_subscriber_           = nh_.subscribe("mass_set_in", 10, &Acquisition::callbackMassSet, this, ros::TransportHints().tcpNoDelay());
+  hw_api_gnss_subscriber_        = nh_.subscribe("gnss_in", 10, &Acquisition::hwApiGnssCallback, this, ros::TransportHints().tcpNoDelay());
+  hw_api_gnss_status_subscriber_ = nh_.subscribe("gnss_status_in", 10, &Acquisition::hwApiGnssStatusCallback, this, ros::TransportHints().tcpNoDelay());
+  battery_subscriber_            = nh_.subscribe("battery_in", 10, &Acquisition::batteryCallback, this, ros::TransportHints().tcpNoDelay());
+  control_manager_subscriber_    = nh_.subscribe("control_manager_in", 10, &Acquisition::controlManagerCallback, this, ros::TransportHints().tcpNoDelay());
+  gain_manager_subscriber_       = nh_.subscribe("gain_manager_in", 10, &Acquisition::gainManagerCallback, this, ros::TransportHints().tcpNoDelay());
   constraint_manager_subscriber_ =
       nh_.subscribe("constraint_manager_in", 10, &Acquisition::constraintManagerCallback, this, ros::TransportHints().tcpNoDelay());
   string_subscriber_          = nh_.subscribe("string_in", 10, &Acquisition::stringCallback, this, ros::TransportHints().tcpNoDelay());
@@ -717,11 +723,12 @@ void Acquisition::controlManagerHandler() {
 
 void Acquisition::hwApiDiagHandler() {
 
-  std::tuple<double, int16_t> odometry_rate_color = hw_api_odometry_ts_.GetHz();
-  std::tuple<double, int16_t> gnss_rate_color     = hw_api_gnss_ts_.GetHz();
-  std::tuple<double, int16_t> state_rate_color    = hw_api_state_ts_.GetHz();
-  std::tuple<double, int16_t> cmd_rate_color      = hw_api_cmd_ts_.GetHz();
-  std::tuple<double, int16_t> battery_rate_color  = hw_api_battery_ts_.GetHz();
+  std::tuple<double, int16_t> odometry_rate_color    = hw_api_odometry_ts_.GetHz();
+  std::tuple<double, int16_t> gnss_rate_color        = hw_api_gnss_ts_.GetHz();
+  std::tuple<double, int16_t> gnss_status_rate_color = hw_api_gnss_status_ts_.GetHz();
+  std::tuple<double, int16_t> state_rate_color       = hw_api_state_ts_.GetHz();
+  std::tuple<double, int16_t> cmd_rate_color         = hw_api_cmd_ts_.GetHz();
+  std::tuple<double, int16_t> battery_rate_color     = hw_api_battery_ts_.GetHz();
 
 
   bool gnss = false;
@@ -731,12 +738,13 @@ void Acquisition::hwApiDiagHandler() {
 
   {
     std::scoped_lock lock(mutex_status_msg_);
-    uav_status_.hw_api_hz         = std::get<0>(odometry_rate_color);
-    uav_status_.hw_api_color      = std::get<1>(odometry_rate_color);
-    uav_status_.hw_api_gnss_ok    = gnss;
-    uav_status_.hw_api_battery_hz = std::get<0>(battery_rate_color);
-    uav_status_.hw_api_state_hz   = std::get<0>(state_rate_color);
-    uav_status_.hw_api_cmd_hz     = std::get<0>(state_rate_color);
+    uav_status_.hw_api_hz             = std::get<0>(odometry_rate_color);
+    uav_status_.hw_api_color          = std::get<1>(odometry_rate_color);
+    uav_status_.hw_api_gnss_ok        = gnss;
+    uav_status_.hw_api_gnss_status_hz = std::get<0>(gnss_status_rate_color);
+    uav_status_.hw_api_battery_hz     = std::get<0>(battery_rate_color);
+    uav_status_.hw_api_state_hz       = std::get<0>(state_rate_color);
+    uav_status_.hw_api_cmd_hz         = std::get<0>(state_rate_color);
   }
 }
 //}
@@ -813,7 +821,7 @@ void Acquisition::generalInfoThread() {
         getDiskSpace();
       }
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(int(general_info_window_rate_*10)));
+    std::this_thread::sleep_for(std::chrono::milliseconds(int(general_info_window_rate_ * 10)));
   }
 }
 
@@ -1387,6 +1395,28 @@ void Acquisition::hwApiGnssCallback(const sensor_msgs::NavSatFixConstPtr& msg) {
   {
     std::scoped_lock lock(mutex_status_msg_);
     uav_status_.hw_api_gnss_qual = gnss_qual;
+  }
+}
+
+//}
+
+/* hwApiGnssStatusCallback() //{ */
+
+void Acquisition::hwApiGnssStatusCallback(const mrs_msgs::GpsInfoConstPtr& msg) {
+
+  if (!initialized_) {
+    return;
+  }
+
+  hw_api_gnss_status_ts_.Count();
+
+  double gnss_acc = (msg->h_acc + msg->v_acc) / 2;
+
+  {
+    std::scoped_lock lock(mutex_status_msg_);
+    uav_status_.hw_api_gnss_fix_type = msg->fix_type;
+    uav_status_.hw_api_gnss_num_sats = msg->satellites_visible;
+    uav_status_.hw_api_gnss_pos_acc  = gnss_acc;
   }
 }
 
