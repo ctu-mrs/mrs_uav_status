@@ -1783,9 +1783,15 @@ void Status::stringHandler(WINDOW* win) {
       }
     }
 
-    std::stringstream stream;
-    stream << std::fixed << std::setprecision(2) << gnss_pos_acc;
-    std::string acc_string = "Num sats: " + to_string(gnss_num_sats) + " Acc: " + stream.str() + " m";
+    std::string gnss_acc_string;
+    if (gnss_pos_acc >= 100.0) {
+      gnss_acc_string = "N/A";
+    } else {
+      std::stringstream stream;
+      stream << std::fixed << std::setprecision(2) << gnss_pos_acc;
+      gnss_acc_string = stream.str();
+    }
+    std::string acc_string = "Num sats: " + to_string(gnss_num_sats) + " Acc: " + gnss_acc_string + " m";
 
     string_vector.push_back(fix_string);
     string_vector.push_back(acc_string);
