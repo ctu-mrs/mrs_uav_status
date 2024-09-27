@@ -20,9 +20,8 @@
     <arg name="config_file" value="$(arg config_file)"/>
   </include>
 
-  <include file="$(find mrs_uav_status)/launch/acquisition.launch" >
-    <arg name="config_file" value="$(arg config_file)"/>
-  </include>
-
+  <!-- <include file="$(find mrs_uav_status)/launch/acquisition.launch" > -->
+  <!--   <arg name="config_file" value="$(arg config_file)"/> -->
+  <!-- </include> -->
 
 </launch>
