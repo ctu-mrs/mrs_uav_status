@@ -14,14 +14,10 @@
   <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
   <arg unless="$(arg debug)" name="launch_prefix" value="" />
 
-  <arg name="config_file" default=""/>
+  <arg name="custom_config" default="" />
 
   <include file="$(find mrs_uav_status)/launch/terminal.launch" >
-    <arg name="config_file" value="$(arg config_file)"/>
+    <arg name="custom_config" value="$(arg custom_config)"/>
   </include>
-
-  <!-- <include file="$(find mrs_uav_status)/launch/acquisition.launch" > -->
-  <!--   <arg name="config_file" value="$(arg config_file)"/> -->
-  <!-- </include> -->
 
 </launch>

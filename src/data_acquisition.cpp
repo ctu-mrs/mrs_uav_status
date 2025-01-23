@@ -278,14 +278,14 @@ Acquisition::Acquisition() {
   param_loader.loadParam("uav_type", _uav_type_);
   param_loader.loadParam("run_type", _run_type_);
   param_loader.loadParam("sensors", _sensors_);
-  param_loader.loadParam("turbo_remote_constraints", _turbo_remote_constraints_);
-  param_loader.loadParam("enable_profiler", _profiler_enabled_);
+  param_loader.loadParam("mrs_uav_status/turbo_remote_constraints", _turbo_remote_constraints_);
+  param_loader.loadParam("mrs_uav_status/enable_profiler", _profiler_enabled_);
 
   std::vector<string> want_hz;
-  param_loader.loadParam("want_hz", want_hz);
+  param_loader.loadParam("mrs_uav_status/want_hz", want_hz);
 
   std::vector<string> tf_static_list;
-  param_loader.loadParam("tf_static_list", tf_static_list);
+  param_loader.loadParam("mrs_uav_status/tf_static_list", tf_static_list);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[Acquisition]: Could not load all parameters!");

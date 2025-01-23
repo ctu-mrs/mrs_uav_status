@@ -15,7 +15,7 @@
   <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
   <arg unless="$(arg debug)" name="launch_prefix" value="" />
 
-  <arg name="config_file" default=""/>
+  <arg name="custom_config" default=""/>
 
   <group ns="$(arg UAV_NAME)">
 
@@ -31,8 +31,8 @@
       <param name="colorscheme" value="$(arg COLORSCHEME)" />
       <param name="rainbow" type="bool" value="$(arg RAINBOW)" />
 
-      <rosparam file="$(find mrs_uav_status)/config/default.yaml" command="load" />
-      <rosparam if="$(eval not arg('config_file') == '')" file="$(arg config_file)" />
+      <rosparam file="$(find mrs_uav_status)/config/public/default.yaml" command="load" />
+      <rosparam if="$(eval not arg('custom_config') == '')" file="$(arg custom_config)" />
 
         <!-- Subscribers -->
       <remap from="~uav_status_in" to="~uav_status" />

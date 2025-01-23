@@ -1,0 +1,39 @@
+mrs_uav_status:
+
+  colorblind_mode: True # Set True to change green color to blue
+
+  enable_profiler: False
+
+  start_minimized: False
+
+  turbo_remote_constraints: "fast"
+
+  # List of topics to monitor, format is:
+  # topic_name Displayed name (can be multiple words) expected_frequency
+  # if "/" is provided at the beginning of topic_name, the topic name is considered as written,
+  # if there is no "/" at the beginning, UAV_NAME is automatically added in from of the topic name (/uav1/topic_name)
+  want_hz: [
+        # "garmin/range Garmin 100",
+        # "bluefox/image_raw Bluefox 100",
+        # "odometry/uav_state uav state 100",
+        ]
+
+  tf_static_list: [
+        "bluefox_down bluefox_down/camera_info BFox Down 20",
+        "bluefox_front bluefox_front/camera_info BFox Front 20",
+        "bluefox_optflow bluefox_optflow/camera_info BFox Optflow 50",
+        "bluefox_optflow_optical bluefox_optflow/camera_info BFox Optflow 50",
+        "bluefox_optflow optic_flow/velocity Optflow Vel 50",
+        "bluefox_optflow_optical optic_flow/velocity Optflow Vel 50",
+        "rs_d435/link rs_d435/color/camera_info Realsense 30",
+        "rplidar rplidar/scan RPlidar 10",
+        "os_sensor os_cloud_nodelet/is_alive Ouster 10",
+        "uvcam_left uvdar_bluefox/left/camera_info UV_BFox_Left 60",
+        "uvcam_right uvdar_bluefox/right/camera_info UV_BFox_Right 60",
+        "uvcam_back uvdar_bluefox/back/camera_info UV_BFox_Back 60",
+        "basler_left basler_left/camera_info Basler Left 5",
+        "basler_right basler_right/camera_info Basler Right 5",
+        "up_rgbd/link up_rgbd/color/camera_info RS Up 20+",
+        "down_rgbd/link down_rgbd/color/camera_info RS Down 20+",
+        "rgbd/link rgbd/color/camera_info RS 20+",
+        ]

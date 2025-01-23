@@ -291,12 +291,12 @@ Status::Status() {
   param_loader.loadParam("colorscheme", _colorscheme_);
   param_loader.loadParam("rainbow", _rainbow_, false);
 
-  param_loader.loadParam("turbo_remote_constraints", _turbo_remote_constraints_);
+  param_loader.loadParam("mrs_uav_status/turbo_remote_constraints", _turbo_remote_constraints_);
 
-  param_loader.loadParam("colorblind_mode", _colorblind_mode_);
-  param_loader.loadParam("enable_profiler", _profiler_enabled_);
+  param_loader.loadParam("mrs_uav_status/colorblind_mode", _colorblind_mode_);
+  param_loader.loadParam("mrs_uav_status/enable_profiler", _profiler_enabled_);
 
-  param_loader.loadParam("start_minimized", mini_);
+  param_loader.loadParam("mrs_uav_status/start_minimized", mini_);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[Status]: Could not load all parameters!");
