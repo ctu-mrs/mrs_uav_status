@@ -2,13 +2,22 @@
 
 /* TopicInfo() //{ */
 
-TopicInfo::TopicInfo(double window_rate_in, int buffer_len, double desired_rate_in) {
+TopicInfo::TopicInfo() {
+}
+
+//}
+
+/* TopicInfo() //{ */
+
+TopicInfo::TopicInfo(rclcpp::Node::SharedPtr node, double window_rate_in, int buffer_len, double desired_rate_in) {
+
+  node_         = node;
   window_rate_  = window_rate_in;
   desired_rate_ = desired_rate_in;
   rates_.resize(buffer_len * int(window_rate_));
   rates_.assign(rates_.size(), 0.0);
   rates_iterator_     = 0;
-  last_time_          = ros::Time::now();
+  last_time_          = rclcpp::Time(0, 0, node_->get_clock()->get_clock_type());
   counter_            = 0;
   topic_name_         = "NOT_DEFINED";
   topic_display_name_ = "NOT_DEFINED";
@@ -18,13 +27,15 @@ TopicInfo::TopicInfo(double window_rate_in, int buffer_len, double desired_rate_
 
 /* TopicInfo() //{ */
 
-TopicInfo::TopicInfo(double window_rate_in, int buffer_len, double desired_rate_in, std::string topic_name_in, std::string topic_display_name_in) {
+TopicInfo::TopicInfo(rclcpp::Node::SharedPtr node, double window_rate_in, int buffer_len, double desired_rate_in, std::string topic_name_in, std::string topic_display_name_in) {
+
+  node_         = node;
   window_rate_  = window_rate_in;
   desired_rate_ = desired_rate_in;
   rates_.resize(buffer_len * int(window_rate_));
   rates_.assign(rates_.size(), 0.0);
   rates_iterator_     = 0;
-  last_time_          = ros::Time::now();
+  last_time_          = rclcpp::Time(0, 0, node_->get_clock()->get_clock_type());
   counter_            = 0;
   topic_name_         = topic_name_in;
   topic_display_name_ = topic_display_name_in;
@@ -35,8 +46,9 @@ TopicInfo::TopicInfo(double window_rate_in, int buffer_len, double desired_rate_
 /* GetHz //{ */
 
 std::tuple<double, int16_t> TopicInfo::GetHz() {
-  ros::Time time_now = ros::Time::now();
-  double    interval = (time_now - last_time_).toSec();
+
+  rclcpp::Time time_now = node_->get_clock()->now();
+  double       interval = (time_now - last_time_).seconds();
 
   if (interval == 0.0) {
     return std::make_tuple(0.0, RED);
@@ -73,6 +85,7 @@ std::tuple<double, int16_t> TopicInfo::GetHz() {
   } else if (avg_rate > 0.5 * desired_rate_) {
     color = YELLOW;
   }
+
   return std::make_tuple(avg_rate, color);
 }
 

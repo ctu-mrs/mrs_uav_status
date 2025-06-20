@@ -7,55 +7,52 @@
 #include <ncurses.h>
 #include <form.h>
 
-#include <utility>
+/* #include <utility> */
 #include <tuple>
 
 #include <boost/function.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 
-#include <ros/ros.h>
-#include <ros/package.h>
+#include <rclcpp/rclcpp.hpp>
 
-#include <iostream>
-#include <fstream>
-#include <thread>
+/* #include <iostream> */
+/* #include <fstream> */
+/* #include <thread> */
 
-#include <topic_tools/shape_shifter.h>  // for generic topic subscribers
+#include <mrs_msgs/msg/uav_status.hpp>
+#include <mrs_msgs/msg/uav_status_short.hpp>
+#include <mrs_msgs/msg/uav_state.hpp>
+#include <mrs_msgs/msg/control_manager_diagnostics.hpp>
+#include <mrs_msgs/msg/gain_manager_diagnostics.hpp>
+#include <mrs_msgs/msg/constraint_manager_diagnostics.hpp>
 
-#include <mrs_msgs/UavStatus.h>
-#include <mrs_msgs/UavStatusShort.h>
-#include <mrs_msgs/UavState.h>
-#include <mrs_msgs/ControlManagerDiagnostics.h>
-#include <mrs_msgs/GainManagerDiagnostics.h>
-#include <mrs_msgs/ConstraintManagerDiagnostics.h>
+#include <mrs_msgs/srv/reference_stamped_srv.hpp>
+#include <mrs_msgs/msg/reference.hpp>
+#include <mrs_msgs/srv/trajectory_reference_srv.hpp>
+#include <mrs_msgs/srv/string.hpp>
+#include <mrs_msgs/msg/uav_status.hpp>
+#include <mrs_msgs/msg/custom_topic.hpp>
 
-#include <mrs_msgs/ReferenceStampedSrv.h>
-#include <mrs_msgs/Reference.h>
-#include <mrs_msgs/TrajectoryReferenceSrv.h>
-#include <mrs_msgs/String.h>
-#include <mrs_msgs/UavStatus.h>
-#include <mrs_msgs/CustomTopic.h>
+#include <std_msgs/msg/string.hpp>
 
-#include <std_msgs/String.h>
+#include <sensor_msgs/msg/nav_sat_fix.hpp>
 
-#include <sensor_msgs/NavSatFix.h>
+#include <std_srvs/srv/trigger.hpp>
 
-#include <std_srvs/Trigger.h>
+#include <geometry_msgs/msg/pose.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
 
-#include <geometry_msgs/Pose.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/Vector3.h>
-
-#include <sensor_msgs/BatteryState.h>
+#include <sensor_msgs/msg/battery_state.hpp>
 
 #include <mrs_lib/mutex.h>
-#include <mrs_lib/transformer.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/service_client_handler.h>
 
-#include <tf2_msgs/TFMessage.h>
+#include <tf2_msgs/msg/tf_message.hpp>
+
 #define KEY_ENT 10
 #define KEY_ESC 27
 /* #define KEY_BACKSPACE 263 */
@@ -89,22 +86,25 @@
 class TopicInfo {
 
 public:
-  TopicInfo(double window_rate_in, int buffer_len, double desired_rate_in);
-  TopicInfo(double window_rate_in, int buffer_len, double desired_rate_in, std::string topic_name_in, std::string topic_display_name_in);
+  TopicInfo();
+  TopicInfo(rclcpp::Node::SharedPtr node, double window_rate_in, int buffer_len, double desired_rate_in);
+  TopicInfo(rclcpp::Node::SharedPtr node, double window_rate_in, int buffer_len, double desired_rate_in, std::string topic_name_in, std::string topic_display_name_in);
+
   std::string                 GetTopicName();
   std::string                 GetTopicDisplayName();
   std::tuple<double, int16_t> GetHz();
   void                        Count();
 
 private:
-  ros::Time           last_time_;
-  int                 counter_;
-  std::string         topic_name_;
-  std::string         topic_display_name_;
-  double              window_rate_;
-  double              desired_rate_;
-  std::vector<double> rates_;
-  size_t              rates_iterator_;
+  rclcpp::Node::SharedPtr node_;
+  rclcpp::Time            last_time_;
+  int                     counter_;
+  std::string             topic_name_;
+  std::string             topic_display_name_;
+  double                  window_rate_;
+  double                  desired_rate_;
+  std::vector<double>     rates_;
+  size_t                  rates_iterator_;
 };
 
 struct service
@@ -112,7 +112,7 @@ struct service
   std::string service_name;
   std::string service_display_name;
 
-  mrs_lib::ServiceClientHandler<std_srvs::Trigger> service_client;
+  mrs_lib::ServiceClientHandler<std_srvs::srv::Trigger> service_client;
 
   service(std::string name_in, std::string display_name_in) {
     service_name         = name_in;
@@ -122,43 +122,45 @@ struct service
 
 struct topic_status
 {
-  ros::Time           last_time;
-  int                 counter;
-  double              window_rate;
-  std::vector<double> rates;
-  size_t              rates_iterator = 0;
+  rclcpp::Time            last_time;
+  int                     counter;
+  double                  window_rate;
+  std::vector<double>     rates;
+  size_t                  rates_iterator = 0;
+  rclcpp::Node::SharedPtr node;
 
   topic_status(double window_rate_in, int buffer_len) {
     window_rate = window_rate_in;
     rates.resize(buffer_len * int(window_rate));
     rates.assign(rates.size(), 0.0);
     rates_iterator = 0;
-    last_time      = ros::Time::now();
+    last_time      = node->get_clock()->now();
     counter        = 0;
   }
 };
 
 struct string_info
 {
-  std::string publisher_name;
-  std::string id;
-  std::string display_string;
-  bool        persistent;
-  ros::Time   last_time;
+  std::string             publisher_name;
+  std::string             id;
+  std::string             display_string;
+  bool                    persistent;
+  rclcpp::Time            last_time;
+  rclcpp::Node::SharedPtr node;
 
   string_info(std::string publisher_name_in, std::string display_string_in, std::string id_in, bool persistent_in) {
     publisher_name = publisher_name_in;
     display_string = display_string_in;
     id             = id_in;
     persistent     = persistent_in;
-    last_time      = ros::Time::now();
+    last_time      = node->get_clock()->now();
   }
 };
 
 struct node_info
 {
   std::string node_name;
-  int node_pid;
+  int         node_pid;
   float       node_cpu_usage;
   long        last_utime;
   long        last_stime;
