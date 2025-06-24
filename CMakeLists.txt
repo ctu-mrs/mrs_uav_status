@@ -16,7 +16,7 @@ endif()
 
 # set the compile options to show code warnings
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra)
+  add_compile_options(-Wall -Wextra -Wno-format-security)
 endif()
 
 set(DEPENDENCIES
@@ -44,13 +44,12 @@ find_package(Curses REQUIRED)
 # please, NEVER commit those alternative flags with specific overrides of optimization
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-diagnostics-color -fopenmp -O0 -lncurses -g")
 
-set(EXECUTABLES
-  # mrs_uav_status
-  data_acquisition
-  )
-
 set(LIBRARIES
   MrsUavStatus_Acquisition
+  )
+
+set(EXECUTABLES
+  MrsUavStatus_Status
   )
 
 include_directories(
@@ -67,22 +66,25 @@ include_directories(
 
 # MRS UAV Status
 
-# add_executable(mrs_uav_status
-#     src/status.cpp
-#     src/menu.cpp
-#     src/topic_info.cpp
-#     src/input_box.cpp
-#   )
+add_executable(MrsUavStatus_Status
+    src/status.cpp
+    src/menu.cpp
+    src/topic_info.cpp
+    src/input_box.cpp
+  )
 
-# ament_target_dependencies(mrs_uav_status
-#   ${DEPENDENCIES}
-#   )
+ament_target_dependencies(MrsUavStatus_Status
+  ${DEPENDENCIES}
+  )
 
-# target_link_libraries(mrs_uav_status
-#   ${CURSES_LIBRARIES}
-#   )
+target_link_libraries(MrsUavStatus_Status
+  ${CURSES_LIBRARIES}
+  ${Boost_LIBRARIES}
+  )
 
-# target_compile_definitions(mrs_uav_status PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+target_compile_definitions(MrsUavStatus_Status PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+
+# rclcpp_components_register_nodes(MrsUavStatus_Status PLUGIN "mrs_uav_status::Status" EXECUTABLE MrsUavStatus_Status)
 
 # Data acquisition
 
@@ -100,9 +102,9 @@ target_link_libraries(MrsUavStatus_Acquisition
   ${Boost_LIBRARIES}
   )
 
-rclcpp_components_register_nodes(MrsUavStatus_Acquisition PLUGIN "mrs_uav_status::Acquisition" EXECUTABLE MrsUavStatus_Acquisition)
-
 target_compile_definitions(MrsUavStatus_Acquisition PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+
+rclcpp_components_register_nodes(MrsUavStatus_Acquisition PLUGIN "mrs_uav_status::Acquisition" EXECUTABLE MrsUavStatus_Acquisition)
 
 ## --------------------------------------------------------------
 ## |                           Install                          |
@@ -120,10 +122,14 @@ install(
   RUNTIME DESTINATION bin
   )
 
+install(TARGETS ${EXECUTABLES}
+  DESTINATION lib/${PROJECT_NAME}
+  )
+
 install(
   DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
-)
+  )
 
 ament_export_targets(
   export_${PROJECT_NAME} HAS_LIBRARY_TARGET

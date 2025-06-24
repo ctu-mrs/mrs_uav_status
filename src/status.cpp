@@ -1,25 +1,32 @@
 /* INCLUDES //{ */
 
-/* #include <status_window.h> */
-#include "mrs_msgs/NodeCpuLoad.h"
-#include "mrs_msgs/Reference.h"
-#include <mrs_msgs/GimbalState.h>
-#include "ros/duration.h"
 #include <menu.h>
+
+/* #include <status_window.h> */
+#include <mrs_msgs/msg/node_cpu_load.hpp>
+#include <mrs_msgs/msg/reference.hpp>
+#include <mrs_msgs/msg/gimbal_state.hpp>
+#include <mrs_msgs/msg/float64_stamped.hpp>
+
 #include <input_box.h>
 #include <commons.h>
+#include <iostream>
+#include <fstream>
+
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/profiler.h>
-#include <mrs_msgs/Float64Stamped.h>
+#include <mrs_lib/subscriber_handler.h>
+#include <mrs_lib/transformer.h>
 
 #include <boost/filesystem.hpp>
 
 using namespace std;
-using topic_tools::ShapeShifter;
 
 using radians = mrs_lib::geometry::radians;
 
 //}
+
+/* typedefs //{ */
 
 typedef enum
 {
@@ -31,13 +38,43 @@ typedef enum
   DISPLAY_MENU,
 } status_state;
 
+//}
+
+/* defines //{ */
+
+#if USE_ROS_TIMER == 1
+typedef mrs_lib::ROSTimer TimerType;
+#else
+typedef mrs_lib::ThreadTimer TimerType;
+#endif
+
+//}
+
+namespace mrs_uav_status
+{
+
 /* class Status //{ */
 
-class Status {
+
+class Status : public rclcpp::Node {
 
 public:
   Status();
 
+private:
+  rclcpp::Node::SharedPtr  node_;
+  rclcpp::Clock::SharedPtr clock_;
+
+  rclcpp::TimerBase::SharedPtr timer_init_;
+  void                         timerInit();
+
+  rclcpp::CallbackGroup::SharedPtr cbkgrp_subs_;
+  rclcpp::CallbackGroup::SharedPtr cbkgrp_ss_;
+  rclcpp::CallbackGroup::SharedPtr cbkgrp_sc_;
+
+  void initialize();
+
+public:
   std::string _colorscheme_;
   std::string _pwd_;
   std::string _display_config_filename_;
@@ -46,22 +83,19 @@ public:
 
   bool _light_ = false;
 
-private:
-  ros::NodeHandle nh_;
-
   std::mutex mutex_status_msg_;
 
-  mrs_msgs::UavStatus uav_status_;
+  mrs_msgs::msg::UavStatus uav_status_;
 
   // | ------------------------- Timers ------------------------- |
 
-  ros::Timer status_timer_fast_;
-  ros::Timer status_timer_slow_;
-  ros::Timer resize_timer_;
+  std::shared_ptr<TimerType> timer_status_fast_;
+  std::shared_ptr<TimerType> timer_status_slow_;
+  std::shared_ptr<TimerType> timer_resize_;
 
-  void statusTimerFast(const ros::TimerEvent& event);
-  void statusTimerSlow(const ros::TimerEvent& event);
-  void resizeTimer(const ros::TimerEvent& event);
+  void timerStatusFast();
+  void timerStatusSlow();
+  void timerResize();
 
   // | --------------------- Print routines --------------------- |
 
@@ -79,7 +113,6 @@ private:
   void printNoData(WINDOW* win, int y, int x);
   void printNoData(WINDOW* win, int y, int x, string text);
 
-
   // | ------------------------- Windows ------------------------ |
 
   void setupWindows();
@@ -91,7 +124,6 @@ private:
   void nodeStatsHandler(WINDOW* win);
   void generalInfoHandeler(WINDOW* win);
   void stringHandler(WINDOW*);
-
 
   double general_info_window_rate_  = 1;
   double generic_topic_window_rate_ = 1;
@@ -112,27 +144,24 @@ private:
   long last_total_ = 0;
   long last_gigas_ = 0;
 
-  ros::TimerEvent tmp_event;
-
   // | ------------------------- Subscribers ------------------------ |
 
-  ros::Subscriber uav_status_subscriber_;
-  ros::Subscriber uav_status_short_subscriber_;
+  mrs_lib::SubscriberHandler<mrs_msgs::msg::UavStatus>      sh_uav_status_;
+  mrs_lib::SubscriberHandler<mrs_msgs::msg::UavStatusShort> sh_uav_status_short_;
 
   // | ------------------------- Publishers ------------------------ |
 
-  ros::Publisher gimbal_command_publisher_;
+  mrs_lib::PublisherHandler<mrs_msgs::msg::GimbalState> ph_gimbal_state_;
 
   // | ------------------------- Callbacks ------------------------- |
 
-  void uavStatusCallback(const mrs_msgs::UavStatusConstPtr&);
-  void uavStatusShortCallback(const mrs_msgs::UavStatusShortConstPtr&);
+  void callbackUavStatus(const mrs_msgs::msg::UavStatus::ConstSharedPtr msg);
+  void callbackUavStatusShort(const mrs_msgs::msg::UavStatusShort::ConstSharedPtr msg);
 
   // Custom windows
   WINDOW* uav_state_window_;
   WINDOW* control_manager_window_;
   WINDOW* hw_api_state_window_;
-
 
   /* vector<string_info> string_info_vec_; */
   vector<TopicInfo> string_topic_;
@@ -148,9 +177,9 @@ private:
   WINDOW* sub_tmux_window_2_;
   WINDOW* string_window_;
 
-  ros::Time bottom_window_clear_time_ = ros::Time::now();
-  ros::Time last_time_got_data_       = ros::Time::now();
-  ros::Time last_time_got_short_data_ = ros::Time::now();
+  rclcpp::Time bottom_window_clear_time_;
+  rclcpp::Time last_time_got_data_;
+  rclcpp::Time last_time_got_short_data_;
 
   unsigned long line_in_upper_menu_;
 
@@ -167,9 +196,10 @@ private:
   void topLineHandler(WINDOW* win);
 
   void remoteHandler(int key, WINDOW* win);
+
   void gimbalHandler(int key, WINDOW* win);
 
-  void remoteModeFly(mrs_msgs::Reference& goal);
+  void remoteModeFly(const mrs_msgs::msg::Reference& ref_in);
 
   void setupColors(bool active);
 
@@ -196,14 +226,14 @@ private:
   // | --------------------- Service Clients -------------------- |
 
 
-  mrs_lib::ServiceClientHandler<mrs_msgs::ReferenceStampedSrv>    service_goto_reference_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::TrajectoryReferenceSrv> service_trajectory_reference_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_constraints_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_gains_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_controller_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_tracker_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String>                 service_set_estimator_;
-  mrs_lib::ServiceClientHandler<std_srvs::Trigger>                service_hover_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::srv::ReferenceStampedSrv>    service_goto_reference_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::srv::TrajectoryReferenceSrv> service_trajectory_reference_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::srv::String>                 service_set_constraints_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::srv::String>                 service_set_gains_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::srv::String>                 service_set_controller_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::srv::String>                 service_set_tracker_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::srv::String>                 service_set_estimator_;
+  mrs_lib::ServiceClientHandler<std_srvs::srv::Trigger>                service_hover_;
 
   // | -------------------- UAV configuration ------------------- |
 
@@ -241,9 +271,9 @@ private:
 
   string old_constraints;
 
-  mrs_msgs::GimbalState gimbal_command;
-  const uint16_t        gimbal_max = 2000;
-  const uint16_t        gimbal_min = 1000;
+  mrs_msgs::msg::GimbalState gimbal_command;
+  const uint16_t             gimbal_max = 2000;
+  const uint16_t             gimbal_min = 1000;
 
   std::unique_ptr<mrs_lib::Transformer> transformer_;
 
@@ -263,7 +293,7 @@ private:
   status_state state = STANDARD;
   int          cols_, lines_;
 
-  bool initialized_ = false;
+  std::atomic<bool> initialized_ = false;
 
   bool             mini_ = false;
   std::vector<int> selected_tmux_window_;
@@ -275,16 +305,62 @@ private:
 
 /* Status() //{ */
 
-Status::Status() {
+Status::Status() : Node("mrs_status_menu") {
 
-  // initialize node and create no handle
-  nh_ = ros::NodeHandle("~");
+  timer_init_ = this->create_wall_timer(std::chrono::duration<double>(0.1s), std::bind(&Status::timerInit, this));
+}
+
+//}
+
+/* timerInit() //{ */
+
+void Status::timerInit() {
+
+  node_  = this->shared_from_this();
+  clock_ = node_->get_clock();
+
+  cbkgrp_subs_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  cbkgrp_ss_   = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  cbkgrp_sc_   = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
+  initialize();
+
+  timer_init_->cancel();
+}
+
+//}
+
+/* initialize() //{ */
+
+void Status::initialize() {
 
   // | ---------------------- Param loader ---------------------- |
 
+  bottom_window_clear_time_ = rclcpp::Time(0, 0, clock_->get_clock_type());
+  last_time_got_data_ = rclcpp::Time(0, 0, clock_->get_clock_type());
+  last_time_got_short_data_ = rclcpp::Time(0, 0, clock_->get_clock_type());
+
   prefillUavStatus();
 
-  mrs_lib::ParamLoader param_loader(nh_, "Status");
+  mrs_lib::ParamLoader param_loader(node_, "mrs_status_menu");
+
+  std::string custom_config_path;
+
+  param_loader.loadParam("custom_config", custom_config_path);
+
+  if (custom_config_path != "") {
+    param_loader.addYamlFile(custom_config_path);
+  }
+
+  std::string platform_config_path;
+
+  param_loader.loadParam("platform_config", platform_config_path);
+
+  if (platform_config_path != "") {
+    param_loader.addYamlFile(platform_config_path);
+  }
+
+  param_loader.addYamlFileFromParam("config_public");
 
   param_loader.loadParam("pwd", _pwd_);
 
@@ -299,41 +375,68 @@ Status::Status() {
   param_loader.loadParam("mrs_uav_status/start_minimized", mini_);
 
   if (!param_loader.loadedSuccessfully()) {
-    ROS_ERROR("[Status]: Could not load all parameters!");
-    ros::shutdown();
+    RCLCPP_ERROR(node_->get_logger(), "Could not load all parameters!");
+    rclcpp::shutdown();
+    exit(1);
   } else {
-    ROS_INFO("[Status]: All params loaded!");
+    RCLCPP_INFO(node_->get_logger(), "All params loaded!");
   }
 
   // | ------------------------- Timers ------------------------- |
 
-  status_timer_fast_ = nh_.createTimer(ros::Rate(20), &Status::statusTimerFast, this);
-  status_timer_slow_ = nh_.createTimer(ros::Rate(1), &Status::statusTimerSlow, this);
-  resize_timer_      = nh_.createTimer(ros::Rate(1), &Status::resizeTimer, this);
+  mrs_lib::TimerHandlerOptions timer_opts_start;
+
+  timer_opts_start.node      = node_;
+  timer_opts_start.autostart = true;
+
+  {
+    std::function<void()> callback_fcn = std::bind(&Status::timerStatusFast, this);
+
+    timer_status_fast_ = std::make_shared<TimerType>(timer_opts_start, rclcpp::Rate(20.0, clock_), callback_fcn);
+  }
+
+  {
+    std::function<void()> callback_fcn = std::bind(&Status::timerStatusSlow, this);
+
+    timer_status_slow_ = std::make_shared<TimerType>(timer_opts_start, rclcpp::Rate(1.0, clock_), callback_fcn);
+  }
+
+  {
+    std::function<void()> callback_fcn = std::bind(&Status::timerResize, this);
+
+    timer_resize_ = std::make_shared<TimerType>(timer_opts_start, rclcpp::Rate(1.0, clock_), callback_fcn);
+  }
 
   // | ------------------------ Subscribers ------------------------ |
 
-  uav_status_subscriber_       = nh_.subscribe("uav_status_in", 10, &Status::uavStatusCallback, this, ros::TransportHints().tcpNoDelay());
-  uav_status_short_subscriber_ = nh_.subscribe("uav_status_short_in", 10, &Status::uavStatusShortCallback, this, ros::TransportHints().tcpNoDelay());
+  mrs_lib::SubscriberHandlerOptions shopts;
+  shopts.node               = node_;
+  shopts.no_message_timeout = mrs_lib::no_timeout;
+  shopts.threadsafe         = true;
+  shopts.autostart          = true;
+
+  sh_uav_status_       = mrs_lib::SubscriberHandler<mrs_msgs::msg::UavStatus>(shopts, "~/uav_status_in", &Status::callbackUavStatus, this);
+  sh_uav_status_short_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::UavStatusShort>(shopts, "~/uav_status_short_in", &Status::callbackUavStatusShort, this);
 
   // | ------------------------ Publishers ------------------------ |
 
-  gimbal_command_publisher_ = nh_.advertise<mrs_msgs::GimbalState>("gimbal_command_out", 1);
+  ph_gimbal_state_ = mrs_lib::PublisherHandler<mrs_msgs::msg::GimbalState>(node_, "~/gimbal_command_out");
 
-  // | ------------------------ Services ------------------------ |
+  // | --------------------- service clients -------------------- |
 
-  service_goto_reference_       = mrs_lib::ServiceClientHandler<mrs_msgs::ReferenceStampedSrv>(nh_, "reference_out");
-  service_trajectory_reference_ = mrs_lib::ServiceClientHandler<mrs_msgs::TrajectoryReferenceSrv>(nh_, "trajectory_reference_out");
-  service_set_constraints_      = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_constraints_out");
-  service_set_gains_            = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_gains_out");
-  service_set_controller_       = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_controller_out");
-  service_set_tracker_          = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_tracker_out");
-  service_set_estimator_        = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "set_estimator_out");
-  service_hover_                = mrs_lib::ServiceClientHandler<std_srvs::Trigger>(nh_, "hover_out");
+  service_goto_reference_       = mrs_lib::ServiceClientHandler<mrs_msgs::srv::ReferenceStampedSrv>(node_, "~/reference_out");
+  service_trajectory_reference_ = mrs_lib::ServiceClientHandler<mrs_msgs::srv::TrajectoryReferenceSrv>(node_, "~/trajectory_reference_out");
+  service_set_constraints_      = mrs_lib::ServiceClientHandler<mrs_msgs::srv::String>(node_, "~/set_constraints_out");
+  service_set_gains_            = mrs_lib::ServiceClientHandler<mrs_msgs::srv::String>(node_, "~/set_gains_out");
+  service_set_controller_       = mrs_lib::ServiceClientHandler<mrs_msgs::srv::String>(node_, "~/set_controller_out");
+  service_set_tracker_          = mrs_lib::ServiceClientHandler<mrs_msgs::srv::String>(node_, "~/set_tracker_out");
+  service_set_estimator_        = mrs_lib::ServiceClientHandler<mrs_msgs::srv::String>(node_, "~/set_estimator_out");
+  service_hover_                = mrs_lib::ServiceClientHandler<std_srvs::srv::Trigger>(node_, "~/hover_out");
+
   // mrs_lib profiler
-  profiler_ = mrs_lib::Profiler(nh_, "Status", _profiler_enabled_);
+  profiler_ = mrs_lib::Profiler(node_, "Status", _profiler_enabled_);
 
-  transformer_ = std::make_unique<mrs_lib::Transformer>(nh_, "UavStatus");
+  transformer_ = std::make_unique<mrs_lib::Transformer>(node_);
   transformer_->retryLookupNewest(true);
 
   // Loads the default GoTo value
@@ -357,28 +460,37 @@ Status::Status() {
   _display_config_filename_ = _pwd_ + "/.mrs_status_display_config~";
 
   if (boost::filesystem::exists(_display_config_filename_)) {
+
     selected_tmux_window_.clear();
-    ifstream    file(_display_config_filename_);
+
+    std::ifstream file(_display_config_filename_);
+
     std::string line;
+
     for (int i = 0; i < MAX_SELECTED_TMUX_WINDOWS; i++) {
+
       getline(file, line);
+
       try {
         selected_tmux_window_.push_back(stoi(line));
       }
       catch (const invalid_argument& e) {
       }
     }
+
     file.close();
+
     setupDisplayText();
   }
 
   initialized_ = true;
-  ROS_INFO("[Status]: Node initialized!");
+
+  RCLCPP_INFO(node_->get_logger(), "initialized");
 }
 
 //}
 
-/* setupWindows //{ */
+/* setupWindows() //{ */
 
 void Status::setupWindows() {
 
@@ -391,20 +503,20 @@ void Status::setupWindows() {
   std::vector<std::string> results;
   boost::split(results, response, [](char c) { return c == 'x'; });
 
-  int cols, lines;
+  /* int cols, lines; */
 
-  try {
-    cols  = stoi(results[0]);
-    lines = stoi(results[1]);
-  }
+  /* try { */
+  /*   cols  = stoi(results[0]); */
+  /*   lines = stoi(results[1]); */
+  /* } */
 
-  catch (const invalid_argument& e) {
-    cols  = 0;
-    lines = 0;
-  }
-
+  /* catch (const invalid_argument& e) { */
+  /*   cols  = 0; */
+  /*   lines = 0; */
+  /* } */
 
   if (mini_) {
+
     control_manager_window_ = newwin(4, 9, 1, 1);
     uav_state_window_       = newwin(6, 9, 5, 1);
     top_bar_window_         = newwin(1, 140, 0, 1);
@@ -416,6 +528,7 @@ void Status::setupWindows() {
     bottom_window_          = newwin(1, 120, 11, 1);
 
   } else {
+
     uav_state_window_       = newwin(7, 26, 5, 1);
     control_manager_window_ = newwin(4, 26, 1, 1);
     hw_api_state_window_    = newwin(7, 25, 5, 27);
@@ -430,35 +543,37 @@ void Status::setupWindows() {
     generic_topic_window_ = newwin(11, 25, 1, 52);
     string_window_        = newwin(11, 32, 1, 77);
     node_stats_window_    = newwin(11, 50, 1, 109);
+
   }
 
   clear();
   setupColors(have_data_);
 }
 
-
 //}
 
-/* resizeTimer //{ */
+/* timerResize() //{ */
 
-void Status::resizeTimer([[maybe_unused]] const ros::TimerEvent& event) {
+void Status::timerResize() {
 
   if (!initialized_) {
     return;
   }
 
   if (updateTermSize()) {
+
     if (cols_ > 30) {
       resize_term(lines_, cols_);
       setupWindows();
     }
   }
+
 }
 
 
 //}
 
-/* resizeTimer //{ */
+/* updateTermSize() //{ */
 
 bool Status::updateTermSize() {
 
@@ -466,7 +581,9 @@ bool Status::updateTermSize() {
 
   std::string              command  = "tmux list-panes -F '#{pane_width}x#{pane_height}'";
   std::string              response = callTerminal(command.c_str());
+
   std::vector<std::string> results;
+
   boost::split(results, response, [](char c) { return c == 'x'; });
 
   int cols, lines;
@@ -486,15 +603,16 @@ bool Status::updateTermSize() {
     cols_   = cols;
     changed = true;
   }
+
   return (changed);
 }
 
 
 //}
 
-/* statusTimerFast //{ */
+/* timerStatusFast() //{ */
 
-void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
+void Status::timerStatusFast() {
 
   if (!initialized_) {
     return;
@@ -519,8 +637,7 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
     uavStateHandler(uav_state_window_);
   }
 
-
-  if ((ros::Time::now() - bottom_window_clear_time_).toSec() > 3.0) {
+  if ((clock_->now() - bottom_window_clear_time_).seconds() > 3.0) {
     werase(bottom_window_);
   }
 
@@ -529,25 +646,34 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
 
   switch (state) {
 
-    case STANDARD:
+      /* STANDARD //{ */
+
+    case STANDARD: {
 
       switch (key_in) {
 
-        case 'R':
+          /* R //{ */
 
+        case 'R': {
 
-        {
-          std::scoped_lock lock(mutex_status_msg_);
-          is_flying_normally_ = uav_status_.flying_normally;
-        }
+          {
+            std::scoped_lock lock(mutex_status_msg_);
+            is_flying_normally_ = uav_status_.flying_normally;
+          }
 
           if (is_flying_normally_) {
             remote_hover_ = false;
             state         = REMOTE;
           }
-          break;
 
-        case 'G':
+          break;
+        }
+
+          //}
+
+          /* G //{ */
+
+        case 'G': {
 
           gimbal_command.fpv_mode    = true;
           gimbal_command.is_on       = true;
@@ -556,93 +682,151 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
           state                      = GIMBAL;
           break;
 
-        case 'm':
-          setupMainMenu();
-          state = MAIN_MENU;
-          break;
+          case 'm':
+            setupMainMenu();
+            state = MAIN_MENU;
+            break;
 
-        case 'g':
-          setupGotoMenu();
-          state = GOTO_MENU;
-          break;
+          case 'g':
+            setupGotoMenu();
+            state = GOTO_MENU;
+            break;
 
-        case 'h':
-          help_active_ = !help_active_;
-          break;
+          case 'h':
+            help_active_ = !help_active_;
+            break;
 
-        case 'M':
-          mini_ = !mini_;
-          setupWindows();
-          statusTimerFast(tmp_event);
-          statusTimerSlow(tmp_event);
-          break;
+          case 'M':
+            mini_ = !mini_;
+            setupWindows();
+            timerStatusFast();
+            timerStatusSlow();
+            break;
 
-        case 'D':
-          setupDisplayMenu();
-          state = DISPLAY_MENU;
-          break;
+          case 'D':
+            setupDisplayMenu();
+            state = DISPLAY_MENU;
+            break;
 
-        default:
-          flushinp();
-          break;
+          default:
+            flushinp();
+            break;
+        }
       }
 
-      break;
+      //}
 
-    case REMOTE:
+      break;
+    }
+
+      //}
+
+      /* REMOTE //{ */
+
+    case REMOTE: {
+
       flushinp();
       remoteHandler(key_in, top_bar_window_);
+
       if (key_in == 'R' || key_in == KEY_ESC) {
 
         if (turbo_remote_) {
 
           turbo_remote_ = false;
-          mrs_msgs::String string_service;
-          string_service.request.value = old_constraints;
-          service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_);
-          printServiceResult(string_service.response.success, string_service.response.message);
+
+          auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+
+          request->value = old_constraints;
+
+          auto response = service_set_constraints_.callSync(request);
+
+          if (response) {
+            printServiceResult(response.value()->success, response.value()->message);
+          } else {
+            printServiceResult(false, "service could not be called");
+          }
         }
 
         state = STANDARD;
       }
-      break;
 
-    case GIMBAL:
+      break;
+    }
+
+      //}
+
+      /* GIMBAL //{ */
+
+    case GIMBAL: {
+
       flushinp();
+
       gimbalHandler(key_in, top_bar_window_);
+
       if (key_in == 'G' || key_in == KEY_ESC) {
         state = STANDARD;
       }
-      break;
 
-    case MAIN_MENU:
+      break;
+    }
+
+      //}
+
+      /* MAIN_MENU //{ */
+
+    case MAIN_MENU: {
+
       flushinp();
+
       if (mainMenuHandler(key_in)) {
+
         menu_vec_.clear();
         submenu_vec_.clear();
+
         wnoutrefresh(debug_window_);
         wnoutrefresh(bottom_window_);
+
         state = STANDARD;
       }
-      break;
 
-    case GOTO_MENU:
+      break;
+    }
+
+      //}
+
+      /* GOTO_MENU //{ */
+
+    case GOTO_MENU: {
+
       flushinp();
+
       if (gotoMenuHandler(key_in)) {
         menu_vec_.clear();
         submenu_vec_.clear();
         state = STANDARD;
       }
-      break;
 
-    case DISPLAY_MENU:
+      break;
+    }
+
+      //}
+
+      /* DISPLAY_MENU //{ */
+
+    case DISPLAY_MENU: {
+
       flushinp();
+
       if (displayMenuHandler(key_in)) {
         menu_vec_.clear();
         submenu_vec_.clear();
         state = STANDARD;
       }
+
       break;
+    }
+
+      //}
   }
 
   /* if (state == STANDARD) { */
@@ -655,19 +839,20 @@ void Status::statusTimerFast([[maybe_unused]] const ros::TimerEvent& event) {
 
   if (state != MAIN_MENU && state != GOTO_MENU && state != DISPLAY_MENU) {
     wnoutrefresh(bottom_window_);
+    /* wrefresh(bottom_window_); */
   }
 
   wnoutrefresh(top_bar_window_);
+  /* wrefresh(top_bar_window_); */
 
   doupdate();
 }
 
-
 //}
 
-/* statusTimerSlow //{ */
+/* timerStatusSlow() //{ */
 
-void Status::statusTimerSlow([[maybe_unused]] const ros::TimerEvent& event) {
+void Status::timerStatusSlow() {
 
   if (!initialized_) {
     return;
@@ -722,7 +907,9 @@ bool Status::mainMenuHandler(int key_in) {
     optional<tuple<int, int>> ret;
 
     switch (submenu_vec_[0].getId()) {
+
       case 0:
+
         // TRIGGER CONFIRMATION
         ret = submenu_vec_[0].iterate(key_in, true);
 
@@ -740,11 +927,18 @@ bool Status::mainMenuHandler(int key_in) {
 
             if (line == 1) {
 
-              std_srvs::Trigger trig;
-              service_vec_[line_in_upper_menu_].service_client.call(trig, _service_num_calls_, _service_delay_);
-              printServiceResult(trig.response.success, trig.response.message);
+              auto request = std::shared_ptr<std_srvs::srv::Trigger::Request>();
+
+              auto response = service_vec_[line_in_upper_menu_].service_client.callSync(request);
+
+              if (response) {
+                printServiceResult(response.value()->success, response.value()->message);
+              } else {
+                printServiceResult(false, "service could not be called");
+              }
 
               submenu_vec_.clear();
+
               return true;
 
             } else {
@@ -772,12 +966,20 @@ bool Status::mainMenuHandler(int key_in) {
 
           } else if (key == KEY_ENT) {
 
-            mrs_msgs::String string_service;
-            string_service.request.value = constraints_text_[line];
-            service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_);
-            printServiceResult(string_service.response.success, string_service.response.message);
+            auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+
+            request->value = constraints_text_[line];
+
+            auto response = service_set_constraints_.callSync(request);
+
+            if (response) {
+              printServiceResult(response.value()->success, response.value()->message);
+            } else {
+              printServiceResult(false, "service could not be called");
+            }
 
             submenu_vec_.clear();
+
             return true;
           }
         }
@@ -799,10 +1001,17 @@ bool Status::mainMenuHandler(int key_in) {
 
           } else if (key == KEY_ENT) {
 
-            mrs_msgs::String string_service;
-            string_service.request.value = gains_text_[line];
-            service_set_gains_.call(string_service, _service_num_calls_, _service_delay_);
-            printServiceResult(string_service.response.success, string_service.response.message);
+            auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+
+            request->value = gains_text_[line];
+
+            auto response = service_set_gains_.callSync(request);
+
+            if (response) {
+              printServiceResult(response.value()->success, response.value()->message);
+            } else {
+              printServiceResult(false, "service could not be called");
+            }
 
             submenu_vec_.clear();
             return true;
@@ -826,10 +1035,17 @@ bool Status::mainMenuHandler(int key_in) {
 
           } else if (key == KEY_ENT) {
 
-            mrs_msgs::String string_service;
-            string_service.request.value = controllers_text_[line];
-            service_set_controller_.call(string_service, _service_num_calls_, _service_delay_);
-            printServiceResult(string_service.response.success, string_service.response.message);
+            auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+
+            request->value = controllers_text_[line];
+
+            auto response = service_set_controller_.callSync(request);
+
+            if (response) {
+              printServiceResult(response.value()->success, response.value()->message);
+            } else {
+              printServiceResult(false, "service could not be called");
+            }
 
             submenu_vec_.clear();
             return true;
@@ -853,10 +1069,17 @@ bool Status::mainMenuHandler(int key_in) {
 
           } else if (key == KEY_ENT) {
 
-            mrs_msgs::String string_service;
-            string_service.request.value = trackers_text_[line];
-            service_set_tracker_.call(string_service, _service_num_calls_, _service_delay_);
-            printServiceResult(string_service.response.success, string_service.response.message);
+            auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+
+            request->value = trackers_text_[line];
+
+            auto response = service_set_tracker_.callSync(request);
+
+            if (response) {
+              printServiceResult(response.value()->success, response.value()->message);
+            } else {
+              printServiceResult(false, "service could not be called");
+            }
 
             submenu_vec_.clear();
             return true;
@@ -880,10 +1103,17 @@ bool Status::mainMenuHandler(int key_in) {
 
           } else if (key == KEY_ENT) {
 
-            mrs_msgs::String string_service;
-            string_service.request.value = odometry_lat_sources_text_[line];
-            service_set_estimator_.call(string_service, _service_num_calls_, _service_delay_);
-            printServiceResult(string_service.response.success, string_service.response.message);
+            auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+
+            request->value = odometry_lat_sources_text_[line];
+
+            auto response = service_set_estimator_.callSync(request);
+
+            if (response) {
+              printServiceResult(response.value()->success, response.value()->message);
+            } else {
+              printServiceResult(false, "service could not be called");
+            }
 
             submenu_vec_.clear();
             return true;
@@ -919,7 +1149,7 @@ bool Status::mainMenuHandler(int key_in) {
 
           int x;
           int y;
-          int rows;
+          [[maybe_unused]] int rows;
           int cols;
 
           line_in_upper_menu_ = line;
@@ -945,7 +1175,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             int x;
             int y;
-            int rows;
+            [[maybe_unused]] int rows;
             int cols;
 
             getyx(menu_vec_[0].getWin(), x, y);
@@ -967,7 +1197,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             int x;
             int y;
-            int rows;
+            [[maybe_unused]] int rows;
             int cols;
 
             getyx(menu_vec_[0].getWin(), x, y);
@@ -989,7 +1219,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             int x;
             int y;
-            int rows;
+            [[maybe_unused]] int rows;
             int cols;
 
             getyx(menu_vec_[0].getWin(), x, y);
@@ -1011,7 +1241,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             int x;
             int y;
-            int rows;
+            [[maybe_unused]] int rows;
             int cols;
 
             getyx(menu_vec_[0].getWin(), x, y);
@@ -1033,7 +1263,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             int x;
             int y;
-            int rows;
+            [[maybe_unused]] int rows;
             int cols;
 
             getyx(menu_vec_[0].getWin(), x, y);
@@ -1078,23 +1308,25 @@ bool Status::gotoMenuHandler(int key_in) {
       goto_double_vec_[2] = goto_menu_inputs_[2].getDouble();
       goto_double_vec_[3] = goto_menu_inputs_[3].getDouble();
 
-      mrs_msgs::ReferenceStampedSrv reference;
+      auto request = std::shared_ptr<mrs_msgs::srv::ReferenceStampedSrv::Request>();
 
-      reference.request.reference.position.x = goto_double_vec_[0];
-      reference.request.reference.position.y = goto_double_vec_[1];
-      reference.request.reference.position.z = goto_double_vec_[2];
-      reference.request.reference.heading    = goto_double_vec_[3];
+      request->reference.position.x = goto_double_vec_[0];
+      request->reference.position.y = goto_double_vec_[1];
+      request->reference.position.z = goto_double_vec_[2];
+      request->reference.heading    = goto_double_vec_[3];
 
       {
         std::scoped_lock lock(mutex_status_msg_);
-        reference.request.header.frame_id = uav_status_.odom_frame;
+        request->header.frame_id = uav_status_.odom_frame;
       }
 
-      reference.request.header.stamp = ros::Time::now();
+      auto response = service_goto_reference_.callSync(request);
 
-      service_goto_reference_.call(reference, _service_num_calls_, _service_delay_);
-
-      printServiceResult(reference.response.success, reference.response.message);
+      if (response) {
+        printServiceResult(response.value()->success, response.value()->message);
+      } else {
+        printServiceResult(false, "service could not be called");
+      }
 
       menu_vec_.clear();
 
@@ -1144,12 +1376,13 @@ bool Status::displayMenuHandler(int key_in) {
       if (it != selected_tmux_window_.end()) {
         display_menu_text_[line][1] = ' ';
         selected_tmux_window_.erase(it);
-      } else if (selected_tmux_window_.size() < MAX_SELECTED_TMUX_WINDOWS) {
+      } else if (int(selected_tmux_window_.size()) < MAX_SELECTED_TMUX_WINDOWS) {
         display_menu_text_[line][1] = '*';
         selected_tmux_window_.push_back(line);
       }
 
-      ofstream outputFile(_display_config_filename_, std::ofstream::out | std::ofstream::trunc);
+      std::ofstream outputFile(_display_config_filename_, std::ofstream::out | std::ofstream::trunc);
+
       for (size_t i = 0; i < selected_tmux_window_.size(); i++) {
         outputFile << selected_tmux_window_[i] << '\n';
       }
@@ -1205,9 +1438,8 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
   wattroff(win, COLOR_PAIR(RED));
 
-  mrs_msgs::Reference reference;
-  mrs_msgs::String    string_service;
-  std_srvs::Trigger   trig;
+  mrs_msgs::msg::Reference       reference;
+  mrs_msgs::srv::String::Request string_service;
 
   reference.position.x = 0.0;
   reference.position.y = 0.0;
@@ -1324,10 +1556,19 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
         if (turbo_remote_) {
 
-          turbo_remote_                = false;
-          string_service.request.value = old_constraints;
-          service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_);
-          printServiceResult(string_service.response.success, string_service.response.message);
+          turbo_remote_ = false;
+
+          auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+
+          request->value = old_constraints;
+
+          auto response = service_set_constraints_.callSync(request);
+
+          if (response) {
+            printServiceResult(response.value()->success, response.value()->message);
+          } else {
+            printServiceResult(false, "service could not be called");
+          }
 
         } else {
 
@@ -1338,36 +1579,51 @@ void Status::remoteHandler(int key, WINDOW* win) {
             old_constraints = uav_status_.constraints[0];
           }
 
-          string_service.request.value = _turbo_remote_constraints_;
-          service_set_constraints_.call(string_service, _service_num_calls_, _service_delay_);
-          printServiceResult(string_service.response.success, string_service.response.message);
+          auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+
+          request->value = _turbo_remote_constraints_;
+
+          auto response = service_set_constraints_.callSync(request);
+
+          if (response) {
+            printServiceResult(response.value()->success, response.value()->message);
+          } else {
+            printServiceResult(false, "service could not be called");
+          }
         }
       }
 
       break;
 
-    case 'G':
+    case 'G': {
 
+      {
+        std::scoped_lock lock(mutex_status_msg_);
+        is_flying_normally_ = uav_status_.flying_normally;
+      }
 
-    {
-      std::scoped_lock lock(mutex_status_msg_);
-      is_flying_normally_ = uav_status_.flying_normally;
-    }
       if (is_flying_normally_) {
         remote_global_ = !remote_global_;
       }
 
       break;
+    }
 
+    default: {
 
-    default:
       if (remote_hover_) {
 
-        service_hover_.call(trig, _service_num_calls_, _service_delay_);
+        auto request = std::shared_ptr<std_srvs::srv::Trigger::Request>();
+
+        service_hover_.callSync(request);
+
         remote_hover_ = false;
       }
+
       break;
+    }
   }
+
   wattroff(win, A_BOLD);
 }
 
@@ -1554,12 +1810,8 @@ void Status::gimbalHandler(int key, WINDOW* win) {
     gimbal_command.gimbal_tilt = gimbal_min;
   }
 
-  try {
-    gimbal_command_publisher_.publish(gimbal_command);
-  }
-  catch (...) {
-    ROS_ERROR("[MrsSerial]: exception caught during publishing topic %s", gimbal_command_publisher_.getTopic().c_str());
-  }
+  ph_gimbal_state_.publish(gimbal_command);
+
   wattroff(win, A_BOLD);
 }
 
@@ -1567,10 +1819,9 @@ void Status::gimbalHandler(int key, WINDOW* win) {
 
 /* remoteModeFly() //{ */
 
-void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
+void Status::remoteModeFly(const mrs_msgs::msg::Reference& ref_in) {
 
-
-  mrs_msgs::ReferenceStampedSrv reference;
+  auto request = std::shared_ptr<mrs_msgs::srv::ReferenceStampedSrv::Request>();
 
   if (remote_global_) {
 
@@ -1589,14 +1840,15 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
       odom_frame = uav_status_.odom_frame;
     }
 
-    reference.request.reference.position.x = cmd_x + ref_in.position.x;
-    reference.request.reference.position.y = cmd_y + ref_in.position.y;
-    reference.request.reference.position.z = cmd_z + ref_in.position.z;
-    reference.request.reference.heading    = cmd_hdg + ref_in.heading;
-    reference.request.header.frame_id      = odom_frame;
+    request->reference.position.x = cmd_x + ref_in.position.x;
+    request->reference.position.y = cmd_y + ref_in.position.y;
+    request->reference.position.z = cmd_z + ref_in.position.z;
+    request->reference.heading    = cmd_hdg + ref_in.heading;
+    request->header.frame_id      = odom_frame;
+
   } else {
 
-    reference.request.reference = ref_in;
+    request->reference = ref_in;
 
     std::string uav_name;
     double      cmd_x;
@@ -1615,94 +1867,36 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
       odom_frame = uav_status_.odom_frame;
     }
 
-    mrs_msgs::ReferenceStamped cmd_reference;
+    mrs_msgs::msg::ReferenceStamped cmd_reference;
+
     cmd_reference.reference.position.x = cmd_x;
     cmd_reference.reference.position.y = cmd_y;
     cmd_reference.reference.position.z = cmd_z;
     cmd_reference.reference.heading    = cmd_hdg;
     cmd_reference.header.frame_id      = odom_frame;
 
-    reference.request.header.frame_id = uav_name + "/fcu_untilted";
-    reference.request.header.stamp    = ros::Time::now();
+    request->header.frame_id = uav_name + "/fcu_untilted";
+    request->header.stamp    = clock_->now();
 
-    auto response = transformer_->transformSingle(cmd_reference, reference.request.header.frame_id);
+    auto response = transformer_->transformSingle(cmd_reference, request->header.frame_id);
     if (response) {
       cmd_reference = response.value();
     } else {
-      ROS_WARN_THROTTLE(1.0, "[MrsUavStatus]: Transform failed when transforming cmd_reference.");
+      RCLCPP_WARN_THROTTLE(node_->get_logger(), *clock_, 1000, "Transform failed when transforming cmd_reference.");
       return;
     }
 
-    reference.request.reference = cmd_reference.reference;
-    reference.request.reference.position.x += ref_in.position.x;
-    reference.request.reference.position.y += ref_in.position.y;
-    reference.request.reference.position.z += ref_in.position.z;
-    reference.request.reference.heading += ref_in.heading;
-    reference.request.header.frame_id = cmd_reference.header.frame_id;
+    request->reference = cmd_reference.reference;
+    request->reference.position.x += ref_in.position.x;
+    request->reference.position.y += ref_in.position.y;
+    request->reference.position.z += ref_in.position.z;
+    request->reference.heading += ref_in.heading;
+    request->header.frame_id = cmd_reference.header.frame_id;
   }
 
-  reference.request.header.stamp = ros::Time::now();
-  service_goto_reference_.call(reference);
+  request->header.stamp = clock_->now();
 
-  return;
-
-  /* mrs_msgs::TrajectoryReferenceSrv traj; */
-  /* mrs_msgs::TrajectoryReference    tmp_traj; */
-  /* tmp_traj.use_heading = true; */
-  /* tmp_traj.fly_now     = true; */
-  /* tmp_traj.loop        = false; */
-  /* tmp_traj.dt          = 0.2; */
-
-  /* mrs_msgs::Reference tmp_ref; */
-  /* if (remote_global_) { */
-
-
-  /*   double      cmd_x; */
-  /*   double      cmd_y; */
-  /*   double      cmd_z; */
-  /*   double      cmd_hdg; */
-  /*   std::string odom_frame; */
-
-  /*   { */
-  /*     std::scoped_lock lock(mutex_status_msg_); */
-  /*     cmd_x      = uav_status_.cmd_x; */
-  /*     cmd_y      = uav_status_.cmd_y; */
-  /*     cmd_z      = uav_status_.cmd_z; */
-  /*     cmd_hdg    = uav_status_.cmd_hdg; */
-  /*     odom_frame = uav_status_.odom_frame; */
-  /*   } */
-
-  /*   tmp_ref.position.x       = cmd_x; */
-  /*   tmp_ref.position.y       = cmd_y; */
-  /*   tmp_ref.position.z       = cmd_z; */
-  /*   tmp_ref.heading          = cmd_hdg; */
-  /*   tmp_traj.header.frame_id = odom_frame; */
-
-  /* } else { */
-
-  /*   tmp_ref.position.x = 0.0; */
-  /*   tmp_ref.position.y = 0.0; */
-  /*   tmp_ref.position.z = 0.0; */
-  /*   tmp_ref.heading    = 0; */
-
-  /*   std::string uav_name; */
-  /*   { */
-  /*     std::scoped_lock lock(mutex_status_msg_); */
-  /*     uav_name = uav_status_.uav_name; */
-  /*   } */
-
-  /*   tmp_traj.header.frame_id = uav_name + "/fcu_untilted"; */
-  /* } */
-
-  /* for (int i = 0; i < 10; i++) { */
-  /*   tmp_ref.position.x += ref_in.position.x / 10; */
-  /*   tmp_ref.position.y += ref_in.position.y / 10; */
-  /*   tmp_ref.position.z += ref_in.position.z / 10; */
-  /*   tmp_ref.heading += ref_in.heading / 10; */
-  /*   tmp_traj.points.push_back(tmp_ref); */
-  /* } */
-  /* traj.request.trajectory = tmp_traj; */
-  /* service_trajectory_reference_.call(traj, _service_num_calls_, _service_delay_); */
+  auto response = service_goto_reference_.callSync(request);
 }
 
 //}
@@ -1710,6 +1904,7 @@ void Status::remoteModeFly(mrs_msgs::Reference& ref_in) {
 /* stringHandler() //{ */
 
 void Status::stringHandler(WINDOW* win) {
+
   std::vector<std::string> string_vector;
 
   {
@@ -1881,7 +2076,7 @@ void Status::stringHandler(WINDOW* win) {
 
 void Status::genericTopicHandler(WINDOW* win) {
 
-  std::vector<mrs_msgs::CustomTopic> custom_topic_vec;
+  std::vector<mrs_msgs::msg::CustomTopic> custom_topic_vec;
 
   {
     std::scoped_lock lock(mutex_status_msg_);
@@ -1898,6 +2093,7 @@ void Status::genericTopicHandler(WINDOW* win) {
   }
 
   if (!custom_topic_vec.empty()) {
+
     for (size_t i = 0; i < custom_topic_vec.size(); i++) {
 
       wattron(win, COLOR_PAIR(custom_topic_vec[i].topic_color));
@@ -1911,6 +2107,7 @@ void Status::genericTopicHandler(WINDOW* win) {
       }
       wattroff(win, COLOR_PAIR(custom_topic_vec[i].topic_color));
     }
+
   } else {
 
     werase(win);
@@ -1926,8 +2123,9 @@ void Status::genericTopicHandler(WINDOW* win) {
 
 void Status::nodeStatsHandler(WINDOW* win) {
 
-  mrs_msgs::NodeCpuLoad node_cpu_load_vec;
-  double                cpu_load_total;
+  mrs_msgs::msg::NodeCpuLoad node_cpu_load_vec;
+
+  double cpu_load_total;
 
   {
     std::scoped_lock lock(mutex_status_msg_);
@@ -1983,7 +2181,6 @@ void Status::nodeStatsHandler(WINDOW* win) {
 }
 
 //}
-
 
 /* uavStateHandler() //{ */
 
@@ -2195,7 +2392,6 @@ void Status::uavStateHandler(WINDOW* win) {
 void Status::controlManagerHandler(WINDOW* win) {
 
   int16_t color;
-  double  avg_rate;
   bool    null_tracker;
   double  rate;
   string  curr_controller;
@@ -2746,8 +2942,8 @@ void Status::topLineHandler(WINDOW* win) {
     num_other_uavs               = uav_status_.num_other_uavs;
   }
 
-  double tmp_time       = (ros::Time::now() - last_time_got_data_).toSec();
-  double tmp_short_time = (ros::Time::now() - last_time_got_short_data_).toSec();
+  double tmp_time       = (clock_->now() - last_time_got_data_).seconds();
+  double tmp_short_time = (clock_->now() - last_time_got_short_data_).seconds();
 
   if (tmp_short_time < 3.0) {
     have_short_data_ = true;
@@ -2877,9 +3073,9 @@ void Status::generalInfoHandeler(WINDOW* win) {
 
 //}
 
-/* uavStatusCallback() //{ */
+/* callbackUavStatus() //{ */
 
-void Status::uavStatusCallback(const mrs_msgs::UavStatusConstPtr& msg) {
+void Status::callbackUavStatus(const mrs_msgs::msg::UavStatus::ConstSharedPtr msg) {
 
   if (!initialized_) {
     return;
@@ -2890,15 +3086,15 @@ void Status::uavStatusCallback(const mrs_msgs::UavStatusConstPtr& msg) {
     uav_status_ = *msg;
   }
 
-  last_time_got_data_       = ros::Time::now();
-  last_time_got_short_data_ = ros::Time::now();
+  last_time_got_data_       = clock_->now();
+  last_time_got_short_data_ = clock_->now();
 }
 
 //}
 
-/* uavStatusShortCallback() //{ */
+/* callbackUavStatusShort() //{ */
 
-void Status::uavStatusShortCallback(const mrs_msgs::UavStatusShortConstPtr& msg) {
+void Status::callbackUavStatusShort(const mrs_msgs::msg::UavStatusShort::ConstSharedPtr msg) {
 
   if (!initialized_) {
     return;
@@ -2919,7 +3115,7 @@ void Status::uavStatusShortCallback(const mrs_msgs::UavStatusShortConstPtr& msg)
     uav_status_.cmd_hdg = msg->cmd_hdg;
   }
 
-  last_time_got_short_data_ = ros::Time::now();
+  last_time_got_short_data_ = clock_->now();
 }
 
 //}
@@ -3028,7 +3224,9 @@ void Status::setupMainMenu() {
     }
 
     service tmp_service(service_name, results[1]);
-    tmp_service.service_client = mrs_lib::ServiceClientHandler<std_srvs::Trigger>(nh_, service_name);
+
+    tmp_service.service_client = mrs_lib::ServiceClientHandler<std_srvs::srv::Trigger>(node_, service_name);
+
     service_vec_.push_back(tmp_service);
   }
 
@@ -3267,7 +3465,7 @@ void Status::printDiskSpace(WINDOW* win) {
       printLimitedString(win, 1, 5, "HDD", 3);
       printLimitedInt(win, 2, 5, "%i T", gigas / 10000, 10);
     } else {
-      printLimitedDouble(win, 2, 14, "HDD: %3.1f T", gigas / 10000, 1000);
+      printLimitedDouble(win, 2, 14, "HDD: %3.1f T", gigas / 10000.0, 1000);
     }
   }
 }
@@ -3301,7 +3499,7 @@ void Status::printServiceResult(bool success, string msg) {
     wattroff(bottom_window_, COLOR_PAIR(RED));
   }
 
-  bottom_window_clear_time_ = ros::Time::now();
+  bottom_window_clear_time_ = clock_->now();
 
   wattroff(bottom_window_, COLOR_PAIR(GREEN));
   wattroff(bottom_window_, A_BOLD);
@@ -3375,10 +3573,10 @@ void Status::printLimitedString(WINDOW* win, int y, int x, string str_in, unsign
 void Status::printCompressedLimitedString(WINDOW* win, int y, int x, string str_in, unsigned long limit) {
 
   std::string chars("aeiouAEIOU :");
-  for (int i = 0; i < chars.length(); i++) {
+
+  for (size_t i = 0; i < chars.length(); i++) {
     str_in.erase(std::remove(str_in.begin() + 1, str_in.end(), chars.at(i)), str_in.end());
   }
-
 
   if (str_in.length() > limit) {
     str_in.resize(limit);
@@ -3479,7 +3677,7 @@ void Status::printTmuxDump() {
   werase(debug_window_);
   printBox(debug_window_);
 
-  if (selected_tmux_window_.size() > MAX_SELECTED_TMUX_WINDOWS) {
+  if (int(selected_tmux_window_.size()) > MAX_SELECTED_TMUX_WINDOWS) {
     return;
   }
 
@@ -3489,7 +3687,7 @@ void Status::printTmuxDump() {
   for (size_t i = 0; i < selected_tmux_window_.size(); i++) {
     std::string command_str = "tmux resize-window -t " + session_name_ + ":" + std::to_string(selected_tmux_window_[i]) + " -A";
     callTerminal(command_str.c_str());
-    command_str = "tmux capture-pane -pt " + session_name_ + ":" + std::to_string(selected_tmux_window_[i]) + " -S 0 | tail -n " + std::to_string(tmp_rows + 1);
+    command_str          = "tmux capture-pane -pt " + session_name_ + ":" + std::to_string(selected_tmux_window_[i]) + " -S 0 | tail -n " + std::to_string(tmp_rows + 1);
     std::string response = callTerminal(command_str.c_str());
     switch (i) {
       case 0: {
@@ -3600,29 +3798,35 @@ void Status::setupColors(bool active) {
 
 //}
 
-/* callTerminal //{ */
+/* callTerminal() //{ */
 
 std::string Status::callTerminal(const char* cmd) {
+
   std::array<char, 128>                    buffer;
   std::string                              result;
   std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+
   if (!pipe) {
-    ROS_ERROR("[Status]: Exception in callTerminal");
+    RCLCPP_ERROR(node_->get_logger(), "Exception in callTerminal");
     throw std::runtime_error("popen() failed!");
   }
+
   while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
     result += buffer.data();
   }
+
   return result;
 }
 
 //}
 
-/* main() //{ */
+}  // namespace mrs_uav_status
 
 int main(int argc, char** argv) {
 
-  ros::init(argc, argv, "mrs_status");
+  rclcpp::init(argc, argv);
+
+  auto node = std::make_shared<mrs_uav_status::Status>();
 
   initscr();
   start_color();
@@ -3638,35 +3842,15 @@ int main(int argc, char** argv) {
 
   attron(A_BOLD);
 
-  Status status;
+  while (rclcpp::ok()) {
 
-  /* DEBUG COLOR RAINBOW //{ */
-  if (status._rainbow_) {
+    rclcpp::spin_some(node);
 
-    int k = 0;
-
-    for (int j = 0; j < 256; j++) {
-      init_pair(j, COLOR_WHITE, j);
-    }
-
-    for (int j = 0; j < 256; j++) {
-
-      attron(COLOR_PAIR(j));
-      mvwprintw(stdscr, k + 10, (3 * j + 1) - k * 60 * 3, "%i", j);
-      k = int(j / 60);
-      attroff(COLOR_PAIR(j));
-    }
-    refresh();
-    while (1) {
-    }
+    // Small sleep to reduce CPU usage
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  //}
 
-  while (ros::ok()) {
+  rclcpp::shutdown();
 
-    ros::spin();
-    return 0;
-  }
+  return 0;
 }
-
-//

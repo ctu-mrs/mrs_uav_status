@@ -4,6 +4,7 @@ import launch
 import os
 import sys
 
+import launch_ros
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 from launch.actions import DeclareLaunchArgument
@@ -24,7 +25,7 @@ def generate_launch_description():
     pkg_name = "mrs_uav_status"
 
     this_pkg_path = get_package_share_directory(pkg_name)
-    namespace='uav_status_acquisition'
+    namespace='uav_status_tui'
 
     # #{ uav_name
 
@@ -46,6 +47,18 @@ def generate_launch_description():
         'uav_type',
         default_value=os.getenv('UAV_TYPE', ""),
         description="The uav type.",
+    ))
+
+    # #} end of custom_config
+
+    # #{ rainbow
+
+    rainbow = LaunchConfiguration('rainbow')
+
+    ld.add_action(DeclareLaunchArgument(
+        'rainbow',
+        default_value="false",
+        description="",
     ))
 
     # #} end of custom_config
@@ -103,6 +116,7 @@ def generate_launch_description():
     # #{ env-based params
 
     run_type=os.getenv('RUN_TYPE', "realworld")
+    colorscheme=os.getenv('PROFILES', "COLORSCHEME_LIGHT")
 
     if run_type == "simulation":
         simulation = True
@@ -129,67 +143,47 @@ def generate_launch_description():
 
     # #} end of custom_config
 
-    ld.add_action(ComposableNodeContainer(
+    ld.add_action(launch_ros.actions.Node(
 
+        package=pkg_name,
+        executable='MrsUavStatus_Status',
         namespace=uav_name,
-        name=namespace+'_container',
-        package='rclcpp_components',
-        executable='component_container_mt',
+        name='uav_status_tui',
         output="screen",
-        arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
+        # arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
 
         # prefix=['debug_roslaunch ' + os.ttyname(sys.stdout.fileno())],
 
-        composable_node_descriptions=[
+        parameters=[
+            {"uav_name": uav_name},
+            {"pwd": EnvironmentVariable('PWD')},
+            {"colorscheme": colorscheme},
+            {"rainbox": rainbow},
+            {"enable_profiler": False},
+            {"use_sim_time": use_sim_time},
+            {'config_public': this_pkg_path + '/config/public/default.yaml'},
+            {'platform_config': platform_config},
+            {'custom_config': custom_config},
+            ],
 
-            ComposableNode(
-
-                package=pkg_name,
-                plugin='mrs_uav_status::Acquisition',
-                namespace=uav_name,
-                name='uav_status_acquisition',
-
-                parameters=[
-                    {"uav_name": uav_name},
-                    {"uav_type": uav_type},
-                    {"enable_profiler": False},
-                    {"use_sim_time": use_sim_time},
-                    {'config_public': this_pkg_path + '/config/public/default.yaml'},
-                    {'platform_config': platform_config},
-                    {'custom_config': custom_config},
-                    ],
-
-                remappings=[
-                    # subscribers
-                    ("~/uav_state_in", "estimation_manager/uav_state"),
-                    ("~/cmd_tracker_in", "control_manager/tracker_cmd"),
-                    ("~/estimation_diag_in", "estimation_manager/diagnostics"),
-                    ("~/mpc_diag_in", "control_manager/mpc_tracker/diagnostics"),
-                    ("~/hw_api_status_in", "hw_api/status"),
-                    ("~/cmd_attitude_in", "control_manager/attitude_cmd"),
-                    ("~/battery_in", "hw_api/battery_state"),
-                    ("~/control_manager_in", "control_manager/diagnostics"),
-                    ("~/gain_manager_in", "gain_manager/diagnostics"),
-                    ("~/constraint_manager_in", "constraint_manager/diagnostics"),
-                    ("~/tf_static_in", "/tf_static"),
-                    ("~/gnss_in", "hw_api/gnss"),
-                    ("~/gnss_status_in", "hw_api/gnss_status"),
-                    ("~/odometry_in", "hw_api/odometry"),
-                    ("~/automatic_start_in", "automatic_start/can_takeoff"),
-                    ("~/throttle_in", "control_manager/throttle"),
-                    ("~/mass_estimate_in", "control_manager/mass_estimate"),
-                    ("~/mass_set_in", "control_manager/mass_nominal"),
-                    ("~/mag_in", "hw_api/magnetic_field"),
-                    ("~/string_in", "~/display_string"),
-                    # publishers
-                    ("~/uav_status_out", "~/uav_status"),
-                    ("~/uav_status_short_out", "~/uav_status_short"),
-                    ("~/profiler", "profiler"),
-                ],
-            )
-
+        remappings=[
+            # subscribers
+            ("~/uav_status_in", "uav_status_acquisition/uav_status"),
+            ("~/uav_status_short_in", "uav_status_acquisition/uav_status_short"),
+            # publishers
+            ("~/gimbal_command_out", "tarot_gimbal/gimbal_command"),
+            # services
+            ("~/reference_out", "control_manager/reference"),
+            ("~/trajectory_reference_out", "control_manager/trajectory_reference"),
+            ("~/set_constraints_out", "constraint_manager/set_constraints"),
+            ("~/set_estimator_out", "estimation_manager/change_estimator"),
+            ("~/set_gains_out", "gain_manager/set_gains"),
+            ("~/set_controller_out", "control_manager/switch_controller"),
+            ("~/set_tracker_out", "control_manager/switch_tracker"),
+            ("~/hover_out", "control_manager/hover"),
+            ("~/profiler", "profiler"),
         ],
-
-    ))
+        )
+    )
 
     return ld
