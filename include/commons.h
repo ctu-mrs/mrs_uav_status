@@ -141,19 +141,18 @@ struct topic_status
 
 struct string_info
 {
-  std::string             publisher_name;
-  std::string             id;
-  std::string             display_string;
-  bool                    persistent;
-  rclcpp::Time            last_time;
-  rclcpp::Node::SharedPtr node;
+  std::string  publisher_name;
+  std::string  id;
+  std::string  display_string;
+  bool         persistent;
+  rclcpp::Time last_time;
 
-  string_info(std::string publisher_name_in, std::string display_string_in, std::string id_in, bool persistent_in) {
-    publisher_name = publisher_name_in;
-    display_string = display_string_in;
-    id             = id_in;
-    persistent     = persistent_in;
-    last_time      = node->get_clock()->now();
+  string_info(rclcpp::Time last_time, std::string publisher_name_in, std::string display_string_in, std::string id_in, bool persistent_in) {
+    publisher_name  = publisher_name_in;
+    display_string  = display_string_in;
+    id              = id_in;
+    persistent      = persistent_in;
+    this->last_time = last_time;
   }
 };
 

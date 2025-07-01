@@ -940,7 +940,6 @@ void Acquisition::setupGenericCallbacks() {
     catch (const invalid_argument& e) {
     }
 
-
     int    id = i;  // id to identify which topic called the generic callback
     string topic_name;
 
@@ -1734,6 +1733,8 @@ void Acquisition::callbackString(const std_msgs::msg::String::ConstSharedPtr msg
     return;
   }
 
+  RCLCPP_INFO(get_logger(), "getting string info");
+
   std::string pub_name = "";  // TODO this information got lost from ROS1
   std::string msg_str  = msg->data;
 
@@ -1758,7 +1759,6 @@ void Acquisition::callbackString(const std_msgs::msg::String::ConstSharedPtr msg
         msg_vector.erase(msg_vector.begin() + iterator);
         continue;
       }
-
 
     } else if (msg_vector[iterator] == "-p") {
       msg_vector.erase(msg_vector.begin() + iterator);
@@ -1791,8 +1791,9 @@ void Acquisition::callbackString(const std_msgs::msg::String::ConstSharedPtr msg
 
   bool contains = false;
 
-  /* uav_status_.custom_string_outputs */
+  RCLCPP_INFO(get_logger(), "pes");
 
+  /* uav_status_.custom_string_outputs */
   for (unsigned long i = 0; i < string_info_vec_.size(); i++) {
     if (string_info_vec_[i].publisher_name == pub_name && string_info_vec_[i].id == id) {
       contains                           = true;
@@ -1803,10 +1804,14 @@ void Acquisition::callbackString(const std_msgs::msg::String::ConstSharedPtr msg
     }
   }
 
+  RCLCPP_INFO(get_logger(), "kocka");
+
   if (!contains) {
-    string_info tmp(pub_name, msg_str, id, persistent);
+    string_info tmp(clock_->now(), pub_name, msg_str, id, persistent);
     string_info_vec_.push_back(tmp);
   }
+
+  RCLCPP_INFO(get_logger(), "pes");
 }
 
 //}

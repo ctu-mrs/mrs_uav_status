@@ -307,6 +307,20 @@ public:
 
 Status::Status() : Node("mrs_status_menu") {
 
+  initscr();
+  start_color();
+  cbreak();
+  noecho();
+  clear();
+  nodelay(stdscr, true);
+  keypad(stdscr, true);
+  timeout(0);
+  curs_set(0);  // disable cursor
+  set_escdelay(0);
+  use_default_colors();
+
+  attron(A_BOLD);
+
   timer_init_ = this->create_wall_timer(std::chrono::duration<double>(0.1s), std::bind(&Status::timerInit, this));
 }
 
@@ -337,7 +351,7 @@ void Status::initialize() {
   // | ---------------------- Param loader ---------------------- |
 
   bottom_window_clear_time_ = rclcpp::Time(0, 0, clock_->get_clock_type());
-  last_time_got_data_ = rclcpp::Time(0, 0, clock_->get_clock_type());
+  last_time_got_data_       = rclcpp::Time(0, 0, clock_->get_clock_type());
   last_time_got_short_data_ = rclcpp::Time(0, 0, clock_->get_clock_type());
 
   prefillUavStatus();
@@ -543,7 +557,6 @@ void Status::setupWindows() {
     generic_topic_window_ = newwin(11, 25, 1, 52);
     string_window_        = newwin(11, 32, 1, 77);
     node_stats_window_    = newwin(11, 50, 1, 109);
-
   }
 
   clear();
@@ -567,9 +580,7 @@ void Status::timerResize() {
       setupWindows();
     }
   }
-
 }
-
 
 //}
 
@@ -579,8 +590,8 @@ bool Status::updateTermSize() {
 
   bool changed = false;
 
-  std::string              command  = "tmux list-panes -F '#{pane_width}x#{pane_height}'";
-  std::string              response = callTerminal(command.c_str());
+  std::string command  = "tmux list-panes -F '#{pane_width}x#{pane_height}'";
+  std::string response = callTerminal(command.c_str());
 
   std::vector<std::string> results;
 
@@ -734,7 +745,7 @@ void Status::timerStatusFast() {
 
           turbo_remote_ = false;
 
-          auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+          auto request = std::make_shared<mrs_msgs::srv::String::Request>();
 
           request->value = old_constraints;
 
@@ -845,7 +856,11 @@ void Status::timerStatusFast() {
   wnoutrefresh(top_bar_window_);
   /* wrefresh(top_bar_window_); */
 
+  /* refresh(); */
+
   doupdate();
+
+  /* fflush(stdout); */
 }
 
 //}
@@ -865,18 +880,22 @@ void Status::timerStatusSlow() {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("hwApiStateHander");
     hwApiStateHander(hw_api_state_window_);
   }
+
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("controlManagerHandler");
     controlManagerHandler(control_manager_window_);
   }
+
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("genericTopicHandler");
     genericTopicHandler(generic_topic_window_);
   }
+
   if (!mini_) {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("nodeStatsHandler");
     nodeStatsHandler(node_stats_window_);
   }
+
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("stringHandler");
     stringHandler(string_window_);
@@ -887,7 +906,6 @@ void Status::timerStatusSlow() {
     generalInfoHandeler(general_info_window_);
   }
 }
-
 
 //}
 
@@ -927,7 +945,7 @@ bool Status::mainMenuHandler(int key_in) {
 
             if (line == 1) {
 
-              auto request = std::shared_ptr<std_srvs::srv::Trigger::Request>();
+              auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
 
               auto response = service_vec_[line_in_upper_menu_].service_client.callSync(request);
 
@@ -966,7 +984,7 @@ bool Status::mainMenuHandler(int key_in) {
 
           } else if (key == KEY_ENT) {
 
-            auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+            auto request = std::make_shared<mrs_msgs::srv::String::Request>();
 
             request->value = constraints_text_[line];
 
@@ -1001,7 +1019,7 @@ bool Status::mainMenuHandler(int key_in) {
 
           } else if (key == KEY_ENT) {
 
-            auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+            auto request = std::make_shared<mrs_msgs::srv::String::Request>();
 
             request->value = gains_text_[line];
 
@@ -1035,7 +1053,7 @@ bool Status::mainMenuHandler(int key_in) {
 
           } else if (key == KEY_ENT) {
 
-            auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+            auto request = std::make_shared<mrs_msgs::srv::String::Request>();
 
             request->value = controllers_text_[line];
 
@@ -1069,7 +1087,7 @@ bool Status::mainMenuHandler(int key_in) {
 
           } else if (key == KEY_ENT) {
 
-            auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+            auto request = std::make_shared<mrs_msgs::srv::String::Request>();
 
             request->value = trackers_text_[line];
 
@@ -1103,7 +1121,7 @@ bool Status::mainMenuHandler(int key_in) {
 
           } else if (key == KEY_ENT) {
 
-            auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+            auto request = std::make_shared<mrs_msgs::srv::String::Request>();
 
             request->value = odometry_lat_sources_text_[line];
 
@@ -1147,10 +1165,10 @@ bool Status::mainMenuHandler(int key_in) {
 
         if (line < service_vec_.size()) {
 
-          int x;
-          int y;
+          int                  x;
+          int                  y;
           [[maybe_unused]] int rows;
-          int cols;
+          int                  cols;
 
           line_in_upper_menu_ = line;
 
@@ -1173,10 +1191,10 @@ bool Status::mainMenuHandler(int key_in) {
 
           if (!constraints_text_.empty()) {
 
-            int x;
-            int y;
+            int                  x;
+            int                  y;
             [[maybe_unused]] int rows;
-            int cols;
+            int                  cols;
 
             getyx(menu_vec_[0].getWin(), x, y);
             getmaxyx(menu_vec_[0].getWin(), rows, cols);
@@ -1195,10 +1213,10 @@ bool Status::mainMenuHandler(int key_in) {
 
           if (!gains_text_.empty()) {
 
-            int x;
-            int y;
+            int                  x;
+            int                  y;
             [[maybe_unused]] int rows;
-            int cols;
+            int                  cols;
 
             getyx(menu_vec_[0].getWin(), x, y);
             getmaxyx(menu_vec_[0].getWin(), rows, cols);
@@ -1217,10 +1235,10 @@ bool Status::mainMenuHandler(int key_in) {
 
           if (!controllers_text_.empty()) {
 
-            int x;
-            int y;
+            int                  x;
+            int                  y;
             [[maybe_unused]] int rows;
-            int cols;
+            int                  cols;
 
             getyx(menu_vec_[0].getWin(), x, y);
             getmaxyx(menu_vec_[0].getWin(), rows, cols);
@@ -1239,10 +1257,10 @@ bool Status::mainMenuHandler(int key_in) {
 
           if (!trackers_text_.empty()) {
 
-            int x;
-            int y;
+            int                  x;
+            int                  y;
             [[maybe_unused]] int rows;
-            int cols;
+            int                  cols;
 
             getyx(menu_vec_[0].getWin(), x, y);
             getmaxyx(menu_vec_[0].getWin(), rows, cols);
@@ -1261,10 +1279,10 @@ bool Status::mainMenuHandler(int key_in) {
 
           if (!odometry_lat_sources_text_.empty()) {
 
-            int x;
-            int y;
+            int                  x;
+            int                  y;
             [[maybe_unused]] int rows;
-            int cols;
+            int                  cols;
 
             getyx(menu_vec_[0].getWin(), x, y);
             getmaxyx(menu_vec_[0].getWin(), rows, cols);
@@ -1308,7 +1326,7 @@ bool Status::gotoMenuHandler(int key_in) {
       goto_double_vec_[2] = goto_menu_inputs_[2].getDouble();
       goto_double_vec_[3] = goto_menu_inputs_[3].getDouble();
 
-      auto request = std::shared_ptr<mrs_msgs::srv::ReferenceStampedSrv::Request>();
+      auto request = std::make_shared<mrs_msgs::srv::ReferenceStampedSrv::Request>();
 
       request->reference.position.x = goto_double_vec_[0];
       request->reference.position.y = goto_double_vec_[1];
@@ -1558,7 +1576,7 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
           turbo_remote_ = false;
 
-          auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+          auto request = std::make_shared<mrs_msgs::srv::String::Request>();
 
           request->value = old_constraints;
 
@@ -1579,7 +1597,7 @@ void Status::remoteHandler(int key, WINDOW* win) {
             old_constraints = uav_status_.constraints[0];
           }
 
-          auto request = std::shared_ptr<mrs_msgs::srv::String::Request>();
+          auto request = std::make_shared<mrs_msgs::srv::String::Request>();
 
           request->value = _turbo_remote_constraints_;
 
@@ -1613,7 +1631,7 @@ void Status::remoteHandler(int key, WINDOW* win) {
 
       if (remote_hover_) {
 
-        auto request = std::shared_ptr<std_srvs::srv::Trigger::Request>();
+        auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
 
         service_hover_.callSync(request);
 
@@ -1821,7 +1839,7 @@ void Status::gimbalHandler(int key, WINDOW* win) {
 
 void Status::remoteModeFly(const mrs_msgs::msg::Reference& ref_in) {
 
-  auto request = std::shared_ptr<mrs_msgs::srv::ReferenceStampedSrv::Request>();
+  auto request = std::make_shared<mrs_msgs::srv::ReferenceStampedSrv::Request>();
 
   if (remote_global_) {
 
@@ -2429,7 +2447,6 @@ void Status::controlManagerHandler(WINDOW* win) {
     wattron(win, A_STANDOUT);
   }
 
-
   wattron(win, COLOR_PAIR(color));
 
   /* mini //{ */
@@ -2748,7 +2765,6 @@ void Status::hwApiStateHander(WINDOW* win) {
 
   else {
 
-
     printLimitedDouble(win, 0, 9, "HW Api %5.1f Hz", hw_api_rate, 1000);
     wattroff(win, COLOR_PAIR(color));
 
@@ -2756,7 +2772,6 @@ void Status::hwApiStateHander(WINDOW* win) {
 
       printNoData(win, 0, 1);
     }
-
 
     if (state_rate == 0) {
 
@@ -2870,7 +2885,6 @@ void Status::hwApiStateHander(WINDOW* win) {
       }
     }
 
-
     if (!gnss_ok) {
 
       wattron(win, COLOR_PAIR(RED));
@@ -2901,6 +2915,7 @@ void Status::hwApiStateHander(WINDOW* win) {
 
   wattroff(win, COLOR_PAIR(color));
   wattroff(win, A_BOLD);
+
   wnoutrefresh(win);
 }
 //}
@@ -3038,6 +3053,7 @@ void Status::topLineHandler(WINDOW* win) {
 
   mvwprintw(win, 0, 0, "ToF: %i:%02i", mins, secs);
   wattroff(win, A_BOLD);
+
   wnoutrefresh(win);
 }
 
@@ -3102,6 +3118,7 @@ void Status::callbackUavStatusShort(const mrs_msgs::msg::UavStatusShort::ConstSh
 
   {
     std::scoped_lock lock(mutex_status_msg_);
+
     uav_status_.odom_x     = msg->odom_x;
     uav_status_.odom_y     = msg->odom_y;
     uav_status_.odom_z     = msg->odom_z;
@@ -3125,6 +3142,7 @@ void Status::callbackUavStatusShort(const mrs_msgs::msg::UavStatusShort::ConstSh
 void Status::prefillUavStatus() {
 
   std::scoped_lock lock(mutex_status_msg_);
+
   uav_status_.uav_name                = "N/A";
   uav_status_.uav_type                = "N/A";
   uav_status_.uav_mass                = 0.0;
@@ -3269,7 +3287,6 @@ void Status::setupGotoMenu() {
 
   Menu menu(1, 32, goto_menu_text_);
   menu_vec_.push_back(menu);
-
 
   for (int i = 0; i < 4; i++) {
     InputBox tmpbox(8, menu.getWin(), goto_double_vec_[i]);
@@ -3828,27 +3845,7 @@ int main(int argc, char** argv) {
 
   auto node = std::make_shared<mrs_uav_status::Status>();
 
-  initscr();
-  start_color();
-  cbreak();
-  noecho();
-  clear();
-  nodelay(stdscr, true);
-  keypad(stdscr, true);
-  timeout(0);
-  curs_set(0);  // disable cursor
-  set_escdelay(0);
-  use_default_colors();
-
-  attron(A_BOLD);
-
-  while (rclcpp::ok()) {
-
-    rclcpp::spin_some(node);
-
-    // Small sleep to reduce CPU usage
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
+  rclcpp::spin(node);
 
   rclcpp::shutdown();
 

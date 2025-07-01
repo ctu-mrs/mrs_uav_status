@@ -150,6 +150,7 @@ def generate_launch_description():
         namespace=uav_name,
         name='uav_status_tui',
         output="screen",
+        emulate_tty=True,
         # arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
 
         # prefix=['debug_roslaunch ' + os.ttyname(sys.stdout.fileno())],

@@ -50,6 +50,7 @@ set(LIBRARIES
 
 set(EXECUTABLES
   MrsUavStatus_Status
+  MrsUavStatus_NcursesTest
   )
 
 include_directories(
@@ -63,6 +64,23 @@ include_directories(
 ## --------------------------------------------------------------
 ## |                           Compile                          |
 ## --------------------------------------------------------------
+
+# NCurses test
+
+add_executable(MrsUavStatus_NcursesTest
+    src/ncurses_test.cpp
+  )
+
+ament_target_dependencies(MrsUavStatus_NcursesTest
+  ${DEPENDENCIES}
+  )
+
+target_link_libraries(MrsUavStatus_NcursesTest
+  ${CURSES_LIBRARIES}
+  ${Boost_LIBRARIES}
+  )
+
+target_compile_definitions(MrsUavStatus_NcursesTest PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
 # MRS UAV Status
 
@@ -130,6 +148,12 @@ install(
   DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
   )
+
+install(
+  DIRECTORY scripts
+  USE_SOURCE_PERMISSIONS
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 ament_export_targets(
   export_${PROJECT_NAME} HAS_LIBRARY_TARGET
