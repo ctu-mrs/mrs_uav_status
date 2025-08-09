@@ -11,14 +11,23 @@ this_pkg_path=$(ros2 pkg prefix $package_name)/share/$package_name
 config_public=$this_pkg_path/config/public/default.yaml
 platform_config=""
 custom_config=""
+colorscheme="COLORSCHEME_DARK"
 
 [ -z $UAV_NAME ] && uav_name=uav1 || uav_name=$UAV_NAME
+
+if [ ! -z "$PROFILES" ]; then
+
+  is_light=$(echo "$PROFILES" | grep "COLORSCHEME_LIGHT" | wc -l)
+
+  if [[ "$is_light" == "1" ]]; then
+    colorscheme="COLORSCHEME_LIGHT"
+  fi
+fi
 
 params=(
   "uav_name"        "string" "$uav_name"
   "pwd"             "string" "$pwd"
-  "colorscheme"     "string" "COLORSCHEME_DARK"
-  "rainbox"         "bool"   "false"
+  "colorscheme"     "string" "$colorscheme"
   "enable_profiler" "bool"   "false"
   "use_sim_time"    "bool"   "true"
   "start_minimized" "bool"   "false"

@@ -79,8 +79,6 @@ public:
   std::string _pwd_;
   std::string _display_config_filename_;
 
-  bool _rainbow_;
-
   bool _light_ = false;
 
   std::mutex mutex_status_msg_;
@@ -379,7 +377,6 @@ void Status::initialize() {
   param_loader.loadParam("pwd", _pwd_);
 
   param_loader.loadParam("colorscheme", _colorscheme_);
-  param_loader.loadParam("rainbow", _rainbow_, false);
 
   param_loader.loadParam("mrs_uav_status/turbo_remote_constraints", _turbo_remote_constraints_);
 
