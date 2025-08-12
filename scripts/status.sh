@@ -14,6 +14,7 @@ custom_config=""
 colorscheme="COLORSCHEME_DARK"
 
 [ -z $UAV_NAME ] && uav_name=uav1 || uav_name=$UAV_NAME
+[ -z $USE_SIM_TIME ] && use_sim_time=false || use_sim_time=$USE_SIM_TIME
 
 if [ ! -z "$PROFILES" ]; then
 
@@ -29,7 +30,7 @@ params=(
   "pwd"             "string" "$pwd"
   "colorscheme"     "string" "$colorscheme"
   "enable_profiler" "bool"   "false"
-  "use_sim_time"    "bool"   "true"
+  "use_sim_time"    "bool"   "$use_sim_time"
   "start_minimized" "bool"   "false"
   'config_public'   "string" "$config_public"
   'platform_config' "string" "$platform_config"
