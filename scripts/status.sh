@@ -26,7 +26,6 @@ if [ ! -z "$PROFILES" ]; then
 fi
 
 params=(
-  "uav_name"        "string" "$uav_name"
   "pwd"             "string" "$pwd"
   "colorscheme"     "string" "$colorscheme"
   "enable_profiler" "bool"   "false"
