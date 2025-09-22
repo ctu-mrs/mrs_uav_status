@@ -92,8 +92,7 @@ private:
   void                         timerInit();
 
   rclcpp::CallbackGroup::SharedPtr cbkgrp_subs_;
-  rclcpp::CallbackGroup::SharedPtr cbkgrp_ss_;
-  rclcpp::CallbackGroup::SharedPtr cbkgrp_sc_;
+  rclcpp::CallbackGroup::SharedPtr cbkgrp_timers_;
 
   void initialize();
 
@@ -291,9 +290,8 @@ void Acquisition::timerInit() {
   node_  = this->shared_from_this();
   clock_ = node_->get_clock();
 
-  cbkgrp_subs_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  cbkgrp_ss_   = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  cbkgrp_sc_   = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  cbkgrp_subs_   = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  cbkgrp_timers_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   initialize();
 
@@ -392,8 +390,9 @@ void Acquisition::initialize() {
 
   mrs_lib::TimerHandlerOptions timer_opts_start;
 
-  timer_opts_start.node      = node_;
-  timer_opts_start.autostart = true;
+  timer_opts_start.node           = node_;
+  timer_opts_start.autostart      = true;
+  timer_opts_start.callback_group = cbkgrp_timers_;
 
   {
     std::function<void()> callback_fcn = std::bind(&Acquisition::timerStatus, this);
@@ -410,32 +409,37 @@ void Acquisition::initialize() {
   // | ----------------------- subscribers ---------------------- |
 
   mrs_lib::SubscriberHandlerOptions shopts;
-  shopts.node               = node_;
-  shopts.no_message_timeout = mrs_lib::no_timeout;
-  shopts.threadsafe         = true;
-  shopts.autostart          = true;
+  shopts.node                                = node_;
+  shopts.no_message_timeout                  = mrs_lib::no_timeout;
+  shopts.threadsafe                          = true;
+  shopts.autostart                           = true;
+  shopts.subscription_options.callback_group = cbkgrp_subs_;
 
   /* sh_estimation_diag_      = mrs_lib::SubscriberHandler<mrs_msgs::msg::EstimationDiagnostics>(shopts, "~/estimation_diag_in"); */
 
-  sh_uav_state_               = mrs_lib::SubscriberHandler<mrs_msgs::msg::UavState>(shopts, "~/uav_state_in", &Acquisition::callbackUavState, this);
-  sh_tracker_cmd_             = mrs_lib::SubscriberHandler<mrs_msgs::msg::TrackerCommand>(shopts, "~/cmd_tracker_in", &Acquisition::callbackTrackerCommand, this);
-  sh_estimator_diag_          = mrs_lib::SubscriberHandler<mrs_msgs::msg::EstimationDiagnostics>(shopts, "~/estimation_diag_in", &Acquisition::callbackEstimationDiaag, this);
-  sh_mpc_tracker_diag_        = mrs_lib::SubscriberHandler<mrs_msgs::msg::MpcTrackerDiagnostics>(shopts, "~/mpc_diag_in", &Acquisition::callbackMpcTrackerDiag, this);
-  sh_hw_api_status_           = mrs_lib::SubscriberHandler<mrs_msgs::msg::HwApiStatus>(shopts, "~/hw_api_status_in", &Acquisition::callbackHwApiStatus, this);
-  sh_hw_api_gnss_             = mrs_lib::SubscriberHandler<sensor_msgs::msg::NavSatFix>(shopts, "~/gnss_in", &Acquisition::callbackHwApiGNSS, this);
-  sh_throttle_                = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "~/throttle_in", &Acquisition::callbackThrottle, this);
-  sh_mass_estimate_           = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "~/mass_estimate_in", &Acquisition::callbackMassEstimate, this);
-  sh_nominal_mass_            = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "~/mass_set_in", &Acquisition::callbackNominalMass, this);
-  sh_hw_api_gnss_status_      = mrs_lib::SubscriberHandler<mrs_msgs::msg::GpsInfo>(shopts, "~/gnss_status_in", &Acquisition::callbackHwApiGNSSStatus, this);
-  sh_battery_state_           = mrs_lib::SubscriberHandler<sensor_msgs::msg::BatteryState>(shopts, "~/battery_in", &Acquisition::callbackBatteryState, this);
-  sh_control_manager_diag_    = mrs_lib::SubscriberHandler<mrs_msgs::msg::ControlManagerDiagnostics>(shopts, "~/control_manager_in", &Acquisition::callbackControlManagerDiag, this);
-  sh_gain_manager_diag_       = mrs_lib::SubscriberHandler<mrs_msgs::msg::GainManagerDiagnostics>(shopts, "~/gain_manager_in", &Acquisition::callbackGainManagerDiag, this);
-  sh_constraint_manager_diag_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::ConstraintManagerDiagnostics>(shopts, "~/constraint_manager_in", &Acquisition::callbackConstraintManagerDiagnostics, this);
-  sh_string_                  = mrs_lib::SubscriberHandler<std_msgs::msg::String>(shopts, "~/string_in", &Acquisition::callbackString, this);
-  sh_tf_static_               = mrs_lib::SubscriberHandler<tf2_msgs::msg::TFMessage>(shopts, "~/tf_static_in", &Acquisition::callbackTfStatic, this);
-  sh_hw_api_odom_             = mrs_lib::SubscriberHandler<nav_msgs::msg::Odometry>(shopts, "~/odometry_in", &Acquisition::callbackHwApiOdom, this);
-  sh_autostart_ready_         = mrs_lib::SubscriberHandler<std_msgs::msg::Bool>(shopts, "~/automatic_start_in", &Acquisition::callbackAutostartReady, this);
-  sh_magnetometer_            = mrs_lib::SubscriberHandler<sensor_msgs::msg::MagneticField>(shopts, "~/mag_in", &Acquisition::callbackMagnetometer, this);
+  sh_uav_state_   = mrs_lib::SubscriberHandler<mrs_msgs::msg::UavState>(shopts, "~/uav_state_in", &Acquisition::callbackUavState, this);
+  sh_tracker_cmd_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::TrackerCommand>(shopts, "~/cmd_tracker_in", &Acquisition::callbackTrackerCommand, this);
+  sh_estimator_diag_ =
+      mrs_lib::SubscriberHandler<mrs_msgs::msg::EstimationDiagnostics>(shopts, "~/estimation_diag_in", &Acquisition::callbackEstimationDiaag, this);
+  sh_mpc_tracker_diag_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::MpcTrackerDiagnostics>(shopts, "~/mpc_diag_in", &Acquisition::callbackMpcTrackerDiag, this);
+  sh_hw_api_status_    = mrs_lib::SubscriberHandler<mrs_msgs::msg::HwApiStatus>(shopts, "~/hw_api_status_in", &Acquisition::callbackHwApiStatus, this);
+  sh_hw_api_gnss_      = mrs_lib::SubscriberHandler<sensor_msgs::msg::NavSatFix>(shopts, "~/gnss_in", &Acquisition::callbackHwApiGNSS, this);
+  sh_throttle_         = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "~/throttle_in", &Acquisition::callbackThrottle, this);
+  sh_mass_estimate_    = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "~/mass_estimate_in", &Acquisition::callbackMassEstimate, this);
+  sh_nominal_mass_     = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "~/mass_set_in", &Acquisition::callbackNominalMass, this);
+  sh_hw_api_gnss_status_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::GpsInfo>(shopts, "~/gnss_status_in", &Acquisition::callbackHwApiGNSSStatus, this);
+  sh_battery_state_      = mrs_lib::SubscriberHandler<sensor_msgs::msg::BatteryState>(shopts, "~/battery_in", &Acquisition::callbackBatteryState, this);
+  sh_control_manager_diag_ =
+      mrs_lib::SubscriberHandler<mrs_msgs::msg::ControlManagerDiagnostics>(shopts, "~/control_manager_in", &Acquisition::callbackControlManagerDiag, this);
+  sh_gain_manager_diag_ =
+      mrs_lib::SubscriberHandler<mrs_msgs::msg::GainManagerDiagnostics>(shopts, "~/gain_manager_in", &Acquisition::callbackGainManagerDiag, this);
+  sh_constraint_manager_diag_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::ConstraintManagerDiagnostics>(
+      shopts, "~/constraint_manager_in", &Acquisition::callbackConstraintManagerDiagnostics, this);
+  sh_string_          = mrs_lib::SubscriberHandler<std_msgs::msg::String>(shopts, "~/string_in", &Acquisition::callbackString, this);
+  sh_tf_static_       = mrs_lib::SubscriberHandler<tf2_msgs::msg::TFMessage>(shopts, "~/tf_static_in", &Acquisition::callbackTfStatic, this);
+  sh_hw_api_odom_     = mrs_lib::SubscriberHandler<nav_msgs::msg::Odometry>(shopts, "~/odometry_in", &Acquisition::callbackHwApiOdom, this);
+  sh_autostart_ready_ = mrs_lib::SubscriberHandler<std_msgs::msg::Bool>(shopts, "~/automatic_start_in", &Acquisition::callbackAutostartReady, this);
+  sh_magnetometer_    = mrs_lib::SubscriberHandler<sensor_msgs::msg::MagneticField>(shopts, "~/mag_in", &Acquisition::callbackMagnetometer, this);
 
   // | ----------------------- Publishers ---------------------- |
 
@@ -952,7 +956,8 @@ void Acquisition::setupGenericCallbacks() {
       topic_name = "/" + _uav_name_ + "/" + generic_topic_vec_[i].GetTopicName();
     }
 
-    std::function<void(std::shared_ptr<rclcpp::SerializedMessage> msg)> callback_fcn = std::bind(&Acquisition::callbackGeneric, this, std::placeholders::_1, topic_name, id);
+    std::function<void(std::shared_ptr<rclcpp::SerializedMessage> msg)> callback_fcn =
+        std::bind(&Acquisition::callbackGeneric, this, std::placeholders::_1, topic_name, id);
 
     auto tmp_subscriber = node_->create_generic_subscription(topic_name, "std_msgs::msg::Empty", rclcpp::SystemDefaultsQoS(), callback_fcn);
 
