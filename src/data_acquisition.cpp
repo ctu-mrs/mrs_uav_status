@@ -86,6 +86,7 @@ public:
   Acquisition(rclcpp::NodeOptions options);
 
 private:
+  rclcpp::Node::SharedPtr  node_;
   rclcpp::Clock::SharedPtr clock_;
 
   void initialize();
@@ -280,6 +281,7 @@ Acquisition::Acquisition(rclcpp::NodeOptions options) : mrs_lib::Node("mrs_statu
 
 void Acquisition::initialize() {
 
+  node_  = this_node_ptr();
   clock_ = node_->get_clock();
 
   cbkgrp_subs_   = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
