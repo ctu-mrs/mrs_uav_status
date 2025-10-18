@@ -341,7 +341,7 @@ void Status::initialize() {
 
   prefillUavStatus();
 
-  mrs_lib::ParamLoader param_loader(node_, "mrs_status_menu");
+  mrs_lib::ParamLoader param_loader(node_);
 
   std::string custom_config_path;
 
