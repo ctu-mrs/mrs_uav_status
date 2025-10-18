@@ -1,4 +1,4 @@
-/* INCLUDES //{ */
+/* includes //{ */
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -51,6 +51,7 @@
 
 #include <tf2_msgs/msg/tf_message.hpp>
 
+#include <mrs_lib/node.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/timer_handler.h>
@@ -79,22 +80,18 @@ typedef mrs_lib::ThreadTimer TimerType;
 namespace mrs_uav_status
 {
 
-class Acquisition : public rclcpp::Node {
+class Acquisition : public mrs_lib::Node {
 
 public:
   Acquisition(rclcpp::NodeOptions options);
 
 private:
-  rclcpp::Node::SharedPtr  node_;
   rclcpp::Clock::SharedPtr clock_;
 
-  rclcpp::TimerBase::SharedPtr timer_init_;
-  void                         timerInit();
+  void initialize();
 
   rclcpp::CallbackGroup::SharedPtr cbkgrp_subs_;
   rclcpp::CallbackGroup::SharedPtr cbkgrp_timers_;
-
-  void initialize();
 
   std::mutex mutex_status_msg_;
 
@@ -272,30 +269,9 @@ private:
 
 /* Acquisition() //{ */
 
-Acquisition::Acquisition(rclcpp::NodeOptions options) : Node("mrs_status_acquisition", options) {
+Acquisition::Acquisition(rclcpp::NodeOptions options) : mrs_lib::Node("mrs_status_acquisition", options) {
 
-  std::cout << "Acquisition()" << std::endl;
-
-  timer_init_ = this->create_wall_timer(std::chrono::duration<double>(0.1s), std::bind(&Acquisition::timerInit, this));
-}
-
-//}
-
-/* timerInit() //{ */
-
-void Acquisition::timerInit() {
-
-  std::cout << "TimerInit()" << std::endl;
-
-  node_  = this->shared_from_this();
-  clock_ = node_->get_clock();
-
-  cbkgrp_subs_   = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  cbkgrp_timers_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-
-  initialize();
-
-  timer_init_->cancel();
+  this->initialize();
 }
 
 //}
@@ -304,7 +280,10 @@ void Acquisition::timerInit() {
 
 void Acquisition::initialize() {
 
-  std::cout << "initialize()" << std::endl;
+  clock_ = node_->get_clock();
+
+  cbkgrp_subs_   = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  cbkgrp_timers_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   uav_state_ts_          = TopicInfo(node_, 10, BUFFER_LEN_SECS, uav_state_expected_rate_);
   control_manager_ts_    = TopicInfo(node_, 1, BUFFER_LEN_SECS, control_manager_expected_rate_);
@@ -521,7 +500,7 @@ void Acquisition::timerStatus() {
     return;
   }
 
-  RCLCPP_INFO_ONCE(get_logger(), "timerStatus(): spinning");
+  RCLCPP_INFO_ONCE(node_->get_logger(), "timerStatus(): spinning");
 
   {
     mrs_lib::Routine profiler_routine = profiler_.createRoutine("uavStateHandler");
@@ -904,7 +883,7 @@ void Acquisition::timerHostInfo() {
     return;
   }
 
-  RCLCPP_INFO_ONCE(get_logger(), "timerHostInfo(): spinning");
+  RCLCPP_INFO_ONCE(node_->get_logger(), "timerHostInfo(): spinning");
 
   getCpuLoad();
   getCpuTemperature();
@@ -1535,7 +1514,7 @@ void Acquisition::callbackControlManagerDiag(const mrs_msgs::msg::ControlManager
     return;
   }
 
-  RCLCPP_INFO_ONCE(get_logger(), "callbackControlManagerDiag(): getting data");
+  RCLCPP_INFO_ONCE(node_->get_logger(), "callbackControlManagerDiag(): getting data");
 
   control_manager_ts_.Count();
 

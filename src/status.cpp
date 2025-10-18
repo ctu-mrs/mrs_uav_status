@@ -1,4 +1,4 @@
-/* INCLUDES //{ */
+/* includes //{ */
 
 #include <menu.h>
 
@@ -13,6 +13,7 @@
 #include <iostream>
 #include <fstream>
 
+#include <mrs_lib/node.h>
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/subscriber_handler.h>
@@ -56,17 +57,13 @@ namespace mrs_uav_status
 /* class Status //{ */
 
 
-class Status : public rclcpp::Node {
+class Status : public mrs_lib::Node {
 
 public:
   Status();
 
 private:
-  rclcpp::Node::SharedPtr  node_;
   rclcpp::Clock::SharedPtr clock_;
-
-  rclcpp::TimerBase::SharedPtr timer_init_;
-  void                         timerInit();
 
   rclcpp::CallbackGroup::SharedPtr cbkgrp_subs_;
   rclcpp::CallbackGroup::SharedPtr cbkgrp_timers_;
@@ -319,25 +316,7 @@ Status::Status() : Node("mrs_status_menu") {
 
   attron(A_BOLD);
 
-  timer_init_ = this->create_wall_timer(std::chrono::duration<double>(0.1s), std::bind(&Status::timerInit, this));
-}
-
-//}
-
-/* timerInit() //{ */
-
-void Status::timerInit() {
-
-  node_  = this->shared_from_this();
-  clock_ = node_->get_clock();
-
-  cbkgrp_subs_   = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  cbkgrp_timers_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  cbkgrp_sc_     = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-
   initialize();
-
-  timer_init_->cancel();
 }
 
 //}
@@ -345,6 +324,12 @@ void Status::timerInit() {
 /* initialize() //{ */
 
 void Status::initialize() {
+
+  clock_ = node_->get_clock();
+
+  cbkgrp_subs_   = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  cbkgrp_timers_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  cbkgrp_sc_     = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   // | ---------------------- Param loader ---------------------- |
 
@@ -3844,7 +3829,7 @@ int main(int argc, char** argv) {
 
   auto node = std::make_shared<mrs_uav_status::Status>();
 
-  rclcpp::spin(node);
+  rclcpp::spin(node->get_node_base_interface());
 
   rclcpp::shutdown();
 
