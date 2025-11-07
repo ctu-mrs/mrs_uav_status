@@ -177,37 +177,37 @@ void NcursesTest::timerMain() {
 
   switch (ch) {
 
-    case 'h': {
+  case 'h': {
 
-      start_x_--;
+    start_x_--;
 
-      break;
-    }
+    break;
+  }
 
-    case 'l': {
+  case 'l': {
 
-      start_x_++;
+    start_x_++;
 
-      break;
-    }
+    break;
+  }
 
-    case 'j': {
+  case 'j': {
 
-      start_y_++;
+    start_y_++;
 
-      break;
-    }
+    break;
+  }
 
-    case 'k': {
+  case 'k': {
 
-      start_y_--;
+    start_y_--;
 
-      break;
-    }
+    break;
+  }
 
-    default: {
-      break;
-    }
+  default: {
+    break;
+  }
   }
 
   my_win_ = createNewWin(height_, width_, start_y_, start_x_);
@@ -215,7 +215,7 @@ void NcursesTest::timerMain() {
 
 //}
 
-}  // namespace mrs_uav_status
+} // namespace mrs_uav_status
 
 int main(int argc, char **argv) {
 

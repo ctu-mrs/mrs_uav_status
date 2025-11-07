@@ -2,7 +2,7 @@
 
 /* InputBox() //{ */
 
-InputBox::InputBox(int size, WINDOW* win, double initial_value) {
+InputBox::InputBox(int size, WINDOW *win, double initial_value) {
 
   size_ = size;
   win_  = win;
@@ -30,58 +30,58 @@ InputBox::InputBox(int size, WINDOW* win, double initial_value) {
 unsigned long InputBox::Process(int key) {
 
   switch (key) {
-    case -1:
-      return InputBox::cursor_;
+  case -1:
+    return InputBox::cursor_;
 
-    case KEY_LEFT:
-    case 'h':
-      if (InputBox::cursor_ > 0) {
-        InputBox::cursor_--;
-      }
-      break;
+  case KEY_LEFT:
+  case 'h':
+    if (InputBox::cursor_ > 0) {
+      InputBox::cursor_--;
+    }
+    break;
 
-    case KEY_RIGHT:
-    case 'l':
-      if (InputBox::cursor_ + 1 < size_) {
-        InputBox::cursor_++;
-      }
-      break;
+  case KEY_RIGHT:
+  case 'l':
+    if (InputBox::cursor_ + 1 < size_) {
+      InputBox::cursor_++;
+    }
+    break;
 
-    case KEY_BACKSPACE:
-      if (InputBox::cursor_ > 0) {
-        buffer_.erase(buffer_.begin() + InputBox::cursor_ - 1);
-        InputBox::cursor_--;
-      }
-      break;
+  case KEY_BACKSPACE:
+    if (InputBox::cursor_ > 0) {
+      buffer_.erase(buffer_.begin() + InputBox::cursor_ - 1);
+      InputBox::cursor_--;
+    }
+    break;
 
-    case KEY_DELETE:
-      buffer_.erase(buffer_.begin() + InputBox::cursor_);
-      break;
+  case KEY_DELETE:
+    buffer_.erase(buffer_.begin() + InputBox::cursor_);
+    break;
 
-    default:
-      if (InputBox::cursor_ < size_) {
+  default:
+    if (InputBox::cursor_ < size_) {
 
-        if (std::isdigit(key) || key == '.' || key == '-') {
-          if (buffer_[size_ - 1] != ' ') {
-            if (buffer_[0] == ' ') {
-              buffer_.insert(buffer_.begin() + InputBox::cursor_, key);
-              buffer_.erase(buffer_.begin());
-              return InputBox::cursor_;
+      if (std::isdigit(key) || key == '.' || key == '-') {
+        if (buffer_[size_ - 1] != ' ') {
+          if (buffer_[0] == ' ') {
+            buffer_.insert(buffer_.begin() + InputBox::cursor_, key);
+            buffer_.erase(buffer_.begin());
+            return InputBox::cursor_;
 
-            } else {
+          } else {
 
-              return InputBox::cursor_;
-            }
-          }
-
-          buffer_.insert(buffer_.begin() + InputBox::cursor_, key);
-
-          if (InputBox::cursor_ + 1 < size_) {
-            InputBox::cursor_++;
+            return InputBox::cursor_;
           }
         }
+
+        buffer_.insert(buffer_.begin() + InputBox::cursor_, key);
+
+        if (InputBox::cursor_ + 1 < size_) {
+          InputBox::cursor_++;
+        }
       }
-      break;
+    }
+    break;
   }
   buffer_.resize(size_, ' ');
   return InputBox::cursor_;
@@ -116,13 +116,13 @@ double InputBox::getDouble() {
 
   double ret_val;
 
-  char   tmparr[buffer_.size()];
+  char tmparr[buffer_.size()];
 
   for (unsigned long i = 0; i < buffer_.size(); i++) {
     tmparr[i] = buffer_[i];
   }
 
-  char* ptr;
+  char *ptr;
 
   ret_val = strtod(tmparr, &ptr);
 

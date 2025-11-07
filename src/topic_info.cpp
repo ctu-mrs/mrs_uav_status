@@ -27,7 +27,8 @@ TopicInfo::TopicInfo(rclcpp::Node::SharedPtr node, double window_rate_in, int bu
 
 /* TopicInfo() //{ */
 
-TopicInfo::TopicInfo(rclcpp::Node::SharedPtr node, double window_rate_in, int buffer_len, double desired_rate_in, std::string topic_name_in, std::string topic_display_name_in) {
+TopicInfo::TopicInfo(rclcpp::Node::SharedPtr node, double window_rate_in, int buffer_len, double desired_rate_in, std::string topic_name_in,
+                     std::string topic_display_name_in) {
 
   node_         = node;
   window_rate_  = window_rate_in;

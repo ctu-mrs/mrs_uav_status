@@ -443,7 +443,7 @@ void Acquisition::initialize() {
     try {
       secs_flown_ = stoi(line);
     }
-    catch (const invalid_argument& e) {
+    catch (const invalid_argument &e) {
       secs_flown_ = 0;
     }
     file.close();
@@ -460,7 +460,7 @@ void Acquisition::initialize() {
     try {
       wh_drained_ = stod(line);
     }
-    catch (const invalid_argument& e) {
+    catch (const invalid_argument &e) {
       wh_drained_ = 0.0;
     }
     file.close();
@@ -751,7 +751,7 @@ void Acquisition::nodeCpuLoadHandler() {
       utime = stol(results[13]);
       stime = stol(results[14]);
     }
-    catch (const invalid_argument& e) {
+    catch (const invalid_argument &e) {
       stime = 0;
       utime = 0;
     }
@@ -765,7 +765,7 @@ void Acquisition::nodeCpuLoadHandler() {
     node_info_vec_[i].node_cpu_usage = cpu_cores_ * (user_util + sys_util);
   }
 
-  sort(node_info_vec_.begin(), node_info_vec_.end(), [](const node_info& a, const node_info& b) -> bool { return a.node_cpu_usage > b.node_cpu_usage; });
+  sort(node_info_vec_.begin(), node_info_vec_.end(), [](const node_info &a, const node_info &b) -> bool { return a.node_cpu_usage > b.node_cpu_usage; });
 
   {
     std::scoped_lock lock(mutex_status_msg_);
@@ -907,7 +907,7 @@ void Acquisition::setupGenericCallbacks() {
   for (size_t i = 0; i < generic_topic_input_vec_.size(); i++) {
 
     vector<string> results;
-    boost::split(results, generic_topic_input_vec_[i], [](char c) { return c == ' '; });  // split the input string into words and put them in results vector
+    boost::split(results, generic_topic_input_vec_[i], [](char c) { return c == ' '; }); // split the input string into words and put them in results vector
     if (results[2].back() == '+') {
       // TODO handle the + sign
       results[2].pop_back();
@@ -922,10 +922,10 @@ void Acquisition::setupGenericCallbacks() {
       TopicInfo tmp_topic(node_, generic_topic_window_rate_, BUFFER_LEN_SECS, stoi(results[results.size() - 1]), results[0], tmp_string);
       generic_topic_vec_.push_back(tmp_topic);
     }
-    catch (const invalid_argument& e) {
+    catch (const invalid_argument &e) {
     }
 
-    int    id = i;  // id to identify which topic called the generic callback
+    int    id = i; // id to identify which topic called the generic callback
     string topic_name;
 
     if (generic_topic_vec_[i].GetTopicName().at(0) == '/') {
@@ -1029,7 +1029,7 @@ void Acquisition::getMemLoad() {
       try {
         total_ram = double(stol(results[i])) / 1048576;
       }
-      catch (const invalid_argument& e) {
+      catch (const invalid_argument &e) {
         total_ram = 0.0;
       }
       break;
@@ -1044,7 +1044,7 @@ void Acquisition::getMemLoad() {
       try {
         free_ram = double(stol(results[i])) / 1048576;
       }
-      catch (const invalid_argument& e) {
+      catch (const invalid_argument &e) {
         free_ram = 0.0;
       }
       break;
@@ -1060,7 +1060,7 @@ void Acquisition::getMemLoad() {
       try {
         buffers = double(stol(results[i])) / 1048576;
       }
-      catch (const invalid_argument& e) {
+      catch (const invalid_argument &e) {
         buffers = 0.0;
       }
 
@@ -1100,7 +1100,7 @@ void Acquisition::getCpuTemperature() {
       try {
         temp = stol(line);
       }
-      catch (const invalid_argument& e) {
+      catch (const invalid_argument &e) {
         temp = 0;
       }
       if (temp > max_temp) {
@@ -1144,7 +1144,7 @@ void Acquisition::getCpuLoad() {
     non_idle = stol(results[2]) + stol(results[3]) + stol(results[4]) + stol(results[7]) + stol(results[8]) + stol(results[9]);
     total    = idle + non_idle;
   }
-  catch (const invalid_argument& e) {
+  catch (const invalid_argument &e) {
     idle     = 0;
     non_idle = 0;
     total    = 0;
@@ -1183,7 +1183,7 @@ void Acquisition::getCpuFreq() {
   try {
     cpu_cores_ = stoi(results[1]) + 1;
   }
-  catch (const invalid_argument& e) {
+  catch (const invalid_argument &e) {
     cpu_cores_ = 1;
   }
 
@@ -1197,7 +1197,7 @@ void Acquisition::getCpuFreq() {
     try {
       cpu_freq += stol(line);
     }
-    catch (const invalid_argument& e) {
+    catch (const invalid_argument &e) {
       cpu_freq = 0;
     }
   }
@@ -1685,10 +1685,10 @@ void Acquisition::callbackTfStatic(const tf2_msgs::msg::TFMessage::ConstSharedPt
   for (size_t i = 0; i < msg->transforms.size(); i++) {
 
     std::string tmp        = msg->transforms[i].child_frame_id;
-    std::size_t pos        = tmp.find("/");        // find the / in uav1/something
-    std::string uav_name   = tmp.substr(0, pos);   // cut out the uav name, so we can discard tfs from other drones (mostly for simulation)
-    std::string frame_name = tmp.substr(pos + 1);  // cut off the uav1/ from the tf_static name
-                                                   //
+    std::size_t pos        = tmp.find("/");       // find the / in uav1/something
+    std::string uav_name   = tmp.substr(0, pos);  // cut out the uav name, so we can discard tfs from other drones (mostly for simulation)
+    std::string frame_name = tmp.substr(pos + 1); // cut off the uav1/ from the tf_static name
+                                                  //
     // TODO fix this mess
     for (size_t j = 0; j < tf_static_list_compare_.size(); j++) {
 
@@ -1719,7 +1719,7 @@ void Acquisition::callbackString(const std_msgs::msg::String::ConstSharedPtr msg
     return;
   }
 
-  std::string pub_name = "";  // TODO this information got lost from ROS1
+  std::string pub_name = ""; // TODO this information got lost from ROS1
   std::string msg_str  = msg->data;
 
   std::stringstream                  ss(msg_str);
@@ -1809,7 +1809,7 @@ void Acquisition::callbackGeneric([[maybe_unused]] std::shared_ptr<rclcpp::Seria
 
 //}
 
-}  // namespace mrs_uav_status
+} // namespace mrs_uav_status
 
 #include <rclcpp_components/register_node_macro.hpp>
 RCLCPP_COMPONENTS_REGISTER_NODE(mrs_uav_status::Acquisition)

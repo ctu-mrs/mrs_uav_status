@@ -2,7 +2,7 @@
 
 /* Menu() //{ */
 
-Menu::Menu(int begin_y, int begin_x, std::vector<std::string>& text) {
+Menu::Menu(int begin_y, int begin_x, std::vector<std::string> &text) {
 
   unsigned long longest_string = 0;
 
@@ -11,12 +11,12 @@ Menu::Menu(int begin_y, int begin_x, std::vector<std::string>& text) {
       longest_string = text[line].length();
     }
   }
-  id_ = 0;
+  id_   = 0;
   text_ = text;
-  win_ = newwin(text_.size() + 2, longest_string + 2, begin_y, begin_x);
+  win_  = newwin(text_.size() + 2, longest_string + 2, begin_y, begin_x);
 }
 
-Menu::Menu(int begin_y, int begin_x, std::vector<std::string>& text, int id) {
+Menu::Menu(int begin_y, int begin_x, std::vector<std::string> &text, int id) {
 
   unsigned long longest_string = 0;
 
@@ -25,16 +25,16 @@ Menu::Menu(int begin_y, int begin_x, std::vector<std::string>& text, int id) {
       longest_string = text[line].length();
     }
   }
-  id_ = id;
+  id_   = id;
   text_ = text;
-  win_ = newwin(text_.size() + 2, longest_string + 2, begin_y, begin_x);
+  win_  = newwin(text_.size() + 2, longest_string + 2, begin_y, begin_x);
 }
 
 //}
 
 /* getWin() //{ */
 
-WINDOW* Menu::getWin() {
+WINDOW *Menu::getWin() {
   return win_;
 }
 
@@ -102,7 +102,7 @@ std::optional<std::tuple<int, int>> Menu::iterate(int key, bool refresh) {
   wattroff(win_, A_STANDOUT);
 
   if (refresh) {
-    wrefresh(win_);  // update the terminal screen
+    wrefresh(win_); // update the terminal screen
   }
 
   wattroff(win_, A_BOLD);
@@ -115,7 +115,7 @@ std::optional<std::tuple<int, int>> Menu::iterate(int key, bool refresh) {
 
 // return tuple - int selected_menu_line, int pressed key
 //
-std::optional<std::tuple<int, int>> Menu::iterate(std::vector<std::string>& text, int key, bool refresh) {
+std::optional<std::tuple<int, int>> Menu::iterate(std::vector<std::string> &text, int key, bool refresh) {
 
   std::optional<std::tuple<int, int>> ret_val = std::nullopt;
 
@@ -157,7 +157,7 @@ std::optional<std::tuple<int, int>> Menu::iterate(std::vector<std::string>& text
   wattroff(win_, A_STANDOUT);
 
   if (refresh) {
-    wrefresh(win_);  // update the terminal screen
+    wrefresh(win_); // update the terminal screen
   }
 
   wattroff(win_, A_BOLD);
