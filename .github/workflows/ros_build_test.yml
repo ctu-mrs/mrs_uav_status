@@ -8,8 +8,8 @@ on:
     paths-ignore:
       - '**/README.md'
 
-    pull_request:
-      branches: [ ros2 ]
+  pull_request:
+    branches: [ ros2 ]
 
   workflow_dispatch:
 
