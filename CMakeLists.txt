@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.28)
 project(mrs_uav_status)
 
 # set the correct standards
@@ -16,50 +16,32 @@ endif()
 
 # set the compile options to show code warnings
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wno-format-security)
+  add_compile_options("-Wall" "-Wextra" "-Wno-format-security")
 endif()
 
-set(DEPENDENCIES
-  rclcpp
-  rclcpp_components
-  std_msgs
-  mrs_msgs
-  nav_msgs
-  geometry_msgs
-  tf2_geometry_msgs
-  mrs_lib
-  backward_ros
-  )
-
-foreach(DEP IN LISTS DEPENDENCIES)
-  find_package(${DEP} REQUIRED)
-endforeach()
-
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(mrs_lib REQUIRED)
+find_package(backward_ros REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem)
-
 find_package(Curses REQUIRED)
 
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lncurses")
+find_package(std_msgs REQUIRED)
+find_package(mrs_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
-# please, NEVER commit those alternative flags with specific overrides of optimization
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-diagnostics-color -fopenmp -O0 -lncurses -g")
-
-set(LIBRARIES
-  MrsUavStatus_Acquisition
+# From CMake docs: https://cmake.org/cmake/help/v4.2/module/FindCurses.html
+if(Curses_FOUND AND NOT TARGET Curses::Curses)
+  add_library(Curses::Curses INTERFACE IMPORTED)
+  set_target_properties(
+    Curses::Curses
+    PROPERTIES
+      INTERFACE_LINK_LIBRARIES "${CURSES_LIBRARIES}"
+      INTERFACE_INCLUDE_DIRECTORIES "${CURSES_INCLUDE_DIRS}"
   )
-
-set(EXECUTABLES
-  MrsUavStatus_Status
-  MrsUavStatus_NcursesTest
-  )
-
-include_directories(
-  include
-  ${rclcpp_INCLUDE_DIRS}
-  ${mrs_lib_INCLUDE_DIRS}
-  ${Boost_INCLUDE_DIRS}
-  ${CURSES_INCLUDE_DIR}
-  )
+endif()
 
 ## --------------------------------------------------------------
 ## |                           Compile                          |
@@ -67,87 +49,110 @@ include_directories(
 
 # NCurses test
 
-add_executable(MrsUavStatus_NcursesTest
-    src/ncurses_test.cpp
-  )
+add_executable(MrsUavStatus_NcursesTest)
 
-ament_target_dependencies(MrsUavStatus_NcursesTest
-  ${DEPENDENCIES}
-  )
+target_sources(MrsUavStatus_NcursesTest
+  PRIVATE
+    src/ncurses_test.cpp
+)
 
 target_link_libraries(MrsUavStatus_NcursesTest
-  ${CURSES_LIBRARIES}
-  ${Boost_LIBRARIES}
-  )
+  PRIVATE
+    mrs_lib::mrs_lib
+    Boost::filesystem
+    Curses::Curses
+)
 
 target_compile_definitions(MrsUavStatus_NcursesTest PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
+# Internal common library
+
+add_library(MrsUavStatus_Internal_Common)
+add_library(mrs_uav_status::internal::common ALIAS MrsUavStatus_Internal_Common)
+
+target_sources(MrsUavStatus_Internal_Common
+  PRIVATE
+    "src/topic_info.cpp"
+  PUBLIC FILE_SET HEADERS BASE_DIRS "include"
+  FILES
+    "include/commons.h"
+    "include/input_box.h"
+    "include/menu.h"
+)
+
+target_link_libraries(MrsUavStatus_Internal_Common
+  PUBLIC
+    rclcpp::rclcpp
+    rclcpp_components::component
+    mrs_lib::mrs_lib
+    Boost::filesystem
+    Curses::Curses
+    ${std_msgs_TARGETS}
+    ${mrs_msgs_TARGETS}
+    ${nav_msgs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${tf2_geometry_msgs_TARGETS}
+)
+
 # MRS UAV Status
 
-add_executable(MrsUavStatus_Status
-    src/status.cpp
-    src/menu.cpp
-    src/topic_info.cpp
-    src/input_box.cpp
-  )
+add_executable(MrsUavStatus_Status)
 
-ament_target_dependencies(MrsUavStatus_Status
-  ${DEPENDENCIES}
-  )
+target_sources(MrsUavStatus_Status
+  PRIVATE
+    "src/status.cpp"
+    "src/menu.cpp"
+    "src/input_box.cpp"
+)
 
 target_link_libraries(MrsUavStatus_Status
-  ${CURSES_LIBRARIES}
-  ${Boost_LIBRARIES}
-  )
+  PRIVATE
+    mrs_uav_status::internal::common
+)
 
 target_compile_definitions(MrsUavStatus_Status PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
-# rclcpp_components_register_nodes(MrsUavStatus_Status PLUGIN "mrs_uav_status::Status" EXECUTABLE MrsUavStatus_Status)
-
 # Data acquisition
 
-add_library(MrsUavStatus_Acquisition SHARED
-    src/data_acquisition.cpp
-    src/topic_info.cpp
-  )
+add_library(MrsUavStatus_Acquisition SHARED)
 
-ament_target_dependencies(MrsUavStatus_Acquisition
-  ${DEPENDENCIES}
-  )
+target_sources(MrsUavStatus_Acquisition
+  PRIVATE
+    "src/data_acquisition.cpp"
+)
 
 target_link_libraries(MrsUavStatus_Acquisition
-  ${CURSES_LIBRARIES}
-  ${Boost_LIBRARIES}
-  )
+  PRIVATE
+    mrs_uav_status::internal::common
+)
 
 target_compile_definitions(MrsUavStatus_Acquisition PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
-rclcpp_components_register_nodes(MrsUavStatus_Acquisition PLUGIN "mrs_uav_status::Acquisition" EXECUTABLE MrsUavStatus_Acquisition)
+rclcpp_components_register_nodes(MrsUavStatus_Acquisition "mrs_uav_status::Acquisition")
 
 ## --------------------------------------------------------------
 ## |                           Install                          |
 ## --------------------------------------------------------------
 
-ament_export_libraries(
-  ${LIBRARIES}
-  )
-
 install(
-  TARGETS ${LIBRARIES}
+  TARGETS MrsUavStatus_Acquisition
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
-  )
+)
 
-install(TARGETS ${EXECUTABLES}
+install(
+  TARGETS
+    MrsUavStatus_NcursesTest
+    MrsUavStatus_Status
   DESTINATION lib/${PROJECT_NAME}
-  )
+)
 
 install(
   DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
-  )
+)
 
 install(
   DIRECTORY scripts
@@ -157,10 +162,6 @@ install(
 
 ament_export_targets(
   export_${PROJECT_NAME} HAS_LIBRARY_TARGET
-  )
-
-ament_export_dependencies(
-  ${DEPENDENCIES}
-  )
+)
 
 ament_package()

@@ -17,17 +17,18 @@
 
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
+  <depend>mrs_lib</depend>
+  <depend>libboost-dev</depend>
+  <depend>libncurses</depend>
+  <depend>libncurses-dev</depend>
+  <depend>backward_ros</depend>
+
   <depend>std_msgs</depend>
   <depend>mrs_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>tf2_geometry_msgs</depend>
-  <depend>mrs_lib</depend>
-  <depend>libboost-dev</depend>
   <depend>builtin_interfaces</depend>
-  <depend>libncurses</depend>
-  <depend>libncurses-dev</depend>
-  <depend>backward_ros</depend>
 
   <export>
     <build_type>ament_cmake</build_type>
