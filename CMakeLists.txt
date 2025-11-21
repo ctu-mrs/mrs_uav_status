@@ -65,23 +65,25 @@ target_link_libraries(MrsUavStatus_NcursesTest
 
 target_compile_definitions(MrsUavStatus_NcursesTest PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
-# Internal common library
+# MRS UAV Status
 
-add_library(MrsUavStatus_Internal_Common)
-add_library(mrs_uav_status::internal::common ALIAS MrsUavStatus_Internal_Common)
+add_executable(MrsUavStatus_Status)
 
-target_sources(MrsUavStatus_Internal_Common
+target_sources(MrsUavStatus_Status
   PRIVATE
+    "src/input_box.cpp"
+    "src/menu.cpp"
+    "src/status.cpp"
     "src/topic_info.cpp"
-  PUBLIC FILE_SET HEADERS BASE_DIRS "include"
+  PRIVATE FILE_SET private_headers TYPE HEADERS BASE_DIRS "include"
   FILES
     "include/commons.h"
     "include/input_box.h"
     "include/menu.h"
 )
 
-target_link_libraries(MrsUavStatus_Internal_Common
-  PUBLIC
+target_link_libraries(MrsUavStatus_Status
+  PRIVATE
     rclcpp::rclcpp
     rclcpp_components::component
     mrs_lib::mrs_lib
@@ -94,22 +96,6 @@ target_link_libraries(MrsUavStatus_Internal_Common
     ${tf2_geometry_msgs_TARGETS}
 )
 
-# MRS UAV Status
-
-add_executable(MrsUavStatus_Status)
-
-target_sources(MrsUavStatus_Status
-  PRIVATE
-    "src/status.cpp"
-    "src/menu.cpp"
-    "src/input_box.cpp"
-)
-
-target_link_libraries(MrsUavStatus_Status
-  PRIVATE
-    mrs_uav_status::internal::common
-)
-
 target_compile_definitions(MrsUavStatus_Status PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
 # Data acquisition
@@ -119,11 +105,26 @@ add_library(MrsUavStatus_Acquisition SHARED)
 target_sources(MrsUavStatus_Acquisition
   PRIVATE
     "src/data_acquisition.cpp"
+    "src/topic_info.cpp"
+  PRIVATE FILE_SET private_headers TYPE HEADERS BASE_DIRS "include"
+  FILES
+    "include/commons.h"
+    "include/input_box.h"
+    "include/menu.h"
 )
 
 target_link_libraries(MrsUavStatus_Acquisition
   PRIVATE
-    mrs_uav_status::internal::common
+    rclcpp::rclcpp
+    rclcpp_components::component
+    mrs_lib::mrs_lib
+    Boost::filesystem
+    Curses::Curses
+    ${std_msgs_TARGETS}
+    ${mrs_msgs_TARGETS}
+    ${nav_msgs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${tf2_geometry_msgs_TARGETS}
 )
 
 target_compile_definitions(MrsUavStatus_Acquisition PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
