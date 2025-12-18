@@ -31,6 +31,10 @@
   <depend>tf2_geometry_msgs</depend>
   <depend>builtin_interfaces</depend>
 
+  <!-- Linters -->
+  <test_depend>ament_cmake_clang_format</test_depend>
+  <test_depend>ament_cmake_xmllint</test_depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>
