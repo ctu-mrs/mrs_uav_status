@@ -14,7 +14,7 @@ public:
   std::optional<std::tuple<int, int>> iterate(std::vector<std::string> &text, int key, bool refresh);
 
 private:
-  WINDOW *                 win_;
+  WINDOW                  *win_;
   int                      line = 0;
   int                      id_;
   int                      y;
