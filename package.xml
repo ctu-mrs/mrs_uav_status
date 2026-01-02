@@ -7,10 +7,11 @@
   <version>2.0.0</version>
   <description>The mrs_uav_status package</description>
 
-  <author email="hertdani@fel.cvut.cz">Dan Hert</author>
   <maintainer email="klaxalk@gmail.com">Tomas Baca</maintainer>
 
   <license>BSD 3-Clause</license>
+
+  <author email="hertdani@fel.cvut.cz">Dan Hert</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_ros</buildtool_depend>
@@ -29,6 +30,10 @@
   <depend>geometry_msgs</depend>
   <depend>tf2_geometry_msgs</depend>
   <depend>builtin_interfaces</depend>
+
+  <!-- Linters -->
+  <test_depend>ament_cmake_clang_format</test_depend>
+  <test_depend>ament_cmake_xmllint</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
