@@ -3461,7 +3461,7 @@ void Status::printDiskSpace(WINDOW *win) {
     }
   }
 
-  // Under 1 TiB 
+  // Under 1 TiB
   if (gigas < 1024) {
     if (mini_) {
       printLimitedString(win, 1, 5, "HDD", 3);
