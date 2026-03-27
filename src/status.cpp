@@ -3434,41 +3434,47 @@ void Status::printDiskSpace(WINDOW *win) {
     gigas = uav_status_.free_hdd;
   }
 
+  // Default color is green, change to yellow if less than 20%
+  // or if value changed since last time, change to red if less than 10%
   wattron(win, COLOR_PAIR(GREEN));
-  if (gigas < 200 || gigas != last_gigas_) {
+
+  if (gigas < 20 || gigas != last_gigas_) {
     wattron(win, COLOR_PAIR(YELLOW));
   }
-  if (gigas < 100) {
+
+  if (gigas < 10) {
     wattron(win, COLOR_PAIR(RED));
     if (mini_) {
       printLimitedString(win, 1, 5, "HDD", 3);
-      printLimitedDouble(win, 2, 5, "%3.1f", double(gigas) / 10, 10);
+      printLimitedDouble(win, 2, 5, "%3.1f", double(gigas), 10);
     } else {
-      printLimitedDouble(win, 2, 14, "HDD: %3.1f G", double(gigas) / 10, 10);
+      printLimitedDouble(win, 2, 14, "HDD: %3.1f G", double(gigas), 10);
     }
   }
-  if (gigas < 1000) {
-    if (mini_) {
-      printLimitedString(win, 1, 5, "HDD", 3);
-      printLimitedInt(win, 2, 6, "%i", gigas / 10, 1000);
-    } else {
-      printLimitedInt(win, 2, 14, "HDD:  %i G", gigas / 10, 1000);
-    }
-  }
-  if (gigas < 10000) {
 
+  if (gigas < 100) {
     if (mini_) {
       printLimitedString(win, 1, 5, "HDD", 3);
-      printLimitedInt(win, 2, 5, "%i", gigas / 10, 1000);
+      printLimitedInt(win, 2, 6, "%i", gigas, 1000);
     } else {
-      printLimitedInt(win, 2, 14, "HDD: %i G", gigas / 10, 1000);
+      printLimitedInt(win, 2, 14, "HDD:  %i G", gigas, 1000);
+    }
+  }
+
+  // Under 1 TiB 
+  if (gigas < 1024) {
+    if (mini_) {
+      printLimitedString(win, 1, 5, "HDD", 3);
+      printLimitedInt(win, 2, 5, "%i", gigas, 1000);
+    } else {
+      printLimitedInt(win, 2, 14, "HDD: %i G", gigas, 1000);
     }
   } else {
     if (mini_) {
       printLimitedString(win, 1, 5, "HDD", 3);
-      printLimitedInt(win, 2, 5, "%i T", gigas / 10000, 10);
+      printLimitedInt(win, 2, 5, "%i T", gigas / 1024, 10);
     } else {
-      printLimitedDouble(win, 2, 14, "HDD: %3.1f T", gigas / 10000.0, 1000);
+      printLimitedDouble(win, 2, 14, "HDD: %3.1f T", gigas / 1024.0, 1000);
     }
   }
 }
