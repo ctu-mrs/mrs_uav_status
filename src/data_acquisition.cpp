@@ -1220,7 +1220,7 @@ void Acquisition::getDiskSpace() {
 
   boost::filesystem::space_info si = boost::filesystem::space(".");
 
-  int gigas = round(si.available / 104857600);
+  int gigas = round(si.available / 1073741824.0);
 
   {
     std::scoped_lock lock(mutex_status_msg_);
