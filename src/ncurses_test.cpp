@@ -1,6 +1,7 @@
 /* INCLUDES //{ */
 
 #include <ncurses.h>
+#include <mrs_lib/node.h>
 #include <mrs_lib/timer_handler.h>
 
 using namespace std;
@@ -22,7 +23,7 @@ namespace mrs_uav_status
 
 /* class NcursesTest //{ */
 
-class NcursesTest : public rclcpp::Node {
+class NcursesTest : public mrs_lib::Node {
 
 public:
   NcursesTest();
@@ -30,9 +31,6 @@ public:
 private:
   rclcpp::Node::SharedPtr  node_;
   rclcpp::Clock::SharedPtr clock_;
-
-  rclcpp::TimerBase::SharedPtr timer_init_;
-  void                         timerInit();
 
   rclcpp::CallbackGroup::SharedPtr cbkgrp_subs_;
   rclcpp::CallbackGroup::SharedPtr cbkgrp_ss_;
@@ -72,7 +70,14 @@ NcursesTest::NcursesTest() : Node("ncurses_test") {
   keypad(stdscr, TRUE); /* I need that nifty F1 	*/
   noecho();
 
-  timer_init_ = this->create_wall_timer(std::chrono::duration<double>(0.1s), std::bind(&NcursesTest::timerInit, this));
+  node_  = this_node_ptr();
+  clock_ = node_->get_clock();
+
+  cbkgrp_subs_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  cbkgrp_ss_   = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  cbkgrp_sc_   = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
+  initialize();
 }
 
 //}
@@ -118,24 +123,6 @@ void NcursesTest::destroyWin(WINDOW *local_win) {
    */
   wrefresh(local_win);
   delwin(local_win);
-}
-
-//}
-
-/* timerInit() //{ */
-
-void NcursesTest::timerInit() {
-
-  node_  = this->shared_from_this();
-  clock_ = node_->get_clock();
-
-  cbkgrp_subs_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  cbkgrp_ss_   = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  cbkgrp_sc_   = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-
-  initialize();
-
-  timer_init_->cancel();
 }
 
 //}
@@ -223,11 +210,11 @@ int main(int argc, char **argv) {
 
   auto node = std::make_shared<mrs_uav_status::NcursesTest>();
 
-  rclcpp::spin(node);
+  rclcpp::spin(node->get_node_base_interface());
 
   /* while (rclcpp::ok()) { */
 
-  /*   rclcpp::spin_some(node); */
+  /*   rclcpp::spin_some(node->get_node_base_interface()); */
 
   /*   // Small sleep to reduce CPU usage */
   /*   std::this_thread::sleep_for(std::chrono::milliseconds(1)); */
