@@ -957,7 +957,7 @@ void Acquisition::prefillUavStatus() {
   std::scoped_lock lock(mutex_status_msg_);
   uav_status_.uav_name                = "N/A";
   uav_status_.uav_type                = "N/A";
-  uav_status_.uav_mass                = 0.0;
+  uav_status_.uav_mass                = "N/A";
   uav_status_.mass_set                = 0.0;
   uav_status_.control_manager_diag_hz = 0.0;
   uav_status_.controllers.clear();

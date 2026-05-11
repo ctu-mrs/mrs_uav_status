@@ -3131,7 +3131,7 @@ void Status::prefillUavStatus() {
 
   uav_status_.uav_name                = "N/A";
   uav_status_.uav_type                = "N/A";
-  uav_status_.uav_mass                = 0.0;
+  uav_status_.uav_mass                = "N/A";
   uav_status_.control_manager_diag_hz = 0.0;
   uav_status_.controllers.clear();
   uav_status_.gains.clear();
@@ -3155,8 +3155,8 @@ void Status::prefillUavStatus() {
   uav_status_.hw_api_mode           = "N/A";
   uav_status_.hw_api_gnss_ok        = false;
   uav_status_.hw_api_gnss_qual      = 0.0;
-  uav_status_.hw_api_gnss_fix_type  = 0.0;
-  uav_status_.hw_api_gnss_num_sats  = 0.0;
+  uav_status_.hw_api_gnss_fix_type  = 0;
+  uav_status_.hw_api_gnss_num_sats  = 0;
   uav_status_.hw_api_gnss_pos_acc   = 0.0;
   uav_status_.hw_api_gnss_status_hz = 0.0;
   uav_status_.battery_volt          = 0.0;
