@@ -2371,6 +2371,19 @@ void Status::controlManagerHandler(WINDOW* win) {
 
 //}
 
+double battery2cell_volt(double battery_volt)
+{
+  double cell_volt = battery_volt;
+  const double max_cell_volt = 4.5;
+  if (cell_volt > 6*max_cell_volt)
+    cell_volt /= 12;
+  else if (cell_volt > 4*max_cell_volt)
+    cell_volt /= 6;
+  else
+    cell_volt /= 4;
+  return cell_volt;
+}
+
 /* hwApiStateHander() //{ */
 
 void Status::hwApiStateHander(WINDOW* win) {
@@ -2474,11 +2487,11 @@ void Status::hwApiStateHander(WINDOW* win) {
 
       wattron(win, COLOR_PAIR(GREEN));
 
-      (battery_volt > 17.0) ? (battery_volt = battery_volt / 6) : (battery_volt = battery_volt / 4);
+      const auto cell_volt = battery2cell_volt(battery_volt);
 
-      if (battery_volt < 3.6) {
+      if (cell_volt < 3.6) {
         wattron(win, COLOR_PAIR(RED));
-      } else if (battery_volt < 3.7 && color != RED) {
+      } else if (cell_volt < 3.7 && color != RED) {
         wattron(win, COLOR_PAIR(YELLOW));
       }
       printLimitedString(win, 3, 1, "Bat", 3);
@@ -2600,14 +2613,14 @@ void Status::hwApiStateHander(WINDOW* win) {
 
       wattron(win, COLOR_PAIR(GREEN));
 
-      (battery_volt > 17.0) ? (battery_volt = battery_volt / 6) : (battery_volt = battery_volt / 4);
+      const auto cell_volt = battery2cell_volt(battery_volt);
 
-      if (battery_volt < 3.6) {
+      if (cell_volt < 3.6) {
         wattron(win, COLOR_PAIR(RED));
-      } else if (battery_volt < 3.7 && color != RED) {
+      } else if (cell_volt < 3.7 && color != RED) {
         wattron(win, COLOR_PAIR(YELLOW));
       }
-      printLimitedDouble(win, 4, 1, "%4.2fV ", battery_volt, 10);
+      printLimitedDouble(win, 4, 1, "%4.2fV ", cell_volt, 10);
       printLimitedDouble(win, 4, 8, "%5.2fA", battery_curr, 100);
       printLimitedDouble(win, 4, 15, " %4.1f Wh", battery_wh_drained, 100);
     }
