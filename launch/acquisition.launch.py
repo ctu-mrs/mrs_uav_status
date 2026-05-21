@@ -204,6 +204,10 @@ def generate_launch_description():
             ("~/uav_status_short_out", "~/uav_status_short"),
             ("~/profiler", "profiler"),
         ],
+
+        extra_arguments=[
+            {'use_intra_process_comms': True}
+        ],
     )
 
     load_into_existing = LoadComposableNodes(
