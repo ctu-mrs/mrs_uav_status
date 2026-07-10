@@ -1031,6 +1031,9 @@ void Acquisition::getMemLoad() {
   double buffers   = 0;
 
   for (unsigned long i = 1; i < results.size(); i++) {
+    if (results[i].empty()) {
+      continue;
+    }
 
     if (isdigit(results[i].front())) {
       try {
@@ -1046,6 +1049,9 @@ void Acquisition::getMemLoad() {
   boost::split(results, line3, [](char c) { return c == ' '; });
 
   for (unsigned long i = 1; i < results.size(); i++) {
+    if (results[i].empty()) {
+      continue;
+    }
 
     if (isdigit(results[i].front())) {
       try {
@@ -1061,6 +1067,9 @@ void Acquisition::getMemLoad() {
   boost::split(results, line4, [](char c) { return c == ' '; });
 
   for (size_t i = 1; i < results.size(); i++) {
+    if (results[i].empty()) {
+      continue;
+    }
 
     if (isdigit(results[i].front())) {
 
