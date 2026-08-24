@@ -3811,9 +3811,10 @@ void Status::setupColors(bool active) {
 
 std::string Status::callTerminal(const char *cmd) {
 
-  std::array<char, 128>                    buffer;
-  std::string                              result;
-  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+  std::array<char, 128> buffer;
+  std::string           result;
+  using PcloseDeleter = decltype([](FILE *file) { pclose(file); });
+  std::unique_ptr<FILE, PcloseDeleter> pipe(popen(cmd, "r"));
 
   if (!pipe) {
     RCLCPP_ERROR(node_->get_logger(), "Exception in callTerminal");
