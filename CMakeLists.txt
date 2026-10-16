@@ -23,7 +23,6 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(mrs_lib REQUIRED)
 find_package(backward_ros REQUIRED)
-find_package(Boost REQUIRED COMPONENTS filesystem)
 find_package(Curses REQUIRED)
 
 find_package(std_msgs REQUIRED)
@@ -47,39 +46,35 @@ endif()
 ## |                           Compile                          |
 ## --------------------------------------------------------------
 
-# NCurses test
-
-add_executable(MrsUavStatus_NcursesTest)
-
-target_sources(MrsUavStatus_NcursesTest
-  PRIVATE
-    src/ncurses_test.cpp
-)
-
-target_link_libraries(MrsUavStatus_NcursesTest
-  PRIVATE
-    mrs_lib::mrs_lib
-    Boost::filesystem
-    Curses::Curses
-)
-
-target_compile_definitions(MrsUavStatus_NcursesTest PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
-
 # MRS UAV Status
 
 add_executable(MrsUavStatus_Status)
 
 target_sources(MrsUavStatus_Status
   PRIVATE
-    "src/input_box.cpp"
-    "src/menu.cpp"
-    "src/status.cpp"
-    "src/topic_info.cpp"
+    "src/uav_status.cpp"
+    "src/status/uav_status_core.cpp"
+    "src/tui/ncurses_tui.cpp"
+    "src/tui/pane_box.cpp"
+    "src/tui/control_bar.cpp"
+    "src/tui/status_window.cpp"
   PRIVATE FILE_SET private_headers TYPE HEADERS BASE_DIRS "include"
   FILES
-    "include/commons.h"
-    "include/input_box.h"
-    "include/menu.h"
+    "include/mrs_uav_status/uav_status.hpp"
+    "include/mrs_uav_status/status/uav_status_core.hpp"
+    "include/mrs_uav_status/status/data_types.hpp"
+    "include/mrs_uav_status/tui/tui_actions.hpp"
+    "include/mrs_uav_status/status/command_sink.hpp"
+    "include/mrs_uav_status/tui/pane_box.hpp"
+    "include/mrs_uav_status/tui/control_bar.hpp"
+    "include/mrs_uav_status/tui/colors.hpp"
+    "include/mrs_uav_status/tui/status_window.hpp"
+    "include/mrs_uav_status/tui/system_info.hpp"
+    "include/mrs_uav_status/tui/print_helpers.hpp"
+    "include/mrs_uav_status/tui/constants.hpp"
+    "include/mrs_uav_status/tui/ncurses_tui.hpp"
+    "include/mrs_uav_status/utils/helpers.hpp"
+    "include/mrs_uav_status/status/string_info.hpp"
 )
 
 target_link_libraries(MrsUavStatus_Status
@@ -87,7 +82,6 @@ target_link_libraries(MrsUavStatus_Status
     rclcpp::rclcpp
     rclcpp_components::component
     mrs_lib::mrs_lib
-    Boost::filesystem
     Curses::Curses
     ${std_msgs_TARGETS}
     ${mrs_msgs_TARGETS}
@@ -98,49 +92,20 @@ target_link_libraries(MrsUavStatus_Status
 
 target_compile_definitions(MrsUavStatus_Status PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
-# Data acquisition
-
-add_library(MrsUavStatus_Acquisition SHARED)
-
-target_sources(MrsUavStatus_Acquisition
-  PRIVATE
-    "src/data_acquisition.cpp"
-    "src/topic_info.cpp"
-  PRIVATE FILE_SET private_headers TYPE HEADERS BASE_DIRS "include"
-  FILES
-    "include/commons.h"
-    "include/input_box.h"
-    "include/menu.h"
-)
-
-target_link_libraries(MrsUavStatus_Acquisition
-  PRIVATE
-    rclcpp::rclcpp
-    rclcpp_components::component
-    mrs_lib::mrs_lib
-    Boost::filesystem
-    Curses::Curses
-    ${std_msgs_TARGETS}
-    ${mrs_msgs_TARGETS}
-    ${nav_msgs_TARGETS}
-    ${geometry_msgs_TARGETS}
-    ${tf2_geometry_msgs_TARGETS}
-)
-
-target_compile_definitions(MrsUavStatus_Acquisition PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
-
-rclcpp_components_register_nodes(MrsUavStatus_Acquisition "mrs_uav_status::Acquisition")
-
 ## --------------------------------------------------------------
-## |                           testing                          |
+## |                           Testing                          |
 ## --------------------------------------------------------------
 
 if(ENABLE_TESTS)
+
+  add_subdirectory(test)
+  add_subdirectory(tui_examples)
 
   find_package(ament_cmake_clang_format REQUIRED)
   ament_clang_format(CONFIG_FILE "${PROJECT_SOURCE_DIR}/.clang-format")
   find_package(ament_cmake_xmllint REQUIRED)
   ament_xmllint()
+  find_package(ament_cmake_test REQUIRED)
 
 endif()
 
@@ -149,22 +114,13 @@ endif()
 ## --------------------------------------------------------------
 
 install(
-  TARGETS MrsUavStatus_Acquisition
-  EXPORT export_${PROJECT_NAME}
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
-)
-
-install(
   TARGETS
-    MrsUavStatus_NcursesTest
     MrsUavStatus_Status
   DESTINATION lib/${PROJECT_NAME}
 )
 
 install(
-  DIRECTORY launch config
+  DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
 )
 
@@ -172,10 +128,6 @@ install(
   DIRECTORY scripts
   USE_SOURCE_PERMISSIONS
   DESTINATION lib/${PROJECT_NAME}
-)
-
-ament_export_targets(
-  export_${PROJECT_NAME} HAS_LIBRARY_TARGET
 )
 
 ament_package()

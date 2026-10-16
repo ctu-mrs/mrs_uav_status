@@ -2,6 +2,24 @@
 Changelog for package mrs_status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.0.0 (2026-08-13)
+------------------
+* Refactored into layers: UavStatus (all ROS I/O) drives UavStatusCore (the state machine and every message snapshot), which drives NcursesTui (pure rendering) through an abstract TuiActions interface
+* Added an automated test suite (test_uav_status_core) and a build-time check enforcing that tui/ and status/ stay free of ROS types
+* Fixed numerous fields (armed/mode, mass estimate, thrust, battery, GNSS/magnetometer, HW API rate, control manager, ROS Node CPU/Sensors panes, position/estimator display) rendering stale or default data as if real instead of showing "NO DATA", by gating each on its own topic's freshness instead of a shared/aliased flag
+* Fixed crash risks from malformed service_list config entries and a corrupted display-config file
+* Fixed several display glitches: overlapping/garbled disk-space text, printNoData() clobbering the caller's color, the ToF NO-DATA fallback overlapping the UAV name field, "Mode NO DATA" printed on the wrong row, and NaN/"unknown" shown instead of NO DATA/ERR
+* Fixed submenu CANCEL backing out of the whole menu instead of just one level
+* Fixed display_string entries only being pruned while the GNSS pane was selected, instead of every tick
+* Sensors pane now shows each sensor's message and sorts by severity; remote mode auto-shows its control guide instead of the generic help hint
+* Contributors: Filip Stojanovic, Tomas Baca, Viktor Walter, Vojtech Spurny
+
+2.0.0 (2026-07-13)
+------------------
+* Ported to ROS2 (ament_cmake, rclcpp, mrs_lib::Node)
+* Assorted fixes and cleanup following the initial port
+* Contributors: Dan Hert, Filip Stojanovic, Marlon Rivera, Matej Petrlik, pum1k, Tomas Baca, Vit Kratky, Vojtech Spurny
+
 1.0.4 (2023-01-20)
 ------------------
 * updated ci, updated readme
