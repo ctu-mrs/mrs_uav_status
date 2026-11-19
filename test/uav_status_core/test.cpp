@@ -512,7 +512,7 @@ TEST(UavStatusCore, MainMenuHidesLandOnTheGround) {
 /* TEST(UavStatusCore, MainMenuOffersLandWhileMrsIsFlying) //{ */
 
 TEST(UavStatusCore, MainMenuOffersLandWhileMrsIsFlying) {
-  for (const std::string state : {"TAKEOFF", "LAND", "HOVER", "GOTO", "TRAJECTORY", "MIDAIR", "RC_MODE", "EHOVER", "ELAND", "FAILSAFE"}) {
+  for (const std::string state : {"TAKEOFF", "LAND", "HOVER", "GOTO", "TRAJECTORY", "FLIP", "MIDAIR", "RC_MODE", "EHOVER", "ELAND", "FAILSAFE"}) {
     SinkLog       log;
     UavStatusCore sm(makeSink(log), defaultParams());
     FakeTui       tui;
@@ -1099,7 +1099,7 @@ TEST(UavStatusCore, PersistentDisplayStringSurvivesExpiry) {
 
 TEST(Helpers, FlightStateHighlightsOnlyUnhealthyStates) {
   // DiagnosticsManager's UavInfo.flight_state: normal ground and flight states are not highlighted
-  for (const std::string state : {"DISARMED", "ARMED", "OFFBOARD", "TAKEOFF", "HOVER", "GOTO", "TRAJECTORY", "LAND", "MIDAIR", "RC_MODE"}) {
+  for (const std::string state : {"DISARMED", "ARMED", "OFFBOARD", "TAKEOFF", "HOVER", "GOTO", "TRAJECTORY", "LAND", "FLIP", "MIDAIR", "RC_MODE"}) {
     EXPECT_FALSE(utils::isFlightStateUnhealthy(state)) << state;
   }
   // no link, a pilot flying, emergencies, and anything not recognised (incl. the "unknown" default)

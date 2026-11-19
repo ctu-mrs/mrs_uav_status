@@ -88,7 +88,7 @@ inline std::string robotTypeToString(uint8_t robot_type) {
 // DiagnosticsManager's UavInfo.flight_state: true when it should be highlighted -- no link, a pilot flying (MANUAL),
 // an emergency (EHOVER, ELAND, FAILSAFE), UNKNOWN, or anything not recognised; normal ground and MRS flight states are not
 inline bool isFlightStateUnhealthy(const std::string &flight_state) {
-  for (const char *healthy : {"DISARMED", "ARMED", "OFFBOARD", "TAKEOFF", "HOVER", "GOTO", "TRAJECTORY", "LAND", "MIDAIR", "RC_MODE"}) {
+  for (const char *healthy : {"DISARMED", "ARMED", "OFFBOARD", "TAKEOFF", "HOVER", "GOTO", "TRAJECTORY", "LAND", "FLIP", "MIDAIR", "RC_MODE"}) {
     if (flight_state == healthy) {
       return false;
     }
@@ -104,7 +104,7 @@ inline bool isFlightStateUnhealthy(const std::string &flight_state) {
 // activation included (mirrors mrs_uav_managers' is_flying_autonomously()); false on the ground, for a pilot flying
 // (MANUAL), and for anything not recognised
 inline bool isFlyingAutonomously(const std::string &flight_state) {
-  for (const char *flying : {"TAKEOFF", "LAND", "HOVER", "GOTO", "TRAJECTORY", "MIDAIR", "RC_MODE", "EHOVER", "ELAND", "FAILSAFE"}) {
+  for (const char *flying : {"TAKEOFF", "LAND", "HOVER", "GOTO", "TRAJECTORY", "FLIP", "MIDAIR", "RC_MODE", "EHOVER", "ELAND", "FAILSAFE"}) {
     if (flight_state == flying) {
       return true;
     }
