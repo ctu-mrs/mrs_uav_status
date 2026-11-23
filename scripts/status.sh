@@ -84,7 +84,7 @@ remaps=(
   "$node_name/uav_info_in"                 "diagnostics_manager/uav_info"
   "$node_name/system_health_info_in"       "diagnostics_manager/system_health_info"
   "$node_name/uav_state_in"                "diagnostics_manager/uav_state"
-  "$node_name/display_string_in"           "display_string"
+  "$node_name/display_string_in"           "$node_name/display_string"
   # Outgoing commands and the profiler topic
   "$node_name/goto_reference_out"          "control_manager/reference"
   "$node_name/velocity_reference_out"      "control_manager/velocity_reference"
