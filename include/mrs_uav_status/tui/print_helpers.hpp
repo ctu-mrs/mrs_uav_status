@@ -288,7 +288,7 @@ inline void printHelp(WINDOW *win, bool help_active) {
     printLimitedString(win, 9, 0, "      'r','f'         to control altitude", 120);
     printLimitedString(win, 10, 0, "      'G'             to switch controlling in the FCU frame (local) or the world frame (global)", 120);
     printLimitedString(win, 12, 0, "You can also display any info from your node in the mrs_status:", 120);
-    printLimitedString(win, 14, 0, "   topic: mrs_status/display_string (std_msgs::String)", 120);
+    printLimitedString(win, 14, 0, "   topic: /$UAV_NAME/uav_status/display_string (std_msgs/msg/String)", 120);
     printLimitedString(win, 15, 0, "   - Publish any string to this topic and it will show up in mrs_status", 120);
     printLimitedString(win, 17, 0, "Press 'D' to display info from other panes of this tmux session, up to 2 panes can be viewed", 120);
     printLimitedString(win, 18, 0, "Press 'p' to cycle the top-right pane through various system info (sensors, node CPU usage, GNSS & strings, problems)",
